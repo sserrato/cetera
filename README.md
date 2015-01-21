@@ -21,13 +21,20 @@ GET /catalog/v1/cname?verbose=true&highlight=true
 ```
 
 
-## Paging, Predefined facets (agency) and restricting results to either pages or datasets
+## Paging, Predefined facets (categories and agency) and restricting results to either pages or datasets
+In general, refinement and search will be case-insensitive.
+
 ```
 GET /catalog/v1/theDomain?categories=theCategory&from=74&size=1000&agency=theAgency&only=datasets&highlight=true
 ```
 ```
 GET /catalog/v1/theDomain?categories=theCategory&from=74&size=1000&agency=theAgency&only=pages&highlight=true
 ```
+Please note that the caller may pass in multiple categories, which are considered to have *disjunctive* semantics.
+```
+GET /catalog/v1/theDomain?categories=theCategory1,theCategory2&highlight=true
+```
+will return all datasets and pages in either the category *theCategory1* or the category *theCategory2*. 
 
 
 ## Return body
