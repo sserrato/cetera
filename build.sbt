@@ -49,3 +49,7 @@ fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "conf
 net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 com.socrata.cloudbeessbt.SocrataCloudbeesSbt.socrataSettings(assembly = true)
+
+ScoverageSbtPlugin.ScoverageKeys.coverageMinimum := 80
+
+ScoverageSbtPlugin.ScoverageKeys.coverageFailOnMinimum := true
