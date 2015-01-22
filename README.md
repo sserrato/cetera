@@ -120,4 +120,3 @@ Datasets include the fields ```id``` and ```columns```
   ]
 }
 ```
->>>>>>> marc_adds_api_to_readme
