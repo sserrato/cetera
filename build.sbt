@@ -9,7 +9,7 @@ scalaVersion := "2.10.4"
 resolvers ++= Seq(
   "socrata maven" at "https://repository-socrata-oss.forge.cloudbees.com/release",
   "socrata maven-snap" at "https://repository-socrata-oss.forge.cloudbees.com/snapshot",
-  "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/",
+  "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
   Classpaths.sbtPluginReleases,
   "socrata internal maven" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
   Resolver.url("socrata ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns)
