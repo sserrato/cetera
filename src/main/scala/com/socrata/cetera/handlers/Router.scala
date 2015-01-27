@@ -7,10 +7,13 @@ import com.socrata.http.server.{HttpResponse, HttpService, HttpRequest}
 
 import com.socrata.cetera.util.JsonResponses._
 
-class Router(versionResource: => HttpService) {
+class Router(
+    versionResource: => HttpService,
+    catalogResource: => HttpService) {
+
   val routes = Routes(
-    Route("/version", versionResource)
-  )
+    Route("/version", versionResource),
+    Route("/catalog", catalogResource))
 
   def route(req: HttpRequest): HttpResponse =
     routes(req.requestPath) match {
