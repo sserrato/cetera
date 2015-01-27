@@ -1,11 +1,11 @@
 Cetera -- the golden-throated search service.
 Basically a wrapper around elasticsearch to enable keyword search to return dataset metadata for use by the front end in displaying search results.
 
-By default, cetera runs on port 1944.
+By default, cetera runs on port 5704.
 
 Run it: `sbt run`
 
-We support one endpoint: `curl localhost:1944/version`
+We support one endpoint: `curl localhost:5704/version`
 
 Any other url gives an error message.
 
