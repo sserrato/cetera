@@ -1,4 +1,4 @@
-package com.socrata.cetera.resources
+package com.socrata.cetera.services
 
 import scala.io.Source.fromInputStream
 

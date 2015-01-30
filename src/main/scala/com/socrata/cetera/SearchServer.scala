@@ -4,16 +4,17 @@ import java.util.concurrent.{Executors, ExecutorService}
 import scala.concurrent.duration._
 
 import com.rojoma.simplearm.v2._
-import com.socrata.cetera.config.CeteraConfig
-import com.socrata.cetera.handlers.Router
-import com.socrata.cetera.resources._
 import com.socrata.http.client.InetLivenessChecker
 import com.socrata.http.server._
 import com.socrata.thirdparty.typesafeconfig.Propertizer
 import com.typesafe.config.ConfigFactory
-import org.apache.log4j.Logger
-import org.apache.log4j.PropertyConfigurator
+import org.apache.log4j.{Logger, PropertyConfigurator}
 import org.slf4j.LoggerFactory
+
+import com.socrata.cetera.config.CeteraConfig
+import com.socrata.cetera.handlers.Router
+import com.socrata.cetera.services._
+
 
 object SearchServer extends App {
   val config = new CeteraConfig(ConfigFactory.load())
@@ -52,8 +53,13 @@ object SearchServer extends App {
       logger.info("Initializing VersionService")
       val versionService = VersionService
 
+      logger.info("Initializing StubService")
+      val stubService = StubService
+
       logger.info("Initializing router")
-      val router = new Router(versionService.service)
+      val router = new Router(
+        versionService.service,
+        stubService.service)
 
       logger.info("Initializing handler")
       val handler = router.route _
@@ -61,10 +67,10 @@ object SearchServer extends App {
       logger.info("Initializing server")
       val server = new SocrataServerJetty(
         handler,
-      SocrataServerJetty
-        .defaultOptions
-        .withPort(config.server.port)
-        .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout))
+        SocrataServerJetty
+          .defaultOptions
+          .withPort(config.server.port)
+          .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout))
 
       logger.info("Running server!")
       server.run()
