@@ -48,7 +48,7 @@ will return all datasets and pages in the union of category *theCategory1* and c
 ## Return body
 All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called ```results```. This ```results``` array contains a mix of datasets and pages, for now.
 
-Pages and datasets may be distinguished from each other as follows:
+Pages and datasets may be distinguished through the ```type``` field. This is set to ```dataset``` for datasets and to ```page``` for pages. Additionally, the bodies differ from each other as follows:
 
 Pages include the fields ```page_id```, ```datasetId```, and ```cards```
 
@@ -59,6 +59,7 @@ Datasets include the fields ```id``` and ```columns```
   "results": [
     {
       "id": "xqvj-wiwq",
+      "type":"dataset",
       "name": "Libraries",
       "description": "Locations of all Montgomery County, MD Public Libraries.",
       "rowDisplayUnit": "row",
@@ -98,6 +99,7 @@ Datasets include the fields ```id``` and ```columns```
     },
     {
       "name": "Libraries",
+      "type": "page",
       "description": "Locations of all Montgomery County, MD Public Libraries.",
       "datasetId": "xqvj-wiwq",
       "rowDisplayUnit": "Row",
