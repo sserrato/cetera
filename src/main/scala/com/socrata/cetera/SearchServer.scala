@@ -1,6 +1,8 @@
 package com.socrata.cetera
 
 import java.util.concurrent.{Executors, ExecutorService}
+import com.socrata.cetera.search.ElasticSearchClient
+
 import scala.concurrent.duration._
 
 import com.rojoma.simplearm.v2._
@@ -24,7 +26,6 @@ object SearchServer extends App {
 
   logger.info("Starting Cetera server on port {}... ", config.server.port)
   logger.info("Configuration:\n" + config.debugString)
-
   implicit def executorResource[A <: ExecutorService]: Resource[A] = new Resource[A] {
     def close(a: A) = {
       a.shutdown()
@@ -47,8 +48,13 @@ object SearchServer extends App {
         config.http.liveness.range,
         config.http.liveness.missable,
         executor))
+    elasticSearch <- managed(
+      new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
+        config.elasticSearch.elasticSearchPort,
+        config.elasticSearch.elasticSearchClusterName))
     } {
-      logger.info("Initializing Search Client")
+      logger.info("Initializing ES Search Client on nodes " + elasticSearch.client.transportAddresses().toString)
+
 
       logger.info("Initializing VersionService")
       val versionService = VersionService
@@ -74,6 +80,7 @@ object SearchServer extends App {
 
       logger.info("Running server!")
       server.run()
+
     }
 
     logger.info("All done!")

@@ -24,7 +24,8 @@ libraryDependencies ++= Seq(
   "org.scalacheck" %% "scalacheck" % "1.11.4" % "test" withSources() withJavadoc(),
   "com.typesafe" % "config" % "1.0.2",
   "log4j" % "log4j" % "1.2.17",
-  "org.slf4j" % "slf4j-log4j12" % "1.7.10"
+  "org.slf4j" % "slf4j-log4j12" % "1.7.10",
+   "org.elasticsearch" % "elasticsearch" % "1.4.2"
 )
 
 resourceGenerators in Compile <+=
