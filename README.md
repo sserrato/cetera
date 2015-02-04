@@ -5,7 +5,9 @@ By default, cetera runs on port 5704.
 
 Run it: `sbt run`
 
-We support one endpoint: `curl localhost:5704/version`
+We support two endpoints:
+* `curl localhost:5704/version` returns the version
+* `curl localhost:5704/catalog` returns a stubbed response
 
 Any other url gives an error message.
 
@@ -46,78 +48,79 @@ will return all datasets and pages in the union of category *theCategory1* and c
 
 
 ## Return body
-All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called ```results```. This ```results``` array contains a mix of datasets and pages, for now.
+All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called `results`. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource. Each resource will be either a page or a dataset.
 
-Pages and datasets may be distinguished through the ```type``` field. This is set to ```dataset``` for datasets and to ```page``` for pages. Additionally, the bodies differ from each other as follows:
+Pages and datasets may be distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
 
-Pages include the fields ```page_id```, ```datasetId```, and ```cards```
+Pages include the fields `page_id`, `datasetId`, and `cards`
 
-Datasets include the fields ```id``` and ```columns```
+Datasets include the fields `id` and `columns`
 
 ```
 {
   "results": [
     {
-      "id": "xqvj-wiwq",
-      "type":"dataset",
-      "name": "Libraries",
-      "description": "Locations of all Montgomery County, MD Public Libraries.",
-      "rowDisplayUnit": "row",
-      "defaultAggregateColumn": "defaultAggregateColumn",
-      "defaultPage": "5b5c-jj6z",
-      "domain": "moco-migrationtest.demo.socrata.com",
-      "ownerId": "h6pt-apgn",
-      "updatedAt": "2015-01-06T16:59:37.000-08:00",
-      "columns": [
-        {
-          "title": "Location (state)",
-          "name": "location_state",
-          "logicalDatatype": "category",
-          "physicalDatatype": "text",
-          "importance": 3,
-          "cardinality": 1
-        },
-        {
-          "title": "CITY",
-          "name": "city",
-          "logicalDatatype": "category",
-          "physicalDatatype": "text",
-          "importance": 3,
-          "description": "City for the Public Library",
-          "cardinality": 15
-        },
-        {
-          "title": "ZIPCODE",
-          "name": "zipcode",
-          "logicalDatatype": "category",
-          "physicalDatatype": "number",
-          "importance": 3,
-          "description": "5 digit postal Zip Code for the Public Library",
-          "cardinality": 23
-        }
-      ]
+      "resource": {
+        "columns": [
+          {
+            "cardinality": 1,
+            "importance": 3,
+            "logicalDatatype": "category",
+            "name": "location_state",
+            "physicalDatatype": "text",
+            "title": "Location (state)"
+          },
+          {
+            "cardinality": 15,
+            "description": "City for the Public Library",
+            "importance": 3,
+            "logicalDatatype": "category",
+            "name": "city",
+            "physicalDatatype": "text",
+            "title": "CITY"
+          },
+          {
+            "cardinality": 23,
+            "description": "5 digit postal Zip Code for the Public Library",
+            "importance": 3,
+            "logicalDatatype": "category",
+            "name": "zipcode",
+            "physicalDatatype": "number",
+            "title": "ZIPCODE"
+          }
+        ],
+        "defaultAggregateColumn": "defaultAggregateColumn",
+        "defaultPage": "5b5c-jj6z",
+        "description": "Locations of all Montgomery County, MD Public Libraries.",
+        "domain": "moco-migrationtest.demo.socrata.com",
+        "id": "xqvj-wiwq",
+        "name": "Libraries",
+        "ownerId": "h6pt-apgn",
+        "rowDisplayUnit": "row",
+        "type": "dataset",
+        "updatedAt": "2015-01-06T16:59:37.000-08:00"
+      }
     },
     {
-      "name": "Libraries",
-      "type": "page",
-      "description": "Locations of all Montgomery County, MD Public Libraries.",
-      "datasetId": "xqvj-wiwq",
-      "rowDisplayUnit": "Row",
-      "pageId": "5b5c-jj6z",
-      "cards": [
-        {
-          "cardSize": 2,
-          "expanded": false,
-          "fieldName": ":@computed_region_p3v4_2swa",
-          "activeFilters": [
-          ],
-          "expandedCustomStyle": {
-          },
-          "displayMode": "visualization",
-          "cardCustomStyle": {
+      "resource": {
+        "cards": [
+          {
+            "activeFilters": [],
+            "cardCustomStyle": {},
+            "cardSize": 2,
+            "displayMode": "visualization",
+            "expanded": false,
+            "expandedCustomStyle": {},
+            "fieldName": ":@computed_region_p3v4_2swa"
           }
-        }
-      ]
+        ],
+        "datasetId": "xqvj-wiwq",
+        "description": "Locations of all Montgomery County, MD Public Libraries.",
+        "name": "Libraries",
+        "pageId": "5b5c-jj6z",
+        "rowDisplayUnit": "Row",
+        "type": "page"
+      }
     }
   ]
 }
