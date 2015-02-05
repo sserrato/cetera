@@ -11,7 +11,7 @@ We support two endpoints:
 
 Any other url gives an error message.
 
-# ElasticSearch setup
+# Elasticsearch setup
 
 Cetera, in development use, assumes an ElasticSearch setup as follows:
 
@@ -21,6 +21,20 @@ Cetera, in development use, assumes an ElasticSearch setup as follows:
 - Cluster name: catalog
 
 Assuming ES was installed with Homebrew, set the cluster name appropriatetely in `/usr/local/opt/elasticsearch/config/elasticsearch.yml`. For non-homebrew installations, please find and edit this file.
+
+## Install on Mac OS X with Homebrew
+
+`brew install elasticsearch`
+
+In `/usr/local/opt/elasticsearch/config/elasticsearch.yml` set `cluster.name: catalog`
+
+`ln -sfv /usr/local/opt/elasticsearch/*.plist ~/Library/LaunchAgents` (optional, launch automatically)
+
+`launchctl load ~/Library/LaunchAgents/homebrew.mxcl.elasticsearch.plist` (launch now, do this outside of tmux)
+
+## For non-Homebrew installations
+
+Please find your elasticsearch.yml file, set `cluster.name: catalog`, and launch as appropriate.
 
 # API Spec
 
