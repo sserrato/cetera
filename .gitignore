@@ -6,9 +6,10 @@
 .history/
 .lib/
 dist/*
-target/
 lib_managed/
 src_managed/
+
+target/
 
 project/boot/
 project/plugins/project/
