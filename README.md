@@ -52,7 +52,7 @@ All calls will return a JSON object containing the list of datasets and pages in
 
 Pages and datasets may be distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
 
-Pages include the fields `page_id`, `datasetId`, and `cards`
+Pages include the fields `pageId`, `datasetId`, and `cards`
 
 Datasets include the fields `id` and `columns`
 
