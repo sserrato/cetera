@@ -64,8 +64,8 @@ object SearchServer extends App {
 
       logger.info("Initializing router")
       val router = new Router(
-        versionService.service,
-        stubService.service)
+        versionService.Service,
+        stubService.Service)
 
       logger.info("Initializing handler")
       val handler = router.route _

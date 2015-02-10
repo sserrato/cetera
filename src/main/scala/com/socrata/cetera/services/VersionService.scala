@@ -29,7 +29,7 @@ object Version {
 object VersionService {
   lazy val logger = LoggerFactory.getLogger(classOf[Version])
 
-  object service extends SimpleResource {
+  object Service extends SimpleResource {
     override val get = { (req: HttpRequest) =>
       logger.info(req.servletRequest.getRemoteHost + " is requesting the version number")
       Version.getVersion match {

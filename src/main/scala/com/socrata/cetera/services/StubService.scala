@@ -22,7 +22,7 @@ object Stub {
 object StubService {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
-  object service extends SimpleResource {
+  object Service extends SimpleResource {
     override val get = { (req: HttpRequest) =>
       logger.info(req.servletRequest.getRemoteHost + " is calling for the stub")
       OK ~> Json(Stub.getStub)
