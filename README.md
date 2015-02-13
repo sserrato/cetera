@@ -9,4 +9,4 @@ We support two endpoints:
 * `curl localhost:5704/version` returns the version
 * `curl localhost:5704/catalog` returns a stubbed response
 
-Please see the [Apiary API spec](http://docs.ceterasearchservice.apiary.io/#) for API details.
+Please see the [Apiary API spec](http://docs.cetera.apiary.io/#) for API details.
