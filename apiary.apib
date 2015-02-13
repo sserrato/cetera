@@ -3,7 +3,7 @@ FORMAT: 1A
 # Cetera -- Search Service
 
 Features may not be implemented yet (such as the `highlight` option); however, we wish to future proof the API against version changes.
-The flag `for_frontend` should be set to `true` for the frontend, although they may be ignored for now.
+The flag `include_internal_metadata` should be set to `true` for the frontend, although its presence (or lack of presence) may be ignored for now.
 Once we understand the behavior for the civic hacker, we will optimize the use case to return the appropriate, less verbose payload.
 Given that our internal resource names will change, we will require external documentation that shares the resource that a civic hacker can use to load a dataset or page from its id.
 
@@ -15,7 +15,7 @@ Pages include the fields `pageId`, `datasetId`, and `cards`
 
 Datasets include the fields `id` and `columns`
 
-*Please note that we assume that all calls include either the `X-App-Token` header or the ``$$app_token`` parameters set to a valid token.*
+*Please note that we assume that all calls include either the `X-App-Token` header or the ``$$app_token`` parameters set to a valid token. This is assumed and not documented in the API spec below.*
 
 # Search Endpoint [/catalog/v1]
 
@@ -26,65 +26,65 @@ Datasets include the fields `id` and `columns`
               "results": [
                 {
                   "resource": {
-                    "columns": [
-                      {
+                    "type":"dataset",
+                    "columns": {
+                      "location_state": {
                         "cardinality": 1,
-                        "importance": 3,
-                        "logicalDatatype": "category",
-                        "name": "location_state",
-                        "physicalDatatype": "text",
-                        "title": "Location (state)"
+                        "description": "A location (state)",
+                        "fred": "category",
+                        "name": "Location (state)",
+                        "physicalDatatype": "text"
                       },
-                      {
+                      "city": {
                         "cardinality": 15,
                         "description": "City for the Public Library",
-                        "importance": 3,
-                        "logicalDatatype": "category",
-                        "name": "city",
-                        "physicalDatatype": "text",
-                        "title": "CITY"
+                        "fred": "category",
+                        "name": "CITY",
+                        "physicalDatatype": "text"
                       },
-                      {
+                      "zipcode": {
                         "cardinality": 23,
                         "description": "5 digit postal Zip Code for the Public Library",
-                        "importance": 3,
-                        "logicalDatatype": "category",
-                        "name": "zipcode",
-                        "physicalDatatype": "number",
-                        "title": "ZIPCODE"
+                        "fred": "category",
+                        "name": "ZIPCODE",
+                        "physicalDatatype": "number"
                       }
-                    ],
-                    "defaultAggregateColumn": "defaultAggregateColumn",
+                    },
                     "defaultPage": "5b5c-jj6z",
                     "description": "Locations of all Montgomery County, MD Public Libraries.",
                     "domain": "moco-migrationtest.demo.socrata.com",
                     "id": "xqvj-wiwq",
+                    "locale": "en_US",
                     "name": "Libraries",
                     "ownerId": "h6pt-apgn",
                     "rowDisplayUnit": "row",
                     "type": "dataset",
-                    "updatedAt": "2015-01-06T16:59:37.000-08:00"
+                    "updatedAt": "2015-01-06T16:59:37.000-08:00",
+                    "version": 1
                   }
                 },
                 {
                   "resource": {
+                    "type":"page",
                     "cards": [
                       {
-                        "activeFilters": [],
-                        "cardCustomStyle": {},
+                        "appliedFilters": [],
                         "cardSize": 2,
-                        "displayMode": "visualization",
+                        "cardType": "Column",
+                        "description": "Supervisor district",
                         "expanded": false,
-                        "expandedCustomStyle": {},
-                        "fieldName": ":@computed_region_p3v4_2swa"
-                      }
+                        "fieldName": ":@computed_region_p3v4_2swa",
+                        "name": "District"
+                     }
                     ],
                     "datasetId": "xqvj-wiwq",
                     "description": "Locations of all Montgomery County, MD Public Libraries.",
                     "name": "Libraries",
                     "pageId": "5b5c-jj6z",
-                    "rowDisplayUnit": "Row",
-                    "type": "page"
+                    "primaryAmountField": null,
+                    "primaryAggregation": null,
+                    "type": "page",
+                    "version": 1
                   }
                 }
               ]
@@ -94,6 +94,8 @@ Datasets include the fields `id` and `columns`
 
 
 ## Searching particular domains [/catalog/v1{?domains}]
+When no `domain` parameter is passed, the search service returns results from the entire corpus.
+
 + Parameters
     + domains (optional, list[string], `data.seattle.gov,data.kingcounty.gov`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
     
@@ -105,7 +107,7 @@ Datasets include the fields `id` and `columns`
     [Search Endpoint][]
 
 ## Searching particular categories [/catalog/v1{?categories}]
-
+When no `categories` parameter is passed, the search service returns results from the entire set of categories.
     
 + Parameters
     + categories (optional, list[string], `category1,categoryk`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
@@ -119,6 +121,7 @@ Datasets include the fields `id` and `columns`
     [Search Endpoint][]
     
 ## Full text search [/catalog/v1{?q}]
+Full text search will perform a query against all documents in the corpus. Specifically, we will query the fields `name, description, category` as well as the fields representing `column fieldnames, names and descpription`.
 + Parameters
     + q (optional, string, `potholes`) ... A string for full text search
 
@@ -131,7 +134,7 @@ Datasets include the fields `id` and `columns`
 
 
 ## Pagination [/catalog/v1{?from,size}]
-The search service allows pagination of results.  By default, we will return 1000 results.
+The search service allows pagination of results.  By default, we will return at most 1000 results starting from 0.
 + Parameters
     + from (optional, number, `23`) ... Initial starting point for paging (0 by default)
     + size (optional, number, `1000`) ... Number of results to return (1000 by default)
@@ -146,6 +149,7 @@ The search service allows pagination of results.  By default, we will return 100
 
 
 ## Limiting results to specific resource types [/catalog/v1{?only}]
+The search service currently indexes datasets and pages with new resource types to be added in the future.  The caller can restrict the results to a particular type (`pages`, `datasets`) by specifying this parameter.
 + Parameters
     + only (optional, list[string], `pages`) ... Limit results to a particular resource type (`pages`, `datasets`). If not present searches all types
 
@@ -158,6 +162,7 @@ The search service allows pagination of results.  By default, we will return 100
     [Search Endpoint][]
 
 ## Including additional render metadata  [/catalog/v1{?include_internal_metadata}]
+By default (not yet implemented), the search service will only return result data that is useful to a general called. For the frontend, where additional metadata is stored and may be useful, you can set this flag to true in order to have additional metadata for rendering the dataset or page.
 
 + Parameters
     + include_internal_metadata (optional, boolean, `true`) ... Results return with additional rendering metadata useful to frontend. If not present, assumed false
@@ -170,6 +175,7 @@ The search service allows pagination of results.  By default, we will return 100
     [Search Endpoint][]
 
 ## Complete Search API [/catalog/v1{?domains,categories,tags,q,from,size,only,include_internal_metadata,highlight}]
+The full search API is detailed here, with some additional options such as `tags` and `highlight` which are not yet implemented.
 
 + Parameters
     + domains (optional, list[string], `cname1,cname2`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
