@@ -16,12 +16,9 @@ Pages and datasets may be distinguished by the `type` field. This is set to `dat
 
 With the exception of the additional `type` field, the objects in the `resources` field are unaltered from their representation in whatever owns their truth.
 
-
-
 *Please note that we assume that all calls include either the `X-App-Token` header or the ``$$app_token`` parameters set to a valid token. This is assumed and not documented in the API spec below.*
 
 # Search Endpoint [/catalog/v1]
-
 
 + Model (application/json)
 
@@ -120,19 +117,17 @@ When no `categories` parameter is passed, the search service returns results fro
 
 ### Category Search API [GET]
 
-
-
 + Response 200
 
     [Search Endpoint][]
     
 ## Full text search [/catalog/v1{?q}]
 Full text search will perform a query against all documents in the corpus. Specifically, we will query the fields `name, description, category` as well as the fields representing `column fieldnames, names and description`.
+
 + Parameters
     + q (optional, string, `potholes`) ... A string for full text search
 
 ### Full text search API [GET]
-
 
 + Response 200
 
@@ -147,8 +142,6 @@ The search service allows pagination of results.  By default, we will return at 
 
 ### Pagination API [GET]
 
-
-
 + Response 200
 
     [Search Endpoint][]
@@ -156,12 +149,12 @@ The search service allows pagination of results.  By default, we will return at 
 
 ## Limiting results to specific resource types [/catalog/v1{?only}]
 The search service currently indexes datasets and pages with new resource types to be added in the future.  The caller can restrict the results to a particular type (`pages`, `datasets`) by specifying this parameter.
+
 + Parameters
     + only (optional, list[string], `pages`) ... Limit results to a particular resource type (`pages`, `datasets`). If not present searches all types
 
 
 ### Resource search API [GET]
-
 
 + Response 200
 
@@ -174,7 +167,6 @@ By default (not yet implemented), the search service will only return result dat
     + include_internal_metadata (optional, boolean, `true`) ... Results return with additional rendering metadata useful to frontend. If not present, assumed false
 
 ### Internal metadata API [GET]
-
 
 + Response 200
     
@@ -195,7 +187,6 @@ The full search API is detailed here, with some additional options such as `tags
     + highlight (optional, boolean, `true`) ... Include highlighting information
 
 ### Search API with all options [GET]
-
 
 + Response 200 
 
