@@ -138,11 +138,11 @@ Full text search will perform a query against all documents in the corpus. Speci
     [Search Endpoint][]
 
 
-## Pagination [/catalog/v1{?from,size}]
+## Pagination [/catalog/v1{?offset,limit}]
 The search service allows pagination of results.  By default, we will return at most 100 results starting from 0.
 + Parameters
-    + from (optional, number, `23`) ... Initial starting point for paging (0 by default)
-    + size (optional, number, `47`) ... Number of results to return (100 max/default)
+    + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
+    + limit (optional, number, `47`) ... Number of results to return (100 max/default)
 
 ### Pagination API [GET]
 
@@ -179,7 +179,7 @@ By default (not yet implemented), the search service will only return result dat
     
     [Search Endpoint][]
 
-## Complete Search API [/catalog/v1{?domains,categories,tags,q,from,size,only,include_internal_metadata,highlight}]
+## Complete Search API [/catalog/v1{?domains,categories,tags,q,offset,limit,only,include_internal_metadata,highlight}]
 The full search API is detailed here, with some additional options such as `tags` and `highlight` which are not yet implemented.
 
 + Parameters
@@ -187,8 +187,8 @@ The full search API is detailed here, with some additional options such as `tags
     + categories (optional, list[string], `category1,categoryk`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
     + tags (optional, list[string], `tag1,tag2`) ... A comma seperated list of tags. Return results restricted to only the tags specified (OR). When not present, searches all tags.
     + q (optional, string, `potholes`) ... A string for full text search
-    + from (optional, number, `23`) ... Initial starting point for paging (0 by default)
-    + size (optional, number, `1000`) ... Number of results to return (1000 by default)
+    + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
+    + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
     + only (optional, list[string], `pages`) ... Limit results to a particular resource type (`pages`, `datasets`). If not present searches all types
     + include_internal_metadata (optional, boolean, `true`) ... Results return with additional rendering metadata useful to frontend. If not present, assumed false
     + highlight (optional, boolean, `true`) ... Include highlighting information
