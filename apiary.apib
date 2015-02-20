@@ -7,7 +7,7 @@ The flag `include_internal_metadata` should be set to `true` for the frontend, a
 Once we understand the behavior for the civic hacker, we will optimize the use case to return the appropriate, less verbose payload.
 Given that our internal resource names will change, we will require external documentation that shares the resource that a civic hacker can use to load a dataset or page from its id.
 
-All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called `results`. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource. Each resource will be either a page or a dataset.
+All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called `results`. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource will be either a page or a dataset.
 
 Pages and datasets may be distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
 
