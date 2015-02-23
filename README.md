@@ -7,7 +7,7 @@ Run it: `sbt run`
 
 We support two endpoints:
 * `curl localhost:5704/version` returns the version
-* `curl localhost:5704/catalog` returns a stubbed response
+* `curl localhost:5704/catalog` returns results from a default search with no query terms
 
 Any other url gives an error message.
 
