@@ -13,8 +13,8 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
+import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.services._
-
 
 object SearchServer extends App {
   val config = new CeteraConfig(ConfigFactory.load())
@@ -26,12 +26,12 @@ object SearchServer extends App {
   logger.info("Configuration:\n" + config.debugString)
 
   implicit def executorResource[A <: ExecutorService]: Resource[A] = new Resource[A] {
-    def close(a: A) = {
+    def close(a: A): Unit = {
       a.shutdown()
     }
   }
 
-  def managedStartable[T <: { def start() } : Resource](resource: => T) = new Managed[T] {
+  def managedStartable[T <: { def start() } : Resource](resource: => T): Managed[T] = new Managed[T] {
     override def run[A](f: T => A): A =
       using(resource) { r =>
         import scala.language.reflectiveCalls
@@ -47,19 +47,23 @@ object SearchServer extends App {
         config.http.liveness.range,
         config.http.liveness.missable,
         executor))
+    elasticSearch <- managed(
+      new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
+        config.elasticSearch.elasticSearchPort,
+        config.elasticSearch.elasticSearchClusterName))
     } {
-      logger.info("Initializing Search Client")
+      logger.info("ElasticSearchClient initialized on nodes " + elasticSearch.client.transportAddresses().toString)
 
       logger.info("Initializing VersionService")
       val versionService = VersionService
 
-      logger.info("Initializing StubService")
-      val stubService = StubService
+      logger.info("Initializing SearchService with Elasticsearch TransportClient")
+      val searchService = new SearchService(elasticSearch.client)
 
-      logger.info("Initializing router")
+      logger.info("Initializing router with services")
       val router = new Router(
-        versionService.service,
-        stubService.service)
+        versionService.Service,
+        searchService)
 
       logger.info("Initializing handler")
       val handler = router.route _

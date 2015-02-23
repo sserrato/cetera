@@ -3,7 +3,7 @@ package com.socrata.cetera.handlers
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleRouteContext._
-import com.socrata.http.server.{HttpResponse, HttpService, HttpRequest}
+import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
 import com.socrata.cetera.util.JsonResponses._
 

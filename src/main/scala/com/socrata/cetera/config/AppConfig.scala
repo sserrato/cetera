@@ -12,6 +12,7 @@ class CeteraConfig(config: Config) extends ConfigClass(config, "com.socrata") {
   val server = getConfig("cetera", new ServerConfig(_, _))
   val log4j = getRawConfig("log4j")
   val http = getConfig("http", new HttpConfig(_, _))
+  val elasticSearch = getConfig("elasticsearch", new ElasticSearchConfig(_,_))
 
   val debugString = config.root.render()
 }
@@ -29,4 +30,10 @@ class LivenessConfig(config: Config, root: String) extends ConfigClass(config, r
 class ServerConfig(config: Config, root: String) extends ConfigClass(config, root) {
   val port = getInt("port")
   val gracefulShutdownTimeout = getDuration("graceful-shutdown-time")
+}
+
+class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config,root) {
+  val elasticSearchServer = getString("es_server")
+  val elasticSearchPort = getInt("es_port")
+  val elasticSearchClusterName = getString("es_cluster_name")
 }
