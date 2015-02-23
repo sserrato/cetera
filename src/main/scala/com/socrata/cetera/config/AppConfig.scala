@@ -33,7 +33,7 @@ class ServerConfig(config: Config, root: String) extends ConfigClass(config, roo
 }
 
 class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config,root) {
-  val elasticSearchServer = getString("es_server")
-  val elasticSearchPort = getInt("es_port")
-  val elasticSearchClusterName = getString("es_cluster_name")
+  val elasticSearchServer = getString("es-server")
+  val elasticSearchPort = getInt("es-port")
+  val elasticSearchClusterName = getString("es-cluster-name")
 }
