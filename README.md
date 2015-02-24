@@ -6,8 +6,12 @@ By default, cetera runs on port 5704.
 Run it: `sbt run`
 
 We support two endpoints:
-* `curl localhost:5704/version` returns the version
-* `curl localhost:5704/catalog` returns results from a default search with no query terms
+* `/version` returns the version
+* `/catalog` returns search results for query passed in parameter `q`
+
+Examples (running locally):
+* `curl localhost:5704/version` # get the version
+* `curl localhost:5704/catalog?q=search%terms` # search for "search terms"
 
 Any other url gives an error message.
 
