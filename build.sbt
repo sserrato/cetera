@@ -31,10 +31,12 @@ libraryDependencies ++= Seq(
 
 resourceGenerators in Compile <+=
   (resourceManaged in Compile, version in Compile, scalaVersion in Compile) map { (dir, v, sV) =>
-    val file = dir / "com/socrata/cetera" / "version"
-    val contents = "{\"service\":\"%s\",\"version\":\"%s\",\"scala_version\":\"%s\"}".format("cetera", v, sV)
-    IO.write(file, contents)
-    Seq(file)
+   val file = dir / "com/socrata/cetera" / "version"
+   val revision = Process(Seq("git", "describe", "--always", "--dirty", "--long")).!!.split("\n")(0)
+   val contents =
+     "{\"service\":\"%s\",\"version\":\"%s\",\"scala_version\":\"%s\",git:\"%s\"}".format("cetera", v, sV, revision)
+   IO.write(file, contents)
+   Seq(file)
   }
 
 initialCommands := "import com.socrata.cetera._"

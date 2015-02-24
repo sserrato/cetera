@@ -15,7 +15,8 @@ import org.slf4j.LoggerFactory
 case class Version(
     service: String,
     version: String,
-    scalaVersion: String)
+    scalaVersion: String,
+    git: String)
 
 object Version {
   implicit val versionCodec = AutomaticJsonCodecBuilder[Version]
