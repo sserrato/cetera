@@ -44,6 +44,14 @@ class SearchService(client: TransportClient) extends SimpleResource {
   }
 
   override def get: HttpService = { req: HttpRequest =>
+    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+      req.requestPathStr,
+      req.queryStr.getOrElse("<no query params>"),
+      "requested by",
+      req.servletRequest.getRemoteHost).mkString(" -- ")
+
+    logger.info(logMsg)
+
     val query = extractQuery(req)
     val results = performSearch(query)
     val payload = Json(results, pretty=true)
