@@ -23,10 +23,10 @@ class SearchService(client: TransportClient) extends SimpleResource {
   }
 
   // There are many unhandled failure cases here
-  def performSearch(query: String): Map[String, Stream[Map[String, JValue]]] = {
+  def performSearch(query: String, offset: Int = 0, limit: Int = 100): Map[String, Stream[Map[String, JValue]]] = {
     val response = client.prepareSearch()
       .setQuery(QueryBuilders.matchQuery("_all", query))
-      .setFrom(0).setSize(100)
+      .setFrom(offset).setSize(limit)
       .execute()
       .actionGet()
 
