@@ -1,5 +1,7 @@
 package com.socrata.cetera.services
 
+import javax.servlet.http.HttpServletResponse
+
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
@@ -7,43 +9,45 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.util.JsonResponses.jsonError
-
 class SearchService(client: TransportClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  // This will fail silently if the path does not exist
+  // Imperative-style builder function
+  def buildSearchRequest(searchQuery: Option[String],
+                         only: Option[String] = None,
+                         offset: Int = 0,
+                         limit: Int = 100): SearchRequestBuilder = {
+    val searchRequest = client.prepareSearch()
+
+    only.foreach(searchRequest.setTypes(_))
+    searchQuery.foreach( sq =>
+      searchRequest.setQuery(
+        QueryBuilders.matchQuery("_all", sq)
+      )
+    )
+    searchRequest.setFrom(offset)
+    searchRequest.setSize(limit)
+  }
+
+  // Fails silently if path does not exist
   def extractResources(body: JValue): Stream[JValue] = {
     val jPath = new JPath(body)
     jPath.down("hits").down("hits").*.down("_source").down("resource").finish
   }
 
-  // There are many unhandled failure cases here
-  def performSearch(query: String, offset: Int = 0, limit: Int = 100): Map[String, Stream[Map[String, JValue]]] = {
-    val response = client.prepareSearch()
-      .setQuery(QueryBuilders.matchQuery("_all", query))
-      .setFrom(offset).setSize(limit)
-      .execute()
-      .actionGet()
-
-    val body = JsonReader.fromString(response.toString)
+  def formatSearchResults(searchResponse: SearchResponse): Map[String, Stream[Map[String, JValue]]] = {
+    val body = JsonReader.fromString(searchResponse.toString)
     val resources = extractResources(body)
-
     Map("results" -> resources.map { r => Map("resource" -> r) })
   }
 
-  def extractQuery(req: HttpRequest): String = {
-    req.queryParameters.get("q") match {
-      case Some(s) => s
-      case None => ""
-    }
-  }
-
-  override def get: HttpService = { req: HttpRequest =>
+  // Failure cases are not handled, in particular actionGet() from ES throws
+  def search(req: HttpRequest): HttpServletResponse => Unit = {
     val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
       req.requestPathStr,
       req.queryStr.getOrElse("<no query params>"),
@@ -52,10 +56,17 @@ class SearchService(client: TransportClient) extends SimpleResource {
 
     logger.info(logMsg)
 
-    val query = extractQuery(req)
-    val results = performSearch(query)
-    val payload = Json(results, pretty=true)
+    val searchQuery = req.queryParameters.get("q")
+    val only = req.queryParameters.get("only")
+
+    val searchRequest = buildSearchRequest(searchQuery, only)
+    val searchResponse = searchRequest.execute().actionGet()
+
+    val formattedResults = formatSearchResults(searchResponse)
+    val payload = Json(formattedResults, pretty=true)
 
     OK ~> payload
   }
+
+  override def get: HttpService = search
 }
