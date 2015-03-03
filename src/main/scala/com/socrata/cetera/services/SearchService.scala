@@ -17,8 +17,9 @@ import org.slf4j.LoggerFactory
 class SearchService(client: TransportClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
+  // Expects raw query params, for now.
   def buildSearchRequest(searchQuery: Option[String],
-                         domain: Option[String] = None,
+                         domains: Option[String] = None,
                          only: Option[String] = None,
                          offset: Int = 0,
                          limit: Int = 100): SearchRequestBuilder = {
@@ -29,14 +30,18 @@ class SearchService(client: TransportClient) extends SimpleResource {
         case Some(sq) => QueryBuilders.matchQuery("_all", sq)
       }
 
-      val domainFilter = domain match {
+      // One big OR of domain filters
+      val termFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(d) => FilterBuilders.termFilter("domain_cname_exact", d)
+        case Some(d) =>
+          val domainFilters = d.split(",")
+            .map(FilterBuilders.termFilter("domain_cname_exact", _))
+          FilterBuilders.orFilter(domainFilters:_*)
       }
 
       QueryBuilders.filteredQuery(
         matchQuery,
-        domainFilter
+        termFilter
       )
     }
 
@@ -67,19 +72,13 @@ class SearchService(client: TransportClient) extends SimpleResource {
       req.queryStr.getOrElse("<no query params>"),
       "requested by",
       req.servletRequest.getRemoteHost).mkString(" -- ")
-
     logger.info(logMsg)
 
-    val searchQuery = req.queryParameters.get("q")
-    val domain = req.queryParameters.get("domain")
-    val only = req.queryParameters.get("only")
-
     val searchRequest = buildSearchRequest(
-      searchQuery,
-      domain,
-      only
+      searchQuery = req.queryParameters.get("q"),
+      domains = req.queryParameters.get("domains"),
+      only = req.queryParameters.get("only")
     )
-
     val searchResponse = searchRequest.execute().actionGet()
 
     val formattedResults = formatSearchResults(searchResponse)
