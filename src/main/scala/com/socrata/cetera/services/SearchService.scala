@@ -11,27 +11,41 @@ import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.slf4j.LoggerFactory
 
 class SearchService(client: TransportClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  // Imperative-style builder function
   def buildSearchRequest(searchQuery: Option[String],
+                         domain: Option[String] = None,
                          only: Option[String] = None,
                          offset: Int = 0,
                          limit: Int = 100): SearchRequestBuilder = {
-    val searchRequest = client.prepareSearch()
 
-    only.foreach(searchRequest.setTypes(_))
-    searchQuery.foreach( sq =>
-      searchRequest.setQuery(
-        QueryBuilders.matchQuery("_all", sq)
+    val filteredQuery = {
+      val matchQuery = searchQuery match {
+        case None => QueryBuilders.matchAllQuery()
+        case Some(sq) => QueryBuilders.matchQuery("_all", sq)
+      }
+
+      val domainFilter = domain match {
+        case None => FilterBuilders.matchAllFilter()
+        case Some(d) => FilterBuilders.termFilter("domain_cname_exact", d)
+      }
+
+      QueryBuilders.filteredQuery(
+        matchQuery,
+        domainFilter
       )
-    )
-    searchRequest.setFrom(offset)
-    searchRequest.setSize(limit)
+    }
+
+    // Imperative-style builder function
+    client.prepareSearch()
+      .setTypes(only.toList:_*)
+      .setQuery(filteredQuery)
+      .setFrom(offset)
+      .setSize(limit)
   }
 
   // Fails silently if path does not exist
@@ -57,9 +71,15 @@ class SearchService(client: TransportClient) extends SimpleResource {
     logger.info(logMsg)
 
     val searchQuery = req.queryParameters.get("q")
+    val domain = req.queryParameters.get("domain")
     val only = req.queryParameters.get("only")
 
-    val searchRequest = buildSearchRequest(searchQuery, only)
+    val searchRequest = buildSearchRequest(
+      searchQuery,
+      domain,
+      only
+    )
+
     val searchResponse = searchRequest.execute().actionGet()
 
     val formattedResults = formatSearchResults(searchResponse)
