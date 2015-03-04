@@ -10,11 +10,11 @@ import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
-import org.elasticsearch.client.transport.TransportClient
+import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.slf4j.LoggerFactory
 
-class SearchService(client: TransportClient) extends SimpleResource {
+class SearchService(client: Client) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // Expects raw query params, for now.
