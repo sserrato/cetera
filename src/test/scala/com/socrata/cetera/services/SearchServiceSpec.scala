@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import com.rojoma.json.v3.io.JsonReader
+import com.rojoma.json.v3.interpolation._
 import org.elasticsearch.node.NodeBuilder.nodeBuilder
 import org.scalatest.{ShouldMatchers, WordSpec}
 
@@ -11,7 +12,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
   "SearchService" should {
     "extract resources from parsed SearchResponse" in {
-      val json = """{
+      val body = j"""{
         "_shards": {
           "failed": 0,
           "successful": 15,
@@ -43,7 +44,6 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
         "took": 4
       }"""
 
-      val body = JsonReader.fromString(json)
       val resources = service.extractResources(body)
 
       resources.size should be (2)
@@ -51,7 +51,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
     // Well, no, it shouldn't actually.
     "fail silently when the expected path to resources does not exist" in {
-      val body = JsonReader.fromString("{}")
+      val body = j"""{}"""
       val resources = service.extractResources(body)
 
       resources.size should be (0)
@@ -61,7 +61,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
   // These are brittle tests that will break as search features are added
   "Request builder" should {
     "construct a default catalog query correctly" in {
-      val json = """{
+      val expected = j"""{
         "from" : 0,
         "size" : 100,
         "query" : {
@@ -75,7 +75,6 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
           }
         }
       }"""
-      val expected = JsonReader.fromString(json)
 
       val request = service.buildSearchRequest(
         searchQuery = None,
@@ -89,7 +88,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     }
 
     "construct a filtered match query correctly" in {
-      val json = """{
+      val expected = j"""{
         "from" : 10,
         "size" : 20,
         "query" : {
@@ -122,7 +121,6 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
           }
         }
       }"""
-      val expected = JsonReader.fromString(json)
 
       val request = service.buildSearchRequest(
         searchQuery = Some("search query terms"),
