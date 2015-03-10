@@ -17,12 +17,12 @@ import org.slf4j.LoggerFactory
 class SearchService(client: Client) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  // Expects raw query params, for now.
-  def buildSearchRequest(searchQuery: Option[String],
+  // Expects raw query params for now, including offset and limit as strings!
+  def buildSearchRequest(searchQuery: Option[String] = None,
                          domains: Option[String] = None,
                          only: Option[String] = None,
-                         offset: Int = 0,
-                         limit: Int = 100): SearchRequestBuilder = {
+                         offset: Option[String] = None,
+                         limit: Option[String] = None): SearchRequestBuilder = {
 
     val filteredQuery = {
       val matchQuery = searchQuery match {
@@ -45,12 +45,24 @@ class SearchService(client: Client) extends SimpleResource {
       )
     }
 
+    // TODO: rewrite using type classes
+    def toInt(optString: Option[String]): Option[Int] = {
+      optString match {
+        case Some(o) =>
+          try { Some(o.toInt) }
+          catch { case e:Exception => None }
+        case None => None
+      }
+    }
+    val from = toInt(offset).getOrElse(0)  // default offset is 0, naturally
+    val size = toInt(limit).getOrElse(100) // default limit is 100 per API spec
+
     // Imperative-style builder function
     client.prepareSearch()
       .setTypes(only.toList:_*)
       .setQuery(filteredQuery)
-      .setFrom(offset)
-      .setSize(limit)
+      .setFrom(from)
+      .setSize(size)
   }
 
   // Fails silently if path does not exist
@@ -77,7 +89,9 @@ class SearchService(client: Client) extends SimpleResource {
     val searchRequest = buildSearchRequest(
       searchQuery = req.queryParameters.get("q"),
       domains = req.queryParameters.get("domains"),
-      only = req.queryParameters.get("only")
+      only = req.queryParameters.get("only"),
+      offset = req.queryParameters.get("offset"),
+      limit = req.queryParameters.get("limit")
     )
     val searchResponse = searchRequest.execute().actionGet()
 
