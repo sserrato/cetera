@@ -18,9 +18,8 @@ class SearchService(client: Client) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // Assumes query extraction and validation have already been done
-  // TODO: domains should be an Option[Set[String]]
   def buildSearchRequest(searchQuery: Option[String] = None,
-                         domains: Option[String] = None,
+                         domains: Option[Set[String]] = None,
                          only: Option[String] = None,
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
@@ -35,8 +34,7 @@ class SearchService(client: Client) extends SimpleResource {
       val termFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
         case Some(d) =>
-          val domainFilters = d.split(",")
-            .map(FilterBuilders.termFilter("domain_cname_exact", _))
+          val domainFilters = d.toSeq.map(FilterBuilders.termFilter("domain_cname_exact", _))
           FilterBuilders.orFilter(domainFilters:_*)
       }
 
@@ -137,7 +135,7 @@ class SearchService(client: Client) extends SimpleResource {
 
     val searchRequest = buildSearchRequest(
       searchQuery = req.queryParameters.get("q"),
-      domains = req.queryParameters.get("domains"),
+      domains = req.queryParameters.get("domains").map(_.split(",").toSet),
       only = req.queryParameters.get("only"),
       offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value,
       limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value

@@ -126,7 +126,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
       val request = service.buildSearchRequest(
         searchQuery = Some("search query terms"),
-        domains = Some("www.example.com,test.example.com,socrata.com"),
+        domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
         only = Some("dataset"), // this doesn't end up in the json query string
         10,
         20
