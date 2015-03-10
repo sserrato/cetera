@@ -79,7 +79,9 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
       val request = service.buildSearchRequest(
         searchQuery = None,
         domains = None,
-        only = None // not in the json query string
+        only = None, // type restriction not in the json query string
+        offset = 0,
+        limit = 100
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -126,8 +128,8 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
         searchQuery = Some("search query terms"),
         domains = Some("www.example.com,test.example.com,socrata.com"),
         only = Some("dataset"), // this doesn't end up in the json query string
-        Some("10"),
-        Some("20")
+        10,
+        20
       )
       val actual = JsonReader.fromString(request.toString)
 

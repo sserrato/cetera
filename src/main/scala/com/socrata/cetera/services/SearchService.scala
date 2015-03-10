@@ -17,12 +17,13 @@ import org.slf4j.LoggerFactory
 class SearchService(client: Client) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  // Expects raw query params for now, including offset and limit as strings!
+  // Assumes query extraction and validation have already been done
+  // TODO: domains should be an Option[Set[String]]
   def buildSearchRequest(searchQuery: Option[String] = None,
                          domains: Option[String] = None,
                          only: Option[String] = None,
-                         offset: Option[String] = None,
-                         limit: Option[String] = None): SearchRequestBuilder = {
+                         offset: Int,
+                         limit: Int): SearchRequestBuilder = {
 
     val filteredQuery = {
       val matchQuery = searchQuery match {
@@ -45,24 +46,12 @@ class SearchService(client: Client) extends SimpleResource {
       )
     }
 
-    // TODO: rewrite using type classes
-    def toInt(optString: Option[String]): Option[Int] = {
-      optString match {
-        case Some(o) =>
-          try { Some(o.toInt) }
-          catch { case e:Exception => None }
-        case None => None
-      }
-    }
-    val from = toInt(offset).getOrElse(0)  // default offset is 0, naturally
-    val size = toInt(limit).getOrElse(100) // default limit is 100 per API spec
-
     // Imperative-style builder function
     client.prepareSearch()
       .setTypes(only.toList:_*)
       .setQuery(filteredQuery)
-      .setFrom(from)
-      .setSize(size)
+      .setFrom(offset)
+      .setSize(limit)
   }
 
   // Fails silently if path does not exist
@@ -75,6 +64,66 @@ class SearchService(client: Client) extends SimpleResource {
     val body = JsonReader.fromString(searchResponse.toString)
     val resources = extractResources(body)
     Map("results" -> resources.map { r => Map("resource" -> r) })
+  }
+
+
+  //////////////////////////
+  // belongs in socrata-http
+  //
+  sealed trait ParamConversionFailure
+  case class InvalidValue(v: String) extends ParamConversionFailure
+
+  trait ParamConverter[T] {
+    def convertFrom(s: String): Either[ParamConversionFailure, T]
+  }
+
+  implicit class TypedQueryParams(req: HttpRequest) {
+    def queryParamOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
+      req.queryParameters
+        .get(name)
+        .map(implicitly[ParamConverter[T]].convertFrom)
+        .getOrElse(Right(default))
+    }
+  }
+
+  def validated[T](x: Either[ParamConversionFailure, T]): T = x match {
+    case Right(v) => v
+    case Left(_) => throw new Exception("Parameter validation failure")
+  }
+
+  object ParamConverter {
+    implicit object IntParam extends ParamConverter[Int] {
+      override def convertFrom(s: String): Either[ParamConversionFailure, Int] = {
+        try { Right(s.toInt) }
+        catch { case e : Exception => Left(InvalidValue(s)) }
+      }
+    }
+
+    def filtered[A : ParamConverter, B](f: A => Option[B]): ParamConverter[B] = {
+      new ParamConverter[B] {
+        def convertFrom(s: String): Either[ParamConversionFailure, B] = {
+          implicitly[ParamConverter[A]].convertFrom(s) match {
+            case Right(a) =>
+              f(a) match {
+                case Some(b) => Right(b)
+                case None => Left(InvalidValue(s))
+              }
+            case Left(e) => Left(e)
+          }
+        }
+      }
+    }
+  }
+  //
+  ////////////////////////////
+
+
+  case class NonNegativeInt(value: Int)
+  implicit val nonNegativeIntParamConverter = ParamConverter.filtered { (a: Int) =>
+    if (a >= 0)
+      Some(NonNegativeInt(a))
+    else
+      None
   }
 
   // Failure cases are not handled, in particular actionGet() from ES throws
@@ -90,8 +139,8 @@ class SearchService(client: Client) extends SimpleResource {
       searchQuery = req.queryParameters.get("q"),
       domains = req.queryParameters.get("domains"),
       only = req.queryParameters.get("only"),
-      offset = req.queryParameters.get("offset"),
-      limit = req.queryParameters.get("limit")
+      offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value,
+      limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
     )
     val searchResponse = searchRequest.execute().actionGet()
 
