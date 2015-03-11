@@ -59,18 +59,21 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
   }
 
   // These are brittle tests that will break as search features are added
+  // The brittleness is deliberate. The query building is not finalized.
   "Request builder" should {
     "construct a default catalog query correctly" in {
       val expected = j"""{
         "from" : 0,
         "size" : 100,
         "query" : {
-          "filtered" : {
-            "query" : {
-              "match_all" : { }
-            },
-            "filter" : {
-              "match_all" : { }
+          "filtered" :
+          {
+            "query" : { "match_all" : {} },
+            "filter" :
+            {
+              "and" : {
+                "filters" : [ { "match_all" : {} }, { "match_all" : {} } ]
+              }
             }
           }
         }
@@ -91,33 +94,64 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
     "construct a filtered match query correctly" in {
       val expected = j"""{
-        "from" : 10,
-        "size" : 20,
-        "query" : {
-          "filtered" : {
-            "query" : {
-              "match" : {
-                "_all" : {
-                  "query" : "search query terms",
-                  "type" : "boolean"
+        "from": 10,
+        "size": 20,
+        "query": {
+          "filtered": {
+            "filter": {
+              "and": {
+                "filters": [
+                {
+                  "or": {
+                    "filters": [
+                    {
+                      "term": {
+                        "domain_cname_exact": "www.example.com"
+                      }
+                    },
+                    {
+                      "term": {
+                        "domain_cname_exact": "test.example.com"
+                      }
+                    },
+                    {
+                      "term": {
+                        "domain_cname_exact": "socrata.com"
+                      }
+                    }
+                    ]
+                  }
+                },
+                {
+                  "or": {
+                    "filters": [
+                    {
+                      "term": {
+                        "categories": "Social Services"
+                      }
+                    },
+                    {
+                      "term": {
+                        "categories": "Environment"
+                      }
+                    },
+                    {
+                      "term": {
+                        "categories": "Housing & Development"
+                      }
+                    }
+                    ]
+                  }
                 }
+                ]
               }
             },
-            "filter" : {
-              "or" : {
-                "filters" : [ {
-                  "term" : {
-                    "domain_cname_exact" : "www.example.com"
-                  }
-                  }, {
-                    "term" : {
-                      "domain_cname_exact" : "test.example.com"
-                    }
-                    }, {
-                      "term" : {
-                        "domain_cname_exact" : "socrata.com"
-                      }
-                    } ]
+            "query": {
+              "match": {
+                "_all": {
+                  "query": "search query terms",
+                  "type": "boolean"
+                }
               }
             }
           }
@@ -127,6 +161,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
       val request = service.buildSearchRequest(
         searchQuery = Some("search query terms"),
         domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+        categories = Some(Set("Social Services", "Environment", "Housing & Development")),
         only = Some("dataset"), // this doesn't end up in the json query string
         10,
         20

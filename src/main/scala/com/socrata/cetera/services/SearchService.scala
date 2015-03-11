@@ -20,6 +20,7 @@ class SearchService(client: Client) extends SimpleResource {
   // Assumes query extraction and validation have already been done
   def buildSearchRequest(searchQuery: Option[String] = None,
                          domains: Option[Set[String]] = None,
+                         categories: Option[Set[String]] = None,
                          only: Option[String] = None,
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
@@ -31,17 +32,31 @@ class SearchService(client: Client) extends SimpleResource {
       }
 
       // One big OR of domain filters
-      val termFilter = domains match {
+      // TODO: replace with terms filter
+      val domainFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
         case Some(d) =>
           val domainFilters = d.toSeq.map(FilterBuilders.termFilter("domain_cname_exact", _))
           FilterBuilders.orFilter(domainFilters:_*)
       }
 
-      QueryBuilders.filteredQuery(
-        matchQuery,
-        termFilter
-      )
+      // One big OR of domain filters
+      // TODO: replace with terms filter
+      val categoryFilter = categories match {
+        case None => FilterBuilders.matchAllFilter()
+        case Some(d) =>
+          val categoryFilters = d.toSeq.map(FilterBuilders.termFilter("categories", _))
+          FilterBuilders.orFilter(categoryFilters:_*)
+      }
+
+      // AND of two OR filters
+      val domainAndCategoryFilter =
+        FilterBuilders.andFilter(
+          domainFilter,
+          categoryFilter
+        )
+
+      QueryBuilders.filteredQuery(matchQuery, domainAndCategoryFilter)
     }
 
     // Imperative-style builder function
@@ -136,6 +151,7 @@ class SearchService(client: Client) extends SimpleResource {
     val searchRequest = buildSearchRequest(
       searchQuery = req.queryParameters.get("q"),
       domains = req.queryParameters.get("domains").map(_.split(",").toSet),
+      categories = req.queryParameters.get("categories").map(_.split(",").toSet),
       only = req.queryParameters.get("only"),
       offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value,
       limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
