@@ -31,25 +31,19 @@ class SearchService(client: Client) extends SimpleResource {
         case Some(sq) => QueryBuilders.matchQuery("_all", sq)
       }
 
-      // One big OR of domain filters
-      // TODO: replace with terms filter
+      // Effectively an OR of domain filters
       val domainFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(d) =>
-          val domainFilters = d.toSeq.map(FilterBuilders.termFilter("domain_cname_exact", _))
-          FilterBuilders.orFilter(domainFilters:_*)
+        case Some(d) => FilterBuilders.termsFilter("domain_cname_exact", d.toSeq:_*)
       }
 
-      // One big OR of domain filters
-      // TODO: replace with terms filter
+      // Effectively an OR of category filters
       val categoryFilter = categories match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(d) =>
-          val categoryFilters = d.toSeq.map(FilterBuilders.termFilter("categories", _))
-          FilterBuilders.orFilter(categoryFilters:_*)
+        case Some(c) => FilterBuilders.termsFilter("categories", c.toSeq:_*)
       }
 
-      // AND of two OR filters
+      // CNF -- an AND of ORs
       val domainAndCategoryFilter =
         FilterBuilders.andFilter(
           domainFilter,

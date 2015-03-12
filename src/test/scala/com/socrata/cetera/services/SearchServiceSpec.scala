@@ -100,46 +100,24 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
           "filtered": {
             "filter": {
               "and": {
-                "filters": [
+                "filters" : [
                 {
-                  "or": {
-                    "filters": [
-                    {
-                      "term": {
-                        "domain_cname_exact": "www.example.com"
-                      }
-                    },
-                    {
-                      "term": {
-                        "domain_cname_exact": "test.example.com"
-                      }
-                    },
-                    {
-                      "term": {
-                        "domain_cname_exact": "socrata.com"
-                      }
-                    }
+                  "terms" :
+                  {
+                    "domain_cname_exact" : [
+                    "www.example.com",
+                    "test.example.com",
+                    "socrata.com"
                     ]
                   }
                 },
                 {
-                  "or": {
-                    "filters": [
-                    {
-                      "term": {
-                        "categories": "Social Services"
-                      }
-                    },
-                    {
-                      "term": {
-                        "categories": "Environment"
-                      }
-                    },
-                    {
-                      "term": {
-                        "categories": "Housing & Development"
-                      }
-                    }
+                  "terms" :
+                  {
+                    "categories" : [
+                    "Social Services",
+                    "Environment",
+                    "Housing & Development"
                     ]
                   }
                 }
