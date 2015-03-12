@@ -9,6 +9,7 @@ import com.socrata.http.server._
 import com.socrata.thirdparty.typesafeconfig.Propertizer
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.{Logger, PropertyConfigurator}
+import org.elasticsearch.client.transport.TransportClient
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.config.CeteraConfig
@@ -52,18 +53,23 @@ object SearchServer extends App {
         config.elasticSearch.elasticSearchPort,
         config.elasticSearch.elasticSearchClusterName))
     } {
-      logger.info("ElasticSearchClient initialized on nodes " + elasticSearch.client.transportAddresses().toString)
+      logger.info("ElasticSearchClient initialized on nodes " +
+        elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
 
       logger.info("Initializing VersionService")
       val versionService = VersionService
 
       logger.info("Initializing SearchService with Elasticsearch TransportClient")
-      val searchService = new SearchService(elasticSearch.client)
+      val searchService = new SearchService(elasticSearch)
+
+      logger.info("Initializing DomainsService")
+      val domainsService = new DomainsService(elasticSearch)
 
       logger.info("Initializing router with services")
       val router = new Router(
         versionService.Service,
-        searchService)
+        searchService,
+        domainsService)
 
       logger.info("Initializing handler")
       val handler = router.route _
