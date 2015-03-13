@@ -6,6 +6,7 @@ case class ValidatedQueryParameters(
   searchQuery: Option[String],
   domains: Option[Set[String]],
   categories: Option[Set[String]],
+  tags: Option[Set[String]],
   only: Option[String],
   offset: Int,
   limit: Int
@@ -77,6 +78,7 @@ object QueryParametersParser {
     val searchQuery = req.queryParameters.get("q")
     val domains = req.queryParameters.get("domains").map(_.split(",").toSet)
     val categories = req.queryParameters.get("categories").map(_.split(",").toSet)
+    val tags = req.queryParameters.get("tags").map(_.split(",").toSet)
     val only = req.queryParameters.get("only")
     val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
     val limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
@@ -85,6 +87,7 @@ object QueryParametersParser {
       searchQuery,
       domains,
       categories,
+      tags,
       only,
       offset,
       limit

@@ -25,6 +25,7 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
       params.searchQuery,
       params.domains,
       params.categories,
+      params.tags,
       params.only,
       params.offset,
       params.limit

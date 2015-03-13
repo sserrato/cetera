@@ -31,7 +31,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
             "filter" :
             {
               "and" : {
-                "filters" : [ { "match_all" : {} }, { "match_all" : {} } ]
+                "filters" : [
+                { "match_all" : {} },
+                { "match_all" : {} },
+                { "match_all" : {} }
+                ]
               }
             }
           }
@@ -42,6 +46,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchQuery = None,
         domains = None,
         categories = None,
+        tags = None,
         only = None, // type restriction not in the json query string
         offset = 0,
         limit = 100
@@ -80,6 +85,16 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
                     "Housing & Development"
                     ]
                   }
+                },
+                {
+                  "terms" :
+                  {
+                    "animl_annotations.tag_names.raw" : [
+                    "taxi",
+                    "art",
+                    "clowns"
+                    ]
+                  }
                 }
                 ]
               }
@@ -100,6 +115,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchQuery = Some("search query terms"),
         domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
         categories = Some(Set("Social Services", "Environment", "Housing & Development")),
+        tags = Some(Set("taxi", "art", "clowns")),
         only = Some("dataset"), // this doesn't end up in the json query string
         10,
         20

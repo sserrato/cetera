@@ -46,6 +46,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
       params.searchQuery,
       params.domains,
       params.categories,
+      params.tags,
       params.only,
       params.offset,
       params.limit

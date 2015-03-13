@@ -25,6 +25,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
   def buildRequest(searchQuery: Option[String],
                    domains: Option[Set[String]],
                    categories: Option[Set[String]],
+                   tags: Option[Set[String]],
                    only: Option[String]): SearchRequestBuilder = {
 
     val filteredQuery = {
@@ -45,10 +46,17 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
         case Some(c) => FilterBuilders.termsFilter("animl_annotations.category_names.raw", c.toSeq:_*)
       }
 
+      // OR of tag filters
+      val tagFilter = tags match {
+        case None => FilterBuilders.matchAllFilter()
+        case Some(c) => FilterBuilders.termsFilter("animl_annotations.tag_names.raw", c.toSeq:_*)
+      }
+
       // AND of OR filters (CNF)
       val domainAndCategoryFilter = FilterBuilders.andFilter(
         domainFilter,
-        categoryFilter
+        categoryFilter,
+        tagFilter
       )
 
       QueryBuilders.filteredQuery(
@@ -67,6 +75,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
   def buildSearchRequest(searchQuery: Option[String],
                          domains: Option[Set[String]],
                          categories: Option[Set[String]],
+                         tags: Option[Set[String]],
                          only: Option[String],
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
@@ -75,6 +84,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       searchQuery,
       domains,
       categories,
+      tags,
       only
     )
 
@@ -86,6 +96,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
   def buildDomainRequest(searchQuery: Option[String],
                          domains: Option[Set[String]],
                          categories: Option[Set[String]],
+                         tags: Option[Set[String]],
                          only: Option[String],
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
@@ -94,6 +105,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       searchQuery,
       domains,
       categories,
+      tags,
       only
     )
 
