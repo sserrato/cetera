@@ -64,7 +64,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
                 {
                   "terms" :
                   {
-                    "domain_cname_exact" : [
+                    "socrata_id.domain_cname.raw" : [
                     "www.example.com",
                     "test.example.com",
                     "socrata.com"
@@ -74,7 +74,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
                 {
                   "terms" :
                   {
-                    "categories" : [
+                    "animl_annotations.category_names.raw" : [
                     "Social Services",
                     "Environment",
                     "Housing & Development"

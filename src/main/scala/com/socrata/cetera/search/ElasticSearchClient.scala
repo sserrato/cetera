@@ -36,13 +36,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       // OR of domain filters
       val domainFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(d) => FilterBuilders.termsFilter("domain_cname_exact", d.toSeq:_*)
+        case Some(d) => FilterBuilders.termsFilter("socrata_id.domain_cname.raw", d.toSeq:_*)
       }
 
       // OR of category filters
       val categoryFilter = categories match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter("categories", c.toSeq:_*)
+        case Some(c) => FilterBuilders.termsFilter("animl_annotations.category_names.raw", c.toSeq:_*)
       }
 
       // AND of OR filters (CNF)
@@ -99,7 +99,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
     val aggregation = AggregationBuilders
       .terms("resources_by_domain_count")
-      .field("domain_cname_exact")
+      .field("socrata_id.domain_cname.raw")
 
     baseRequest
       .addAggregation(aggregation)
