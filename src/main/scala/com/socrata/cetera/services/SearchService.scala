@@ -27,9 +27,10 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   def formatSearchResults(searchResponse: SearchResponse): Map[String, Stream[Map[String, JValue]]] = {
     val body = JsonReader.fromString(searchResponse.toString)
     val resources = extractResources(body)
-    Map("results" -> resources.map { r => Map("resource" -> r) })
+    Map("results" ->
+      resources.map { r =>
+        Map("resource" -> r) })
   }
-
 
   // Failure cases are not handled, in particular actionGet() from ES throws
   def search(req: HttpRequest): HttpServletResponse => Unit = {
