@@ -3,7 +3,7 @@ package com.socrata.cetera.util
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.rojoma.json.v3.ast.JValue
 import javax.servlet.http.HttpServletResponse
-
+import com.socrata.cetera.services.SearchResults
 import com.socrata.http.server.responses._
 
 object JsonResponses {
@@ -27,7 +27,7 @@ object InternalTimings {
 }
 
 
-case class SearchResultsWithTimings(timings:InternalTimings, results:Map[String, Stream[Map[String, JValue]]])
+case class SearchResultsWithTimings(timings:InternalTimings, results:SearchResults)
 
 object SearchResultsWithTimings {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResultsWithTimings]
