@@ -2,7 +2,7 @@ package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
 
-import com.rojoma.json.v3.ast.{JValue, JArray}
+import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
@@ -18,12 +18,12 @@ import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.QueryParametersParser
 import com.socrata.cetera.util.{InternalTimings, SearchResultsWithTimings}
 
-case class ResourceAndMetadata(resource:JValue, metadata:Map[String, JValue])
+case class ResourceAndMetadata(resource:JValue, metadata:Map[String, JValue], link:JString)
 object ResourceAndMetadata {
   implicit val jCodec = AutomaticJsonCodecBuilder[ResourceAndMetadata]
 }
 
-case class SearchResults(results:Seq[ResourceAndMetadata])
+case class SearchResults(results:Seq[ResourceAndMetadata], timings:Option[InternalTimings] = None)
 object SearchResults {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResults]
 }
@@ -43,10 +43,13 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   def formatSearchResults(searchResponse: SearchResponse): SearchResults = {
     val body = JsonReader.fromString(searchResponse.toString)
     val resources = extractResources(body)
-    SearchResults( 
+    SearchResults(
       resources.map { r =>
+        val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
+        val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
         ResourceAndMetadata(r.dyn("resource").!, 
-        Map("domain"->r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0))) 
+          Map("domain"->cname),
+          JString(s"""${cname.string}/ux/dataset/${datasetID}"""))
       }
     )
   }
@@ -74,11 +77,9 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     )
     val searchResponse = searchRequest.execute().actionGet()
 
-    val formattedResults = formatSearchResults(searchResponse)
-    val formattedResultesWithTimings = SearchResultsWithTimings(
-      InternalTimings(Timings.elapsedInMillis(now), Option(searchResponse.getTookInMillis())),
-      formattedResults)
-    val payload = Json(formattedResultesWithTimings, pretty=true)
+    val formattedResults = formatSearchResults(searchResponse).copy(timings = Some(InternalTimings(Timings.elapsedInMillis(now), Option(searchResponse.getTookInMillis()))))
+      
+    val payload = Json(formattedResults, pretty=true)
 
     OK ~> payload
   }
