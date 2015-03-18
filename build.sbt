@@ -44,7 +44,8 @@ initialCommands := "import com.socrata.cetera._"
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
 
 // WARNING: do not use -optimize if we start using akka
-scalacOptions ++= Seq("-optimize", "-deprecation", "-feature", "-Xlint", "-Xfatal-warnings")
+// Had to turn off "-Xfatal-warnings", alas such is life
+scalacOptions ++= Seq("-optimize", "-deprecation", "-feature", "-Xlint", "-Yinline-warnings")
 
 // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
 fullClasspath in Test <+= baseDirectory map { d => Attributed.blank(d / "configs") }

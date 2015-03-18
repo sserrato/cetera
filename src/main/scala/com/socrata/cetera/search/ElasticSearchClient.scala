@@ -9,6 +9,7 @@ import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.bucket.terms.Terms
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
@@ -22,11 +23,11 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
   def close(): Unit = client.close()
 
   // Assumes query extraction and validation have already been done
-  def buildRequest(searchQuery: Option[String],
-                   domains: Option[Set[String]],
-                   categories: Option[Set[String]],
-                   tags: Option[Set[String]],
-                   only: Option[String]): SearchRequestBuilder = {
+  def buildBaseRequest(searchQuery: Option[String],
+                       domains: Option[Set[String]],
+                       categories: Option[Set[String]],
+                       tags: Option[Set[String]],
+                       only: Option[String]): SearchRequestBuilder = {
 
     val filteredQuery = {
       val matchQuery = searchQuery match {
@@ -80,7 +81,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
 
-    val baseRequest = buildRequest(
+    val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
       categories,
@@ -97,11 +98,9 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                          domains: Option[Set[String]],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
-                         only: Option[String],
-                         offset: Int,
-                         limit: Int): SearchRequestBuilder = {
+                         only: Option[String]): SearchRequestBuilder = {
 
-    val baseRequest = buildRequest(
+    val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
       categories,
@@ -110,12 +109,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
     )
 
     val aggregation = AggregationBuilders
-      .terms("resources_by_domain_count")
+      .terms("domain_resources_count")
       .field("socrata_id.domain_cname.raw")
+      .order(Terms.Order.count(false)) // count desc
+      .size(0) // unlimited!
 
     baseRequest
       .addAggregation(aggregation)
-      .setFrom(offset)
-      .setSize(limit)
+      .setSearchType("count")
   }
 }
