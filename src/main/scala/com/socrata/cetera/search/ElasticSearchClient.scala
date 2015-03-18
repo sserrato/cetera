@@ -23,11 +23,11 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
   def close(): Unit = client.close()
 
   // Assumes query extraction and validation have already been done
-  def buildRequest(searchQuery: Option[String],
-                   domains: Option[Set[String]],
-                   categories: Option[Set[String]],
-                   tags: Option[Set[String]],
-                   only: Option[String]): SearchRequestBuilder = {
+  def buildBaseRequest(searchQuery: Option[String],
+                       domains: Option[Set[String]],
+                       categories: Option[Set[String]],
+                       tags: Option[Set[String]],
+                       only: Option[String]): SearchRequestBuilder = {
 
     val filteredQuery = {
       val matchQuery = searchQuery match {
@@ -81,7 +81,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
 
-    val baseRequest = buildRequest(
+    val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
       categories,
@@ -100,7 +100,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                          tags: Option[Set[String]],
                          only: Option[String]): SearchRequestBuilder = {
 
-    val baseRequest = buildRequest(
+    val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
       categories,

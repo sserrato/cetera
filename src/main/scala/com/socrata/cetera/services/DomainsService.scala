@@ -31,19 +31,13 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]) = {
+  def format(counts: Stream[JValue]): Map[String, Map[String, Stream[Map[String, JValue]]]] = {
     Map("results" ->
       Map("domain_counts" ->
         counts.map { c => Map("domain" -> c.dyn("key").!,
                               "count" -> c.dyn("doc_count").!) }
       )
     )
-  }
-
-  def prepare(searchResponse: SearchResponse) = {
-    val body = JsonReader.fromString(searchResponse.toString)
-    val counts = extract(body)
-    format(counts)
   }
 
   def aggregate(req: HttpRequest): HttpServletResponse => Unit = {
@@ -56,11 +50,13 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
       params.tags,
       params.only
     )
-
     val response = domainRequest.execute().actionGet()
-    val results = prepare(response)
 
+    val json = JsonReader.fromString(response.toString)
+    val counts = extract(json)
+    val results = format(counts)
     val payload = Json(results, pretty=true)
+
     OK ~> payload
   }
 

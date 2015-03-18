@@ -2,6 +2,7 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
+import org.elasticsearch.action.search.SearchType.COUNT
 import org.elasticsearch.node.NodeBuilder.nodeBuilder
 import org.scalatest.{ShouldMatchers, WordSpec}
 
@@ -14,49 +15,50 @@ class LocalESClient() extends ElasticSearchClient("local", 5704, "useless") {
   }
 }
 
+// These are brittle tests that will break as search features are added
+// The brittleness is deliberate. Query building is not finalized.
+//
 class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val client = new LocalESClient()  // Remember to close() me!!
 
-  // These are brittle tests that will break as search features are added
-  // The brittleness is deliberate. The query building is not finalized.
-  "Request builder" should {
-    "construct a default catalog query correctly" in {
-      val expected = j"""{
-        "from" : 0,
-        "size" : 100,
-        "query" : {
-          "filtered" :
-          {
-            "query" : { "match_all" : {} },
-            "filter" :
-            {
-              "and" : {
-                "filters" : [
-                { "match_all" : {} },
-                { "match_all" : {} },
-                { "match_all" : {} }
-                ]
-              }
-            }
-          }
+  val defaultQuery = j"""{
+    "filtered" :
+    {
+      "query" : { "match_all" : {} },
+      "filter" :
+      {
+        "and" : {
+          "filters" : [
+          { "match_all" : {} },
+          { "match_all" : {} },
+          { "match_all" : {} }
+          ]
         }
+      }
+    }
+  }"""
+
+  "buildBaseRequest" should {
+    "construct a default match all query correctly" in {
+      val expected = j"""{
+        "query" : ${defaultQuery}
       }"""
 
-      val request = client.buildSearchRequest(
+      val request = client.buildBaseRequest(
         searchQuery = None,
         domains = None,
         categories = None,
         tags = None,
-        only = None, // type restriction not in the json query string
-        offset = 0,
-        limit = 100
+        only = None
       )
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array[String]())
+      request.request.types should be (Array())
     }
+  }
 
+  "buildSearchRequest" should {
     "construct a filtered match query correctly" in {
       val expected = j"""{
         "from": 10,
@@ -124,6 +126,37 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       actual should be (expected)
       request.request.types should be (Array[String]("dataset"))
+    }
+  }
+
+  "buildDomainRequest" should {
+    "construct a default search with aggregation" in {
+      val expected = j"""{
+        "query" : ${defaultQuery},
+        "aggregations" : {
+          "domain_resources_count" :
+          {
+            "terms" :
+            {
+              "field" : "socrata_id.domain_cname.raw",
+              "size" : 0,
+              "order" : { "_count" : "desc" }
+            }
+          }
+        }
+      }"""
+
+      val request = client.buildDomainRequest(
+        searchQuery = None,
+        domains = None,
+        categories = None,
+        tags = None,
+        only = None
+      )
+      val actual = JsonReader.fromString(request.toString)
+
+      actual should be (expected)
+      request.request.searchType should be (COUNT)
     }
   }
 
