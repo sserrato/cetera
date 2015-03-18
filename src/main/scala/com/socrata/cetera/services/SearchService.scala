@@ -2,7 +2,7 @@ package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
 
-import com.rojoma.json.v3.ast.JValue
+import com.rojoma.json.v3.ast.{JValue, JArray}
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.socrata.http.server.implicits._
@@ -22,7 +22,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   // Fails silently if path does not exist
   def extractResources(body: JValue): Stream[JValue] = {
     val jPath = new JPath(body)
-    jPath.down("hits").down("hits").*.down("_source").down("resource").finish
+    jPath.down("hits").down("hits").*.down("_source").finish
   }
 
   def formatSearchResults(searchResponse: SearchResponse): Map[String, Stream[Map[String, JValue]]] = {
@@ -30,7 +30,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     val resources = extractResources(body)
     Map("results" ->
       resources.map { r =>
-        Map("resource" -> r) })
+      Map("resource" -> r.dyn("resource").!, "metadata"->r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0)) })
   }
 
   // Failure cases are not handled, in particular actionGet() from ES throws
