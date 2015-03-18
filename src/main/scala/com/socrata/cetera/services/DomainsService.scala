@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.QueryParametersParser
+import com.socrata.cetera.util.{InternalTimings, DomainResultsWithTimings}
 
 class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[DomainsService])
@@ -41,6 +42,7 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
   }
 
   def aggregate(req: HttpRequest): HttpServletResponse => Unit = {
+    val now = Timings.now()
     val params = QueryParametersParser(req)
 
     val domainRequest = elasticSearchClient.buildDomainRequest(
@@ -55,7 +57,10 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
     val results = format(counts)
-    val payload = Json(results, pretty=true)
+    val formattedResultesWithTimings = DomainResultsWithTimings(
+      InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis())),
+      results)
+    val payload = Json(formattedResultesWithTimings, pretty=true)
 
     OK ~> payload
   }

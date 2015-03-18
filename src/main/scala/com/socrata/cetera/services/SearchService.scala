@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.QueryParametersParser
+import com.socrata.cetera.util.{InternalTimings, SearchResultsWithTimings}
 
 class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
@@ -34,6 +35,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
 
   // Failure cases are not handled, in particular actionGet() from ES throws
   def search(req: HttpRequest): HttpServletResponse => Unit = {
+    val now = Timings.now()
     val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
       req.requestPathStr,
       req.queryStr.getOrElse("<no query params>"),
@@ -55,7 +57,10 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     val searchResponse = searchRequest.execute().actionGet()
 
     val formattedResults = formatSearchResults(searchResponse)
-    val payload = Json(formattedResults, pretty=true)
+    val formattedResultesWithTimings = SearchResultsWithTimings(
+      InternalTimings(Timings.elapsedInMillis(now), Option(searchResponse.getTookInMillis())),
+      formattedResults)
+    val payload = Json(formattedResultesWithTimings, pretty=true)
 
     OK ~> payload
   }

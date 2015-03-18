@@ -1,5 +1,7 @@
 package com.socrata.cetera.util
 
+import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
+import com.rojoma.json.v3.ast.JValue
 import javax.servlet.http.HttpServletResponse
 
 import com.socrata.http.server.responses._
@@ -14,4 +16,25 @@ object JsonResponses {
     val errorMap = Map("error" -> error)
     Json(errorMap)
   }
+}
+
+
+// Helpers for internal timing information to report to the caller
+case class InternalTimings(serviceElaspedMillis:Long, searchMillis:Option[Long])
+
+object InternalTimings {
+  implicit val jCodec = AutomaticJsonCodecBuilder[InternalTimings]
+}
+
+
+case class SearchResultsWithTimings(timings:InternalTimings, results:Map[String, Stream[Map[String, JValue]]])
+
+object SearchResultsWithTimings {
+  implicit val jCodec = AutomaticJsonCodecBuilder[SearchResultsWithTimings]
+}
+
+case class DomainResultsWithTimings(timings:InternalTimings, results:Map[String, Map[String, Stream[Map[String,JValue]]]])
+
+object DomainResultsWithTimings {
+  implicit val jCodec = AutomaticJsonCodecBuilder[DomainResultsWithTimings]
 }
