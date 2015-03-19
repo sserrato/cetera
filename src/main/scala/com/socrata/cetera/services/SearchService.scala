@@ -19,7 +19,13 @@ import com.socrata.cetera.util.QueryParametersParser
 import com.socrata.cetera.util.{InternalTimings, SearchResults}
 
 
-case class SearchResult(resource: JValue, metadata: Map[String, JValue], link: JString) 
+case class Classification(categories:JValue, tags:JValue)
+
+object Classification {
+  implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
+}
+
+case class SearchResult(resource: JValue, classification:Classification, metadata: Map[String, JValue], link: JString) 
 object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
@@ -45,9 +51,17 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
       resources.map { r =>
         val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
         val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
+        val pageID = r.dyn("socrata_id").apply("page_id").?
+        val catagories =r.dyn("animl_annotations").apply("category_names").! 
+        val tags =r.dyn("animl_annotations").apply("tag_names").! 
+        val link = pageID match {
+          case Right(pgId) =>  JString(s"""${cname.string}/view/${pgId.cast[JString].get.string}""")
+          case _ => JString(s"""${cname.string}/ux/dataset/${datasetID}""")
+        }
         SearchResult(r.dyn("resource").!, 
+          Classification(catagories, tags),
           Map("domain"->cname),
-          JString(s"""${cname.string}/ux/dataset/${datasetID}"""))
+          link)
       }
     )
   }
