@@ -129,16 +129,16 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     }
   }
 
-  "buildDomainRequest" should {
+  "buildCountRequest" should {
     "construct a default search with aggregation" in {
       val expected = j"""{
         "query" : ${defaultQuery},
         "aggregations" : {
-          "domain_resources_count" :
+          "counts" :
           {
             "terms" :
             {
-              "field" : "socrata_id.domain_cname.raw",
+              "field" : "arbitrary.field_name.raw",
               "size" : 0,
               "order" : { "_count" : "desc" }
             }
@@ -146,7 +146,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         }
       }"""
 
-      val request = client.buildDomainRequest(
+      val request = client.buildCountRequest(
+        field = "arbitrary.field_name.raw",
         searchQuery = None,
         domains = None,
         categories = None,

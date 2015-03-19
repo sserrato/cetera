@@ -14,17 +14,16 @@ import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.util.QueryParametersParser
-import com.socrata.cetera.util.{InternalTimings, SearchResults}
+import com.socrata.cetera.util.{InternalTimings, SearchResults, QueryParametersParser}
 
-case class DomainCount(domain: JValue, count: JValue)
+case class CategoryCount(category: JValue, count: JValue)
 
-object DomainCount {
-  implicit val jCodec = AutomaticJsonCodecBuilder[DomainCount]
+object CategoryCount {
+  implicit val jCodec = AutomaticJsonCodecBuilder[CategoryCount]
 }
 
-class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
-  lazy val logger = LoggerFactory.getLogger(classOf[DomainsService])
+class CategoriesService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
+  lazy val logger = LoggerFactory.getLogger(classOf[CategoriesService])
 
   // Possibly belongs in the client
   // Fails silently if path does not exist
@@ -39,9 +38,9 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]): SearchResults[DomainCount] =  {
+  def format(counts: Stream[JValue]): SearchResults[CategoryCount] =  {
     SearchResults(
-      counts.map { c => DomainCount(c.dyn("key").!, c.dyn("doc_count").!) }
+      counts.map { c => CategoryCount(c.dyn("key").!, c.dyn("doc_count").!) }
     )
   }
 
@@ -49,29 +48,28 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
     val now = Timings.now()
     val params = QueryParametersParser(req)
 
-    val domainRequest = elasticSearchClient.buildCountRequest(
-      "socrata_id.domain_cname.raw",
+    val request = elasticSearchClient.buildCountRequest(
+      "animl_annotations.category_names.raw",
       params.searchQuery,
-      params.domains,
       params.categories,
-      params.tags,
+      params.categories,
+      params.categories,
       params.only
     )
-    val response = domainRequest.execute().actionGet()
+    val response = request.execute().actionGet()
 
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
 
-    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis()))
-    val results = format(counts).copy(timings = Some(timings))
+    val results = format(counts).copy(
+      timings = Some(
+        InternalTimings(
+          Timings.elapsedInMillis(now),
+          Option(response.getTookInMillis())
+        )
+      )
+    )
 
-    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-      req.requestPathStr,
-      req.queryStr.getOrElse("<no query params>"),
-      "requested by",
-      req.servletRequest.getRemoteHost,
-      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceElapsedMillis}""").mkString(" -- ")
-    logger.info(logMsg)
     val payload = Json(results, pretty=true)
 
     OK ~> payload
@@ -79,3 +77,5 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
 
   override def get: HttpService = aggregate
 }
+
+

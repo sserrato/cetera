@@ -10,12 +10,16 @@ import com.socrata.cetera.util.JsonResponses._
 class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
-    domainsResource: => HttpService) {
+    domainsResource: => HttpService,
+    categoriesResource: => HttpService,
+    tagsResource: => HttpService) {
 
   val routes = Routes(
     Route("/version", versionResource),
     Route("/catalog", catalogResource),
-    Route("/catalog/domains", domainsResource))
+    Route("/catalog/domains", domainsResource),
+    Route("/catalog/categories", categoriesResource),
+    Route("/catalog/tags", tagsResource))
 
   def route(req: HttpRequest): HttpResponse =
     routes(req.requestPath) match {

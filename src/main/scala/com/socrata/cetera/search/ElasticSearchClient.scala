@@ -94,11 +94,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       .setSize(limit)
   }
 
-  def buildDomainRequest(searchQuery: Option[String],
-                         domains: Option[Set[String]],
-                         categories: Option[Set[String]],
-                         tags: Option[Set[String]],
-                         only: Option[String]): SearchRequestBuilder = {
+  // Yes, now the callers need to know about ES internals
+  def buildCountRequest(field: String,
+                        searchQuery: Option[String],
+                        domains: Option[Set[String]],
+                        categories: Option[Set[String]],
+                        tags: Option[Set[String]],
+                        only: Option[String]): SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
       searchQuery,
@@ -109,8 +111,8 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
     )
 
     val aggregation = AggregationBuilders
-      .terms("domain_resources_count")
-      .field("socrata_id.domain_cname.raw")
+      .terms("counts")
+      .field(field)
       .order(Terms.Order.count(false)) // count desc
       .size(0) // unlimited!
 

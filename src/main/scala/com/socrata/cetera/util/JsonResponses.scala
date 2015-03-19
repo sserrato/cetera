@@ -1,10 +1,9 @@
 package com.socrata.cetera.util
 
-import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
-import com.rojoma.json.v3.ast.{JValue, JArray, JString}
-import com.rojoma.json.v3.codec.{JsonDecode,JsonEncode}
-import com.rojoma.json.v3.ast.JValue
 import javax.servlet.http.HttpServletResponse
+
+import com.rojoma.json.v3.codec.{JsonDecode,JsonEncode}
+import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.responses._
 
 object JsonResponses {
