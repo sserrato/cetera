@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServletResponse
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
+import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
@@ -14,7 +15,13 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.QueryParametersParser
-import com.socrata.cetera.util.{InternalTimings, DomainResultsWithTimings}
+import com.socrata.cetera.util.{InternalTimings, SearchResults}
+
+case class DomainCount(domain: JValue, count: JValue)
+
+object DomainCount {
+  implicit val jCodec = AutomaticJsonCodecBuilder[DomainCount]
+}
 
 class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[DomainsService])
@@ -32,12 +39,9 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]): Map[String, Map[String, Stream[Map[String, JValue]]]] = {
-    Map("results" ->
-      Map("domain_counts" ->
-        counts.map { c => Map("domain" -> c.dyn("key").!,
-                              "count" -> c.dyn("doc_count").!) }
-      )
+  def format(counts: Stream[JValue]): SearchResults[DomainCount] =  {
+    SearchResults(
+      counts.map { c => DomainCount(c.dyn("key").!, c.dyn("doc_count").!) }
     )
   }
 
@@ -56,11 +60,17 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
 
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
-    val results = format(counts)
-    val formattedResultesWithTimings = DomainResultsWithTimings(
-      InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis())),
-      results)
-    val payload = Json(formattedResultesWithTimings, pretty=true)
+
+    val results = format(counts).copy(
+      timings = Some(
+        InternalTimings(
+          Timings.elapsedInMillis(now),
+          Option(response.getTookInMillis())
+        )
+      )
+    )
+
+    val payload = Json(results, pretty=true)
 
     OK ~> payload
   }

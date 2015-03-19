@@ -40,7 +40,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
         "timed_out": false,
         "took": 4
       }"""
-      val resources = service.extractResources(body)
+      val resources = service.extract(body)
 
       resources.size should be (2)
     }
@@ -48,7 +48,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     // Well, no, it shouldn't actually.
     "fail silently when the expected path to resources does not exist" in {
       val body = j"""{}"""
-      val resources = service.extractResources(body)
+      val resources = service.extract(body)
 
       resources.size should be (0)
     }

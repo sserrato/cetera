@@ -1,9 +1,11 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.ast.JNumber.JUncheckedStringNumber
+import com.rojoma.json.v3.ast.{JNumber, JString}
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest.{ShouldMatchers, WordSpec}
+
+import com.socrata.cetera.util.SearchResults
 
 class DomainsServiceSpec extends WordSpec with ShouldMatchers {
   val service = new DomainsService(null)
@@ -57,22 +59,20 @@ class DomainsServiceSpec extends WordSpec with ShouldMatchers {
     }
 
     "format" in {
-      val expected = Stream(
-        j"""{ "domain" : "onethousand.example.com", "count" : 1000}""",
-        j"""{ "domain" : "two-thirty-four.example.com", "count" : 234}""",
-        j"""{ "domain" : "seven-ate-nine.com", "count" : 78}""",
-        j"""{ "domain" : "poor-bono.example.com", "count" : 1}"""
-      ).map{ jo => jo.toMap } // sorry, type systems
+      val expected = SearchResults[DomainCount](
+        List(
+          DomainCount(JString("onethousand.example.com"), JNumber(1000)),
+          DomainCount(JString("two-thirty-four.example.com"),  JNumber(234)),
+          DomainCount(JString("seven-ate-nine.com"),  JNumber(78)),
+          DomainCount(JString("poor-bono.example.com"),  JNumber(1))
+        )
+      )
 
       val extracted = service.extract(es_response)
       val formatted = service.format(extracted)
+      val results = formatted.results
 
-      for {
-        results <- formatted.get("results")
-        domain_counts <- results.get("domain_counts")
-      } {
-        (domain_counts, expected).zipped.foreach{ (a, e) => a should be (e) }
-      }
+      results.zip(expected.results).foreach{ case (a, e) => a should be (e) }
     }
 
     // Well, no, it shouldn't actually.
