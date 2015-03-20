@@ -9,13 +9,13 @@ import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.util.QueryParametersParser
-import com.socrata.cetera.util.{InternalTimings, SearchResults}
+import com.socrata.cetera.types.CeteraFieldType
+import com.socrata.cetera.util.{InternalTimings, QueryParametersParser, SearchResults}
 
 case class Count(domain: JValue, count: JValue)
 
@@ -45,7 +45,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     )
   }
 
-  def aggregate(field: String)(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: CeteraFieldType)(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
     val params = QueryParametersParser(req)
 
@@ -77,7 +77,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     OK ~> payload
   }
 
-  case class service(field: String) extends SimpleResource {
+  case class Service(field: CeteraFieldType) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
 }

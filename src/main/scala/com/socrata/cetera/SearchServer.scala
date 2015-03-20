@@ -69,7 +69,7 @@ object SearchServer extends App {
       val router = new Router(
         versionService.Service,
         searchService,
-        countService.service
+        countService.Service
       )
 
       logger.info("Initializing handler")

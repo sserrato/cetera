@@ -6,6 +6,8 @@ import org.elasticsearch.action.search.SearchType.COUNT
 import org.elasticsearch.node.NodeBuilder.nodeBuilder
 import org.scalatest.{ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.types._
+
 class LocalESClient() extends ElasticSearchClient("local", 5704, "useless") {
   val node = nodeBuilder().local(true).node()
   override val client = node.client()
@@ -141,7 +143,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
           {
             "terms" :
             {
-              "field" : "arbitrary.field_name.raw",
+              "field" : "socrata_id.domain_cname.raw",
               "size" : 0,
               "order" : { "_count" : "desc" }
             }
@@ -150,7 +152,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       }"""
 
       val request = client.buildCountRequest(
-        field = "arbitrary.field_name.raw",
+        field = DomainFieldType,
         searchQuery = None,
         domains = None,
         categories = None,
@@ -172,7 +174,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
           {
             "terms" :
             {
-              "field" : "arbitrary.field_name.raw",
+              "field" : "animl_annotations.category_names.raw",
               "size" : 0,
               "order" : { "_count" : "desc" }
             }
@@ -181,7 +183,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       }"""
 
       val request = client.buildCountRequest(
-        "arbitrary.field_name.raw",
+        CategoriesFieldType,
         searchQuery = Some("search query terms"),
         domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
         categories = Some(Set("Social Services", "Environment", "Housing & Development")),
