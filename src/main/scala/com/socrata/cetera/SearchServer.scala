@@ -62,14 +62,15 @@ object SearchServer extends App {
       logger.info("Initializing SearchService with Elasticsearch TransportClient")
       val searchService = new SearchService(elasticSearch)
 
-      logger.info("Initializing DomainsService")
-      val domainsService = new DomainsService(elasticSearch)
+      logger.info("Initializing CountService with Elasticsearch TransportClient")
+      val countService = new CountService(elasticSearch)
 
       logger.info("Initializing router with services")
       val router = new Router(
         versionService.Service,
         searchService,
-        domainsService)
+        countService.Service
+      )
 
       logger.info("Initializing handler")
       val handler = router.route _

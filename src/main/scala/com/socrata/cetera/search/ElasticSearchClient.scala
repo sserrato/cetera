@@ -11,6 +11,18 @@ import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 
+import com.socrata.cetera.types._
+
+object ElasticSearchFieldTranslator {
+  def getFieldName(field: CeteraFieldType): String = {
+    field match {
+      case DomainFieldType => "socrata_id.domain_cname.raw"
+      case CategoriesFieldType => "animl_annotations.category_names.raw"
+      case TagsFieldType => "animl_annotations.tag_names.raw"
+    }
+  }
+}
+
 class ElasticSearchClient(host: String, port: Int, clusterName: String) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
                    .put("cluster.name", clusterName)
@@ -22,7 +34,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
   def close(): Unit = client.close()
 
-  // Assumes query extraction and validation have already been done
+  // Assumes validation has already been done
   def buildBaseRequest(searchQuery: Option[String],
                        domains: Option[Set[String]],
                        categories: Option[Set[String]],
@@ -38,19 +50,28 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       // OR of domain filters
       val domainFilter = domains match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(d) => FilterBuilders.termsFilter("socrata_id.domain_cname.raw", d.toSeq:_*)
+        case Some(c) => FilterBuilders.termsFilter(
+          ElasticSearchFieldTranslator.getFieldName(DomainFieldType),
+          c.toSeq:_*
+        )
       }
 
       // OR of category filters
       val categoryFilter = categories match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter("animl_annotations.category_names.raw", c.toSeq:_*)
+        case Some(c) => FilterBuilders.termsFilter(
+          ElasticSearchFieldTranslator.getFieldName(CategoriesFieldType),
+          c.toSeq:_*
+        )
       }
 
       // OR of tag filters
       val tagFilter = tags match {
         case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter("animl_annotations.tag_names.raw", c.toSeq:_*)
+        case Some(c) => FilterBuilders.termsFilter(
+          ElasticSearchFieldTranslator.getFieldName(TagsFieldType),
+          c.toSeq:_*
+        )
       }
 
       // AND of OR filters (CNF)
@@ -94,11 +115,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       .setSize(limit)
   }
 
-  def buildDomainRequest(searchQuery: Option[String],
-                         domains: Option[Set[String]],
-                         categories: Option[Set[String]],
-                         tags: Option[Set[String]],
-                         only: Option[String]): SearchRequestBuilder = {
+  // Yes, now the callers need to know about ES internals
+  def buildCountRequest(field: CeteraFieldType,
+                        searchQuery: Option[String],
+                        domains: Option[Set[String]],
+                        categories: Option[Set[String]],
+                        tags: Option[Set[String]],
+                        only: Option[String]): SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
       searchQuery,
@@ -109,8 +132,8 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
     )
 
     val aggregation = AggregationBuilders
-      .terms("domain_resources_count")
-      .field("socrata_id.domain_cname.raw")
+      .terms("counts")
+      .field(ElasticSearchFieldTranslator.getFieldName(field))
       .order(Terms.Order.count(false)) // count desc
       .size(0) // unlimited!
 

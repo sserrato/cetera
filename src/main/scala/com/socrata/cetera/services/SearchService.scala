@@ -6,11 +6,10 @@ import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
-
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
@@ -18,14 +17,13 @@ import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.QueryParametersParser
 import com.socrata.cetera.util.{InternalTimings, SearchResults}
 
-
-case class Classification(categories:JValue, tags:JValue)
+case class Classification(categories: JValue, tags: JValue)
 
 object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
 }
 
-case class SearchResult(resource: JValue, classification:Classification, metadata: Map[String, JValue], link: JString) 
+case class SearchResult(resource: JValue, classification: Classification, metadata: Map[String, JValue], link: JString)
 object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
@@ -52,13 +50,13 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
         val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
         val pageID = r.dyn("socrata_id").apply("page_id").?
-        val catagories =r.dyn("animl_annotations").apply("category_names").! 
-        val tags =r.dyn("animl_annotations").apply("tag_names").! 
+        val catagories =r.dyn("animl_annotations").apply("category_names").!
+        val tags =r.dyn("animl_annotations").apply("tag_names").!
         val link = pageID match {
           case Right(pgId) =>  JString(s"""${cname.string}/view/${pgId.cast[JString].get.string}""")
           case _ => JString(s"""${cname.string}/ux/dataset/${datasetID}""")
         }
-        SearchResult(r.dyn("resource").!, 
+        SearchResult(r.dyn("resource").!,
           Classification(catagories, tags),
           Map("domain"->cname),
           link)

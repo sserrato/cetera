@@ -9,22 +9,22 @@ import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.util.QueryParametersParser
-import com.socrata.cetera.util.{InternalTimings, SearchResults}
+import com.socrata.cetera.types.CeteraFieldType
+import com.socrata.cetera.util.{InternalTimings, QueryParametersParser, SearchResults}
 
-case class DomainCount(domain: JValue, count: JValue)
+case class Count(domain: JValue, count: JValue)
 
-object DomainCount {
-  implicit val jCodec = AutomaticJsonCodecBuilder[DomainCount]
+object Count {
+  implicit val jCodec = AutomaticJsonCodecBuilder[Count]
 }
 
-class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
-  lazy val logger = LoggerFactory.getLogger(classOf[DomainsService])
+class CountService(elasticSearchClient: ElasticSearchClient) {
+  lazy val logger = LoggerFactory.getLogger(classOf[CountService])
 
   // Possibly belongs in the client
   // Fails silently if path does not exist
@@ -32,31 +32,32 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
     val jPath = new JPath(body)
     jPath
       .down("aggregations")
-      .down("domain_resources_count")
+      .down("counts")
       .down("buckets")
       .*
       .finish
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]): SearchResults[DomainCount] =  {
+  def format(counts: Stream[JValue]): SearchResults[Count] =  {
     SearchResults(
-      counts.map { c => DomainCount(c.dyn("key").!, c.dyn("doc_count").!) }
+      counts.map { c => Count(c.dyn("key").!, c.dyn("doc_count").!) }
     )
   }
 
-  def aggregate(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: CeteraFieldType)(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
     val params = QueryParametersParser(req)
 
-    val domainRequest = elasticSearchClient.buildDomainRequest(
+    val request = elasticSearchClient.buildCountRequest(
+      field,
       params.searchQuery,
       params.domains,
       params.categories,
       params.tags,
       params.only
     )
-    val response = domainRequest.execute().actionGet()
+    val response = request.execute().actionGet()
 
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
@@ -76,5 +77,8 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
     OK ~> payload
   }
 
-  override def get: HttpService = aggregate
+  case class Service(field: CeteraFieldType) extends SimpleResource {
+    override def get: HttpService = aggregate(field)
+  }
 }
+
