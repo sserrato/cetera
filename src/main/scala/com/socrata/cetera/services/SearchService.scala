@@ -69,12 +69,6 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   // Failure cases are not handled, in particular actionGet() from ES throws
   def search(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
-    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-      req.requestPathStr,
-      req.queryStr.getOrElse("<no query params>"),
-      "requested by",
-      req.servletRequest.getRemoteHost).mkString(" -- ")
-    logger.info(logMsg)
 
     val params = QueryParametersParser(req)
 
@@ -89,14 +83,16 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     )
     val searchResponse = searchRequest.execute().actionGet()
 
-    val formattedResults = format(searchResponse).copy(
-      timings = Some(
-        InternalTimings(
-          Timings.elapsedInMillis(now),
-          Option(searchResponse.getTookInMillis())
-        )
-      )
-    )
+    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(searchResponse.getTookInMillis()))
+    val formattedResults = format(searchResponse).copy(timings = Some(timings))
+
+    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+      req.requestPathStr,
+      req.queryStr.getOrElse("<no query params>"),
+      "requested by",
+      req.servletRequest.getRemoteHost,
+      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceElapsedMillis}""").mkString(" -- ")
+    logger.info(logMsg)
 
     val payload = Json(formattedResults, pretty=true)
 

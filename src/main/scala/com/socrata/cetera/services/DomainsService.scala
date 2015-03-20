@@ -61,15 +61,16 @@ class DomainsService(elasticSearchClient: ElasticSearchClient) extends SimpleRes
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
 
-    val results = format(counts).copy(
-      timings = Some(
-        InternalTimings(
-          Timings.elapsedInMillis(now),
-          Option(response.getTookInMillis())
-        )
-      )
-    )
+    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis()))
+    val results = format(counts).copy(timings = Some(timings))
 
+    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+      req.requestPathStr,
+      req.queryStr.getOrElse("<no query params>"),
+      "requested by",
+      req.servletRequest.getRemoteHost,
+      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceElapsedMillis}""").mkString(" -- ")
+    logger.info(logMsg)
     val payload = Json(results, pretty=true)
 
     OK ~> payload
