@@ -38,8 +38,57 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     }
   }"""
 
+  val complexQuery = j"""{
+    "filtered": {
+      "filter": {
+        "and": {
+          "filters" : [
+          {
+            "terms" :
+            {
+              "socrata_id.domain_cname.raw" : [
+              "www.example.com",
+              "test.example.com",
+              "socrata.com"
+              ]
+            }
+          },
+          {
+            "terms" :
+            {
+              "animl_annotations.category_names.raw" : [
+              "Social Services",
+              "Environment",
+              "Housing & Development"
+              ]
+            }
+          },
+          {
+            "terms" :
+            {
+              "animl_annotations.tag_names.raw" : [
+              "taxi",
+              "art",
+              "clowns"
+              ]
+            }
+          }
+          ]
+        }
+      },
+      "query": {
+        "match": {
+          "_all": {
+            "query": "search query terms",
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }"""
+
   "buildBaseRequest" should {
-    "construct a default match all query correctly" in {
+    "construct a default match all query" in {
       val expected = j"""{
         "query" : ${defaultQuery}
       }"""
@@ -59,58 +108,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   }
 
   "buildSearchRequest" should {
-    "construct a filtered match query correctly" in {
+    "construct a filtered match query" in {
       val expected = j"""{
         "from": 10,
         "size": 20,
-        "query": {
-          "filtered": {
-            "filter": {
-              "and": {
-                "filters" : [
-                {
-                  "terms" :
-                  {
-                    "socrata_id.domain_cname.raw" : [
-                    "www.example.com",
-                    "test.example.com",
-                    "socrata.com"
-                    ]
-                  }
-                },
-                {
-                  "terms" :
-                  {
-                    "animl_annotations.category_names.raw" : [
-                    "Social Services",
-                    "Environment",
-                    "Housing & Development"
-                    ]
-                  }
-                },
-                {
-                  "terms" :
-                  {
-                    "animl_annotations.tag_names.raw" : [
-                    "taxi",
-                    "art",
-                    "clowns"
-                    ]
-                  }
-                }
-                ]
-              }
-            },
-            "query": {
-              "match": {
-                "_all": {
-                  "query": "search query terms",
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
+        "query": ${complexQuery}
       }"""
 
       val request = client.buildSearchRequest(
@@ -122,6 +124,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         10,
         20
       )
+
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -130,7 +133,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   }
 
   "buildCountRequest" should {
-    "construct a default search with aggregation" in {
+    "construct a default search query with aggregation" in {
       val expected = j"""{
         "query" : ${defaultQuery},
         "aggregations" : {
@@ -154,6 +157,38 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         tags = None,
         only = None
       )
+
+      val actual = JsonReader.fromString(request.toString)
+
+      actual should be (expected)
+      request.request.searchType should be (COUNT)
+    }
+
+    "construct a filtered match query with aggregation" in {
+      val expected = j"""{
+        "query" : ${complexQuery},
+        "aggregations" : {
+          "counts" :
+          {
+            "terms" :
+            {
+              "field" : "arbitrary.field_name.raw",
+              "size" : 0,
+              "order" : { "_count" : "desc" }
+            }
+          }
+        }
+      }"""
+
+      val request = client.buildCountRequest(
+        "arbitrary.field_name.raw",
+        searchQuery = Some("search query terms"),
+        domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+        categories = Some(Set("Social Services", "Environment", "Housing & Development")),
+        tags = Some(Set("taxi", "art", "clowns")),
+        only = Some("dataset")
+      )
+
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)

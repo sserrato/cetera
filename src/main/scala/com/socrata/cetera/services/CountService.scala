@@ -14,16 +14,17 @@ import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.util.{InternalTimings, SearchResults, QueryParametersParser}
+import com.socrata.cetera.util.QueryParametersParser
+import com.socrata.cetera.util.{InternalTimings, SearchResults}
 
-case class CategoryCount(category: JValue, count: JValue)
+case class Count(domain: JValue, count: JValue)
 
-object CategoryCount {
-  implicit val jCodec = AutomaticJsonCodecBuilder[CategoryCount]
+object Count {
+  implicit val jCodec = AutomaticJsonCodecBuilder[Count]
 }
 
-class CategoriesService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
-  lazy val logger = LoggerFactory.getLogger(classOf[CategoriesService])
+class CountService(elasticSearchClient: ElasticSearchClient) {
+  lazy val logger = LoggerFactory.getLogger(classOf[CountService])
 
   // Possibly belongs in the client
   // Fails silently if path does not exist
@@ -38,22 +39,22 @@ class CategoriesService(elasticSearchClient: ElasticSearchClient) extends Simple
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]): SearchResults[CategoryCount] =  {
+  def format(counts: Stream[JValue]): SearchResults[Count] =  {
     SearchResults(
-      counts.map { c => CategoryCount(c.dyn("key").!, c.dyn("doc_count").!) }
+      counts.map { c => Count(c.dyn("key").!, c.dyn("doc_count").!) }
     )
   }
 
-  def aggregate(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: String)(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
     val params = QueryParametersParser(req)
 
     val request = elasticSearchClient.buildCountRequest(
-      "animl_annotations.category_names.raw",
+      field,
       params.searchQuery,
+      params.domains,
       params.categories,
-      params.categories,
-      params.categories,
+      params.tags,
       params.only
     )
     val response = request.execute().actionGet()
@@ -61,21 +62,23 @@ class CategoriesService(elasticSearchClient: ElasticSearchClient) extends Simple
     val json = JsonReader.fromString(response.toString)
     val counts = extract(json)
 
-    val results = format(counts).copy(
-      timings = Some(
-        InternalTimings(
-          Timings.elapsedInMillis(now),
-          Option(response.getTookInMillis())
-        )
-      )
-    )
+    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis()))
+    val results = format(counts).copy(timings = Some(timings))
 
+    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+      req.requestPathStr,
+      req.queryStr.getOrElse("<no query params>"),
+      "requested by",
+      req.servletRequest.getRemoteHost,
+      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceElapsedMillis}""").mkString(" -- ")
+    logger.info(logMsg)
     val payload = Json(results, pretty=true)
 
     OK ~> payload
   }
 
-  override def get: HttpService = aggregate
+  case class service(field: String) extends SimpleResource {
+    override def get: HttpService = aggregate(field)
+  }
 }
-
 

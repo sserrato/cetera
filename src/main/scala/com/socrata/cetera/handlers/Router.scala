@@ -7,19 +7,18 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
 import com.socrata.cetera.util.JsonResponses._
 
+// Now the router knows about our ES field names
 class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
-    domainsResource: => HttpService,
-    categoriesResource: => HttpService,
-    tagsResource: => HttpService) {
+    countResource: String => HttpService) {
 
   val routes = Routes(
     Route("/version", versionResource),
     Route("/catalog", catalogResource),
-    Route("/catalog/domains", domainsResource),
-    Route("/catalog/categories", categoriesResource),
-    Route("/catalog/tags", tagsResource))
+    Route("/catalog/domains", countResource("socrata_id.domain_cname.raw")),
+    Route("/catalog/categories", countResource("animl_annotations.category_names.raw")),
+    Route("/catalog/tags", countResource("animl_annotations.tag_names.raw")))
 
   def route(req: HttpRequest): HttpResponse =
     routes(req.requestPath) match {

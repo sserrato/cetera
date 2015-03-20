@@ -7,10 +7,10 @@ import org.scalatest.{ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.util.SearchResults
 
-class DomainsServiceSpec extends WordSpec with ShouldMatchers {
-  val service = new DomainsService(null)
+class CountServiceSpec extends WordSpec with ShouldMatchers {
+  val service = new CountService(null)
 
-  "DomainsService" should {
+  "CountService" should {
     val es_response = j"""{
       "took" : 1,
       "timed_out" : false,
@@ -25,7 +25,7 @@ class DomainsServiceSpec extends WordSpec with ShouldMatchers {
         "hits" : [ ]
       },
       "aggregations" : {
-        "domain_resources_count" : {
+        "counts" : {
           "doc_count_error_upper_bound" : 0,
           "sum_other_doc_count" : 0,
           "buckets" : [ {
@@ -59,12 +59,12 @@ class DomainsServiceSpec extends WordSpec with ShouldMatchers {
     }
 
     "format" in {
-      val expected = SearchResults[DomainCount](
+      val expected = SearchResults[Count](
         List(
-          DomainCount(JString("onethousand.example.com"), JNumber(1000)),
-          DomainCount(JString("two-thirty-four.example.com"),  JNumber(234)),
-          DomainCount(JString("seven-ate-nine.com"),  JNumber(78)),
-          DomainCount(JString("poor-bono.example.com"),  JNumber(1))
+          Count(JString("onethousand.example.com"), JNumber(1000)),
+          Count(JString("two-thirty-four.example.com"),  JNumber(234)),
+          Count(JString("seven-ate-nine.com"),  JNumber(78)),
+          Count(JString("poor-bono.example.com"),  JNumber(1))
         )
       )
 
