@@ -68,7 +68,7 @@ object SearchServer extends App {
       logger.info("Initializing router with services")
       val router = new Router(
         versionService.Service,
-        searchService,
+        searchService.Service,
         countService.Service
       )
 

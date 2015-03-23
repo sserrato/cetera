@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
+import scala.util.{Try, Success, Failure}
 
 import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
@@ -10,10 +11,12 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpService}
+import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
+import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
 case class Classification(categories: JValue, tags: JValue)
@@ -63,38 +66,50 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     )
   }
 
-  // Failure cases are not handled, in particular actionGet() from ES throws
   def search(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
 
     val params = QueryParametersParser(req)
 
-    val searchRequest = elasticSearchClient.buildSearchRequest(
-      params.searchQuery,
-      params.domains,
-      params.categories,
-      params.tags,
-      params.only,
-      params.offset,
-      params.limit
-    )
-    val searchResponse = searchRequest.execute().actionGet()
+    params match {
+      case Right(parms) =>
+        val request = elasticSearchClient.buildSearchRequest(
+          parms.searchQuery,
+          parms.domains,
+          parms.categories,
+          parms.tags,
+          parms.only,
+          parms.offset,
+          parms.limit
+        )
 
-    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(searchResponse.getTookInMillis()))
-    val formattedResults = format(searchResponse).copy(timings = Some(timings))
+        val response = Try(request.execute().actionGet())
 
-    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-      req.requestPathStr,
-      req.queryStr.getOrElse("<no query params>"),
-      "requested by",
-      req.servletRequest.getRemoteHost,
-      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
-    logger.info(logMsg)
+        response match {
+          case Success(res) =>
+            val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
+            val formattedResults = format(res).copy(timings = Some(timings))
+            val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+              req.requestPathStr,
+              req.queryStr.getOrElse("<no query params>"),
+              "requested by",
+              req.servletRequest.getRemoteHost,
+              s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
+            logger.info(logMsg)
+            val payload = Json(formattedResults, pretty=true)
+            OK ~> payload
 
-    val payload = Json(formattedResults, pretty=true)
+          case Failure(ex) =>
+            InternalServerError ~> jsonError(s"Database error: ${ex.getMessage}")
+        }
 
-    OK ~> payload
+      case Left(errors) =>
+        val msg = errors.map(_.message).mkString(", ")
+        BadRequest ~> jsonError(s"Invalid query parameters: ${msg}")
+    }
   }
 
-  override def get: HttpService = search
+  object Service extends SimpleResource {
+    override def get: HttpService = search
+  }
 }
