@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
+import scala.util.{Try, Success, Failure}
 
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.io.JsonReader
@@ -10,11 +11,13 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpService}
+import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types.CeteraFieldType
+import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
 case class Count(domain: JValue, count: JValue)
@@ -47,38 +50,49 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
 
   def aggregate(field: CeteraFieldType)(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
+
     val params = QueryParametersParser(req)
 
-    val request = elasticSearchClient.buildCountRequest(
-      field,
-      params.searchQuery,
-      params.domains,
-      params.categories,
-      params.tags,
-      params.only
-    )
-    val response = request.execute().actionGet()
+    params match {
+      case Right(params) =>
+        val request = elasticSearchClient.buildCountRequest(
+          field,
+          params.searchQuery,
+          params.domains,
+          params.categories,
+          params.tags,
+          params.only
+        )
 
-    val json = JsonReader.fromString(response.toString)
-    val counts = extract(json)
+        val response = Try(request.execute().actionGet())
 
-    val timings = InternalTimings(Timings.elapsedInMillis(now), Option(response.getTookInMillis()))
-    val results = format(counts).copy(timings = Some(timings))
+        response match {
+          case Success(res) =>
+            val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
+            val json = JsonReader.fromString(res.toString)
+            val counts = extract(json)
+            val formattedResults = format(counts).copy(timings = Some(timings))
+            val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
+              req.requestPathStr,
+              req.queryStr.getOrElse("<no query params>"),
+              "requested by",
+              req.servletRequest.getRemoteHost,
+              s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
+            logger.info(logMsg)
+            val payload = Json(formattedResults, pretty=true)
+            OK ~> payload
 
-    val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-      req.requestPathStr,
-      req.queryStr.getOrElse("<no query params>"),
-      "requested by",
-      req.servletRequest.getRemoteHost,
-      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
-    logger.info(logMsg)
-    val payload = Json(results, pretty=true)
+          case Failure(ex) =>
+            InternalServerError ~> jsonError(s"Database error: ${ex.getMessage}")
+        }
 
-    OK ~> payload
+      case Left(errors) =>
+        val msg = errors.map(_.message).mkString(", ")
+        BadRequest ~> jsonError(s"Invalid query parameters: ${msg}")
+    }
   }
 
   case class Service(field: CeteraFieldType) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
 }
-

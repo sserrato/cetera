@@ -12,6 +12,11 @@ case class ValidatedQueryParameters(
   limit: Int
 )
 
+sealed trait ParseError { def message: String }
+
+case class OnlyError(override val message: String) extends ParseError
+case class LimitError(override val message: String) extends ParseError
+
 // Parses and validates
 object QueryParametersParser {
 
@@ -74,23 +79,36 @@ object QueryParametersParser {
       None
   }
 
-  def apply(req: HttpRequest): ValidatedQueryParameters = {
+  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val searchQuery = req.queryParameters.get("q")
     val domains = req.queryParameters.get("domains").map(_.split(",").toSet)
     val categories = req.queryParameters.get("categories").map(_.split(",").toSet)
     val tags = req.queryParameters.get("tags").map(_.split(",").toSet)
-    val only = req.queryParameters.get("only")
+
+    val only = req.queryParameters.get("only") match {
+      case Some("datasets") => Right(Some("dataset"))
+      case Some("pages") => Right(Some("page"))
+      case Some(invalid) =>
+        Left(OnlyError(s"only must be one of {datasets, pages} got only=${invalid}"))
+      case None => Right(None)
+    }
+
     val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
     val limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
 
-    ValidatedQueryParameters(
-      searchQuery,
-      domains,
-      categories,
-      tags,
-      only,
-      offset,
-      limit
-    )
+    only match {
+      case Right(o) =>
+        Right(ValidatedQueryParameters(
+          searchQuery,
+          domains,
+          categories,
+          tags,
+          o,
+          offset,
+          limit
+        ))
+
+      case Left(e) => Left(Seq(e))
+    }
   }
 }
