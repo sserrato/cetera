@@ -40,6 +40,6 @@ class Router(
       case Some(s) =>
         s(req)
       case None =>
-        NotFound ~> jsonError("not found")
+        NotFound ~> Header("Access-Control-Allow-Origin", "*") ~> jsonError("not found")
     }
 }

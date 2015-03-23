@@ -80,15 +80,15 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
               s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
             logger.info(logMsg)
             val payload = Json(formattedResults, pretty=true)
-            OK ~> payload
+            OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
 
           case Failure(ex) =>
-            InternalServerError ~> jsonError(s"Database error: ${ex.getMessage}")
+            InternalServerError ~> Header("Access-Control-Allow-Origin", "*") ~> jsonError(s"Database error: ${ex.getMessage}")
         }
 
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
-        BadRequest ~> jsonError(s"Invalid query parameters: ${msg}")
+        BadRequest ~> Header("Access-Control-Allow-Origin", "*") ~> jsonError(s"Invalid query parameters: ${msg}")
     }
   }
 
