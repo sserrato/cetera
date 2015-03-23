@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types.CeteraFieldType
-import com.socrata.cetera.util.{InternalTimings, QueryParametersParser, SearchResults}
+import com.socrata.cetera.util._
 
 case class Count(domain: JValue, count: JValue)
 
@@ -70,7 +70,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
       req.queryStr.getOrElse("<no query params>"),
       "requested by",
       req.servletRequest.getRemoteHost,
-      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceElapsedMillis}""").mkString(" -- ")
+      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
     logger.info(logMsg)
     val payload = Json(results, pretty=true)
 
