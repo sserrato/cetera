@@ -25,7 +25,7 @@ object InternalTimings {
   implicit val jCodec = AutomaticJsonCodecBuilder[InternalTimings]
 }
 
-case class SearchResults[T: JsonEncode](results: Seq[T], timings: Option[InternalTimings] = None)
+case class SearchResults[T: JsonEncode](results: Seq[T], resultSetSize: Option[Long] = None,timings: Option[InternalTimings] = None)
 
 object SearchResults {
   implicit def jCodec[T: JsonEncode: JsonDecode] = AutomaticJsonCodecBuilder[SearchResults[T]]

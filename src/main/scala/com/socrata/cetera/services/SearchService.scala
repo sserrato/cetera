@@ -2,6 +2,7 @@ package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
 import scala.util.{Try, Success, Failure}
+import scala.collection.JavaConverters._
 
 import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
@@ -34,6 +35,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // Fails silently if path does not exist
+  // DEAD CODE NODE
   def extract(body: JValue): Stream[JValue] = {
     val jPath = new JPath(body)
     jPath
@@ -45,10 +47,11 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   }
 
   def format(searchResponse: SearchResponse): SearchResults[SearchResult] = {
-    val body = JsonReader.fromString(searchResponse.toString)
-    val resources = extract(body)
+    val resources = searchResponse.getHits().hits()
     SearchResults(
-      resources.map { r =>
+      resources.map { hit =>
+        val source = hit.sourceAsString() 
+        val r = JsonReader.fromString(source)
         val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
         val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
         val pageID = r.dyn("socrata_id").apply("page_id").?
@@ -88,7 +91,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         response match {
           case Success(res) =>
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
-            val formattedResults = format(res).copy(timings = Some(timings))
+            val count = res.getHits().getTotalHits()
+            val formattedResults = format(res).copy(resultSetSize = Some(count),timings = Some(timings))
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),
