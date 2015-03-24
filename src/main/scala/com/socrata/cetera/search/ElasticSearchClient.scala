@@ -41,57 +41,36 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                        tags: Option[Set[String]],
                        only: Option[String]): SearchRequestBuilder = {
 
-    val filteredQuery = {
-      val matchQuery = searchQuery match {
-        case None => QueryBuilders.matchAllQuery()
-        case Some(sq) => QueryBuilders.matchQuery("_all", sq)
-      }
+    val matchQuery = searchQuery match {
+      case None => QueryBuilders.matchAllQuery()
+      case Some(sq) => QueryBuilders.matchQuery("_all", sq)
+    }
 
-      // OR of domain filters
-      val domainFilter = domains match {
-        case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter(
-          ElasticSearchFieldTranslator.getFieldName(DomainFieldType),
-          c.toSeq:_*
+    val query = (domains, categories, tags) match {
+      case (None, None, None) =>
+        matchQuery
+
+      case _ =>
+        val fieldTypeTerms = List(DomainFieldType -> domains,
+          CategoriesFieldType -> categories,
+          TagsFieldType -> tags)
+
+        val filters = fieldTypeTerms.collect { case (fieldType, Some(terms)) =>
+          FilterBuilders.termsFilter( ElasticSearchFieldTranslator.getFieldName(fieldType),
+            terms.toSeq:_*)
+        }
+
+        QueryBuilders.filteredQuery(
+          matchQuery,
+          FilterBuilders.andFilter(filters:_*)
         )
-      }
-
-      // OR of category filters
-      val categoryFilter = categories match {
-        case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter(
-          ElasticSearchFieldTranslator.getFieldName(CategoriesFieldType),
-          c.toSeq:_*
-        )
-      }
-
-      // OR of tag filters
-      val tagFilter = tags match {
-        case None => FilterBuilders.matchAllFilter()
-        case Some(c) => FilterBuilders.termsFilter(
-          ElasticSearchFieldTranslator.getFieldName(TagsFieldType),
-          c.toSeq:_*
-        )
-      }
-
-      // AND of OR filters (CNF)
-      val domainAndCategoryFilter = FilterBuilders.andFilter(
-        domainFilter,
-        categoryFilter,
-        tagFilter
-      )
-
-      QueryBuilders.filteredQuery(
-        matchQuery,
-        domainAndCategoryFilter
-      )
     }
 
     // Imperative builder --> order is important
     client
       .prepareSearch()
       .setTypes(only.toList:_*)
-      .setQuery(filteredQuery)
+      .setQuery(query)
   }
 
   def buildSearchRequest(searchQuery: Option[String],
