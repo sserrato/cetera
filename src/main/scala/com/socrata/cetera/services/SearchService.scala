@@ -52,8 +52,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
         val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
         val pageID = r.dyn("socrata_id").apply("page_id").?
-        val catagories =r.dyn("animl_annotations").apply("category_names").!
-        val tags =r.dyn("animl_annotations").apply("tag_names").!
+        val catagories = r.dyn("animl_annotations").apply("category_names").!
+        val tags = r.dyn("animl_annotations").apply("tag_names").!
         val link = pageID match {
           case Right(pgId) =>  JString(s"""${cname.string}/view/${pgId.cast[JString].get.string}""")
           case _ => JString(s"""${cname.string}/ux/dataset/${datasetID}""")
