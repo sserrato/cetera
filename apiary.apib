@@ -1,5 +1,7 @@
 FORMAT: 1A
 
+HOST: api.us.test-socrata.com/api
+
 # Cetera -- Search Service
 
 Features may not be implemented yet (such as the `highlight` option); however, we wish to future proof the API against version changes.
@@ -193,7 +195,7 @@ The full search API is detailed here, with some additional options such as `tags
     [Search Endpoint][]
     
     
-## Listing Domains [/catalog/domains/v1]
+## Listing Domains [/catalog/v1/domains]
 The search service has the ability to return information regarding the domains in its index.  Return body and functionality to be determined
 
 ### Return all domains [GET]
@@ -205,7 +207,7 @@ The search service has the ability to return information regarding the domains i
         }
 
 
-## Searching for tags [/catalog/tags/v1]
+## Searching for tags [/catalog/v1/tags]
 Returns aggregate tag statistics as well as a list of tags.  Return body and functionality to be determined
 
 ### Return tags [GET]
@@ -216,7 +218,7 @@ Returns aggregate tag statistics as well as a list of tags.  Return body and fun
             "message": "Not yet implemented"
         }
 
-## Searching for categories [/catalog/categories/v1]
+## Searching for categories [/catalog/v1/categories]
 Returns aggregate category statistics as well as a list of categories.  Return body and functionality to be determined
 
 ### Return categories [GET]
