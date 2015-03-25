@@ -1,12 +1,11 @@
 package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
-import scala.util.{Try, Success, Failure}
 import scala.collection.JavaConverters._
+import scala.util.{Try, Success, Failure}
 
 import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
-import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
@@ -26,7 +25,11 @@ object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
 }
 
-case class SearchResult(resource: JValue, classification: Classification, metadata: Map[String, JValue], link: JString)
+case class SearchResult(resource: JValue,
+                        classification: Classification,
+                        metadata: Map[String, JValue],
+                        link: JString)
+
 object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
@@ -34,37 +37,43 @@ object SearchResult {
 class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  // Fails silently if path does not exist
-  // DEAD CODE NODE
-  def extract(body: JValue): Stream[JValue] = {
-    val jPath = new JPath(body)
-    jPath
-      .down("hits")
-      .down("hits")
-      .*
-      .down("_source")
-      .finish
-  }
-
   def format(searchResponse: SearchResponse): SearchResults[SearchResult] = {
     val resources = searchResponse.getHits().hits()
     SearchResults(
       resources.map { hit =>
-        val source = hit.sourceAsString() 
+        val source = hit.sourceAsString()
         val r = JsonReader.fromString(source)
-        val cname = r.dyn("socrata_id").apply("domain_cname").!.cast[JArray].get.apply(0).cast[JString].get
-        val datasetID = r.dyn("socrata_id").apply("dataset_id").!.cast[JString].get.string
-        val pageID = r.dyn("socrata_id").apply("page_id").?
-        val catagories = r.dyn("animl_annotations").apply("category_names").!
-        val tags = r.dyn("animl_annotations").apply("tag_names").!
-        val link = pageID match {
-          case Right(pgId) =>  JString(s"""https://${cname.string}/view/${pgId.cast[JString].get.string}""")
-          case _ => JString(s"""https://${cname.string}/ux/dataset/${datasetID}""")
+
+        val categories = r.dyn.animl_annotations.category_names.? match {
+          case Right(cats) => cats
+          case Left(error) => JArray(Seq()) // for consistent return body
         }
-        SearchResult(r.dyn("resource").!,
-          Classification(catagories, tags),
-          Map("domain"->cname),
-          link)
+
+        val tags = r.dyn.animl_annotations.tag_names.? match {
+          case Right(tags) => tags
+          case Left(error) => JArray(Seq()) // for consistent return body
+        }
+
+        // domain_cname is actually an array, current should be last
+        val cname = r.dyn.socrata_id.domain_cname.!.asInstanceOf[JArray].last.asInstanceOf[JString]
+
+        val datasetID = r.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
+
+        val pageID = r.dyn.socrata_id.page_id.?
+
+        val link = pageID match {
+          case Right(pgId) =>
+            JString(s"""https://${cname.string}/view/${pgId.asInstanceOf[JString].string}""")
+          case _ =>
+            JString(s"""https://${cname.string}/ux/dataset/${datasetID.string}""")
+        }
+
+        SearchResult(
+          r.dyn.resource.!,
+          Classification(categories, tags),
+          Map("domain" -> cname),
+          link
+        )
       }
     )
   }
@@ -72,18 +81,16 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
   def search(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
 
-    val params = QueryParametersParser(req)
-
-    params match {
-      case Right(parms) =>
+    QueryParametersParser(req) match {
+      case Right(params) =>
         val request = elasticSearchClient.buildSearchRequest(
-          parms.searchQuery,
-          parms.domains,
-          parms.categories,
-          parms.tags,
-          parms.only,
-          parms.offset,
-          parms.limit
+          params.searchQuery,
+          params.domains,
+          params.categories,
+          params.tags,
+          params.only,
+          params.offset,
+          params.limit
         )
 
         val response = Try(request.execute().actionGet())
@@ -92,7 +99,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           case Success(res) =>
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
             val count = res.getHits().getTotalHits()
-            val formattedResults = format(res).copy(resultSetSize = Some(count),timings = Some(timings))
+            val formattedResults = format(res).copy(resultSetSize = Some(count), timings = Some(timings))
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),

@@ -44,7 +44,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
   // Unhandled exception on missing key
   def format(counts: Stream[JValue]): SearchResults[Count] =  {
     SearchResults(
-      counts.map { c => Count(c.dyn("key").!, c.dyn("doc_count").!) }
+      counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }
     )
   }
 
