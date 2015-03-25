@@ -55,8 +55,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val catagories = r.dyn("animl_annotations").apply("category_names").!
         val tags = r.dyn("animl_annotations").apply("tag_names").!
         val link = pageID match {
-          case Right(pgId) =>  JString(s"""${cname.string}/view/${pgId.cast[JString].get.string}""")
-          case _ => JString(s"""${cname.string}/ux/dataset/${datasetID}""")
+          case Right(pgId) =>  JString(s"""https://${cname.string}/view/${pgId.cast[JString].get.string}""")
+          case _ => JString(s"""https://${cname.string}/ux/dataset/${datasetID}""")
         }
         SearchResult(r.dyn("resource").!,
           Classification(catagories, tags),
