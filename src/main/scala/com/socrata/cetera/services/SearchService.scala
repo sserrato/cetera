@@ -1,7 +1,6 @@
 package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
-import scala.collection.JavaConverters._
 import scala.util.{Try, Success, Failure}
 
 import com.rojoma.json.v3.ast.{JValue, JArray, JString}
@@ -11,7 +10,6 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpService}
-import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
@@ -46,12 +44,12 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
 
         val categories = r.dyn.animl_annotations.category_names.? match {
           case Right(cats) => cats
-          case Left(error) => JArray(Seq()) // for consistent return body
+          case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
 
         val tags = r.dyn.animl_annotations.tag_names.? match {
           case Right(tags) => tags
-          case Left(error) => JArray(Seq()) // for consistent return body
+          case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
 
         // domain_cname is actually an array, current should be last
