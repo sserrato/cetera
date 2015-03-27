@@ -137,7 +137,7 @@ With the exception of the additional `type` field, the objects in the `resources
 When no `domain` parameter is passed, the search service returns results from the entire corpus.
 
 + Parameters
-    + domains (optional, list[string], `data.seattle.gov,data.kingcounty.gov`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
+    + domains (optional, list[string], `data.seattle.gov,data.hawaii.gov`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
     
 
 ### Domain Search API [GET]
@@ -150,7 +150,7 @@ When no `domain` parameter is passed, the search service returns results from th
 When no `categories` parameter is passed, the search service returns results from the entire set of categories.
     
 + Parameters
-    + categories (optional, list[string], `category1,categoryk`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
+    + categories (optional, list[string], `Health,Finance`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
 
 ### Category Search API [GET]
 
@@ -162,7 +162,7 @@ When no `categories` parameter is passed, the search service returns results fro
 Full text search will perform a query against all documents in the corpus. Specifically, we will query the fields `name, description, category` as well as the fields representing `column fieldnames, names and description`.
 
 + Parameters
-    + q (optional, string, `potholes`) ... A string for full text search
+    + q (optional, string, `chicago crime`) ... A string for full text search
 
 ### Full text search API [GET]
 
