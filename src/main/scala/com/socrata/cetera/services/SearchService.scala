@@ -54,7 +54,10 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
 
         // TODO: Fix production schema to make domain_cname an array again
         // and add back .last.asInstanceOf[JArray]
-        val cname = r.dyn.socrata_id.domain_cname.!.asInstanceOf[JString]
+        val cname = r.dyn.socrata_id.domain_cname.! match {
+          case JString(string) => string
+          case JArray(elems) => elems.last.asInstanceOf[JString].string
+        }
 
         val datasetID = r.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
 
@@ -62,15 +65,15 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
 
         val link = pageID match {
           case Right(pgId) =>
-            JString(s"""https://${cname.string}/view/${pgId.asInstanceOf[JString].string}""")
+            JString(s"""https://${cname}/view/${pgId.asInstanceOf[JString].string}""")
           case _ =>
-            JString(s"""https://${cname.string}/ux/dataset/${datasetID.string}""")
+            JString(s"""https://${cname}/ux/dataset/${datasetID.string}""")
         }
 
         SearchResult(
           r.dyn.resource.!,
           Classification(categories, tags),
-          Map("domain" -> cname),
+          Map("domain" -> JString(cname)),
           link
         )
       }
