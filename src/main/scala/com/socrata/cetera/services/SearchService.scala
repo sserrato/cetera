@@ -52,8 +52,9 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
 
-        // domain_cname is actually an array, current should be last
-        val cname = r.dyn.socrata_id.domain_cname.!.asInstanceOf[JArray].last.asInstanceOf[JString]
+        // TODO: Fix production schema to make domain_cname an array again
+        // and add back .last.asInstanceOf[JArray]
+        val cname = r.dyn.socrata_id.domain_cname.!.asInstanceOf[JString]
 
         val datasetID = r.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
 
