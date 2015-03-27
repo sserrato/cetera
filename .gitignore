@@ -16,6 +16,8 @@ project/plugins/project/
 project/project/
 project/target/
 
+configs/local-cetera.conf
+
 # detritus from ES
 data/
 
