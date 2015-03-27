@@ -2,16 +2,15 @@ FORMAT: 1A
 
 HOST: api.us.socrata.com/api
 
-# Cetera -- Search Service
+# Catalog
 
-Features may not be implemented yet (such as the `highlight` option); however, we wish to future proof the API against version changes.
-The flag `include_internal_metadata` should be set to `true` for the frontend, although its presence (or lack of presence) may be ignored for now.
-Once we understand the behavior for the civic hacker, we will optimize the use case to return the appropriate, less verbose payload.
-Given that our internal resource names will change, we will require external documentation that shares the resource that a civic hacker can use to load a dataset or page from its id.
+Main endpoint for querying the catalog of datasets housed by Socrata. Datasets can be found by keyword, high level categorizations, or more granular, tags. A given datset may be associated with 0 or more categories or tags. Tags are assigned automatically via stastically derived models; an individual tag may return a confidence value corresponding to model confidence.
 
-All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called `results`. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource will be either a page or a dataset.
+Note: select features may not be implemented but are included to future proof the API against version changes.
 
-Pages and datasets may be distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
+All calls return a JSON object containing a list of datasets and pages ranked by relevance in a `results` field. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource is either a page or a dataset.
+
+Pages and datasets are distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
 
  - Pages include the fields `pageId`, `datasetId`, and `cards`,
  - Datasets include the fields `id` and `columns`.
