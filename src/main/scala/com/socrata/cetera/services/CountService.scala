@@ -3,10 +3,10 @@ package com.socrata.cetera.services
 import javax.servlet.http.HttpServletResponse
 import scala.util.{Try, Success, Failure}
 
+import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
-import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
@@ -16,15 +16,9 @@ import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.types.CeteraFieldType
+import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
-
-case class Count(domain: JValue, count: JValue)
-
-object Count {
-  implicit val jCodec = AutomaticJsonCodecBuilder[Count]
-}
 
 class CountService(elasticSearchClient: ElasticSearchClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
@@ -42,13 +36,20 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue]): SearchResults[Count] =  {
+  def format(counts: Stream[JValue], field: CeteraFieldType): SearchResults[Countable] =  {
+    val cEncode = field match {
+      case DomainFieldType => Countable.encode("domain")
+      case CategoriesFieldType => Countable.encode("category")
+      case TagsFieldType => Countable.encode("tag")
+    }
+
     SearchResults(
-      counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }
+      counts.map { c => Countable(c.dyn.key.!, c.dyn.doc_count.!) }
     )
   }
 
   def aggregate(field: CeteraFieldType)(req: HttpRequest): HttpServletResponse => Unit = {
+
     val now = Timings.now()
 
     val params = QueryParametersParser(req)
@@ -71,7 +72,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
             val json = JsonReader.fromString(res.toString)
             val counts = extract(json)
-            val formattedResults = format(counts).copy(timings = Some(timings))
+            val formattedResults = format(counts, field).copy(timings = Some(timings))
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),
