@@ -30,5 +30,7 @@ case class SearchResults[T](results: Seq[T],
                             timings: Option[InternalTimings] = None)
 
 object SearchResults {
-  implicit def jEncode[T : JsonEncode] = AutomaticJsonEncodeBuilder[SearchResults[T]]
+  implicit def jEncode[T : JsonEncode]: JsonEncode[SearchResults[T]] = {
+    AutomaticJsonEncodeBuilder[SearchResults[T]]
+  }
 }

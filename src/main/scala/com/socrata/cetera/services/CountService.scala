@@ -3,7 +3,6 @@ package com.socrata.cetera.services
 import javax.servlet.http.HttpServletResponse
 import scala.util.{Try, Success, Failure}
 
-import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
@@ -36,7 +35,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
   }
 
   // Unhandled exception on missing key
-  def format(counts: Stream[JValue], field: CeteraFieldType): SearchResults[Countable] =  {
+  def format(counts: Stream[JValue]): SearchResults[Countable] =  {
     SearchResults(
       counts.map { c => Countable(c.dyn.key.!, c.dyn.doc_count.!) }
     )
@@ -49,10 +48,10 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     val params = QueryParametersParser(req)
 
     implicit val cEncode = field match {
-        case DomainFieldType => Countable.encode("domain")
-        case CategoriesFieldType => Countable.encode("category")
-        case TagsFieldType => Countable.encode("tag")
-      }
+      case DomainFieldType => Countable.encode("domain")
+      case CategoriesFieldType => Countable.encode("category")
+      case TagsFieldType => Countable.encode("tag")
+    }
 
     params match {
       case Right(params) =>
@@ -72,7 +71,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
             val json = JsonReader.fromString(res.toString)
             val counts = extract(json)
-            val formattedResults = format(counts, field).copy(timings = Some(timings))
+            val formattedResults = format(counts).copy(timings = Some(timings))
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),

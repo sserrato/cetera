@@ -7,10 +7,13 @@ import com.rojoma.json.v3.interpolation._
 case class Countable(thing: JValue, count: JValue)
 
 object Countable {
-  def encode(label: String) = new JsonEncode[Countable] {
-    def encode(x: Countable) = {
-      j"""{ $label : ${x.thing}, count: ${x.count} }"""
+  def encode(label: String): JsonEncode[Countable] = {
+    new JsonEncode[Countable] {
+      def encode(x: Countable): JValue = {
+        j"""{
+          $label : ${x.thing}, count: ${x.count}
+        }"""
+      }
     }
   }
 }
-
