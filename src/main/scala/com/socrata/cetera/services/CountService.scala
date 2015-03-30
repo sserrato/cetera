@@ -37,12 +37,6 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
 
   // Unhandled exception on missing key
   def format(counts: Stream[JValue], field: CeteraFieldType): SearchResults[Countable] =  {
-    val cEncode = field match {
-      case DomainFieldType => Countable.encode("domain")
-      case CategoriesFieldType => Countable.encode("category")
-      case TagsFieldType => Countable.encode("tag")
-    }
-
     SearchResults(
       counts.map { c => Countable(c.dyn.key.!, c.dyn.doc_count.!) }
     )
@@ -53,6 +47,12 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     val now = Timings.now()
 
     val params = QueryParametersParser(req)
+
+    implicit val cEncode = field match {
+        case DomainFieldType => Countable.encode("domain")
+        case CategoriesFieldType => Countable.encode("category")
+        case TagsFieldType => Countable.encode("tag")
+      }
 
     params match {
       case Right(params) =>
