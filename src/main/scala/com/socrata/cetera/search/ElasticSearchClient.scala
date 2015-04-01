@@ -68,7 +68,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
     // Imperative builder --> order is important
     client
-      .prepareSearch()
+      .prepareSearch("datasets", "pages")
       .setTypes(only.toList:_*)
       .setQuery(query)
   }
