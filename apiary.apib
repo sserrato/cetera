@@ -315,7 +315,6 @@ The complete set of query parameters is available to this endpoint as described 
               { "domain" : "data.nashville.gov", "count" : 16 },
               { "domain" : "data.princegeorgescountymd.gov", "count" : 16 },
               { "domain" : "data.vermont.gov", "count" : 14 },
-              { "domain" : "www.dcadashboard.com", "count" : 14 },
               { "domain" : "data.murphytx.org", "count" : 12 },
               { "domain" : "data.cityofgp.com", "count" : 11 },
               { "domain" : "data.fortworthtexas.gov", "count" : 9 },
@@ -329,7 +328,6 @@ The complete set of query parameters is available to this endpoint as described 
 ## Searching for tags [/catalog/v1/tags]
 Returns aggregate tag statistics as well as a list of tags. The compelte set of query functionality is available to this endpoint.
 
-*PLEASE NOTE THAT DUE TO A BUG, THE JSON KEY IS "domain" and not "tag"*
 
 ### Return tags [GET]
 
@@ -338,25 +336,24 @@ Returns aggregate tag statistics as well as a list of tags. The compelte set of 
         {
           "results" :
             [
-              { "domain" : "health", "count" : 1401 },
-              { "domain" : "transportation", "count" : 1051 },
-              { "domain" : "politics", "count" : 979 },
-              { "domain" : "finance", "count" : 917 },
-              { "domain" : "business", "count" : 877 },
-              { "domain" : "homeless", "count" : 739 },
-              { "domain" : "environment", "count" : 587 },
-              { "domain" : "crime", "count" : 567 },
-              { "domain" : "education", "count" : 467 },
-              { "domain" : "construction", "count" : 390 },
-              { "domain" : "library", "count" : 171 },
-              { "domain" : "infrastructure", "count" : 120 }
+              { "tag" : "health", "count" : 1401 },
+              { "tag" : "transportation", "count" : 1051 },
+              { "tag" : "politics", "count" : 979 },
+              { "tag" : "finance", "count" : 917 },
+              { "tag" : "business", "count" : 877 },
+              { "tag" : "homeless", "count" : 739 },
+              { "tag" : "environment", "count" : 587 },
+              { "tag" : "crime", "count" : 567 },
+              { "tag" : "education", "count" : 467 },
+              { "tag" : "construction", "count" : 390 },
+              { "tag" : "library", "count" : 171 },
+              { "tag" : "infrastructure", "count" : 120 }
             ],
           "timings" : { "serviceMillis" : 4, "searchMillis" : 4 }
         }
 
 ## Searching for categories [/catalog/v1/categories]
 Returns aggregate category statistics as well as a list of categories.  Complete search functionality is available at this endpoint.
-*PLEASE NOTE THAT DUE TO A BUG, THE JSON KEY IS "domain" and not "category"*
 
 
 ### Return categories [GET]
@@ -366,16 +363,16 @@ Returns aggregate category statistics as well as a list of categories.  Complete
         {
           "results" :
             [
-              { "domain" : "Health", "count" : 1401 },
-              { "domain" : "Transportation", "count" : 1051 },
-              { "domain" : "Finance", "count" : 917 },
-              { "domain" : "Social Services", "count" : 739 },
-              { "domain" : "Environment", "count" : 587 },
-              { "domain" : "Public Safety", "count" : 567 },
-              { "domain" : "Education", "count" : 467 },
-              { "domain" : "Housing & Development", "count" : 390 },
-              { "domain" : "Infrastructure", "count" : 390 },
-              { "domain" : "Recreation", "count" : 171 }
+              { "category" : "Health", "count" : 1401 },
+              { "category" : "Transportation", "count" : 1051 },
+              { "category" : "Finance", "count" : 917 },
+              { "category" : "Social Services", "count" : 739 },
+              { "category" : "Environment", "count" : 587 },
+              { "category" : "Public Safety", "count" : 567 },
+              { "category" : "Education", "count" : 467 },
+              { "category" : "Housing & Development", "count" : 390 },
+              { "category" : "Infrastructure", "count" : 390 },
+              { "category" : "Recreation", "count" : 171 }
             ],
           "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
         }
