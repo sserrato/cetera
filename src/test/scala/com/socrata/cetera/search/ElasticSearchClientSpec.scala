@@ -25,10 +25,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
   val params = ValidatedQueryParameters(
     searchQuery = Some("search query terms"),
-    domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
-    categories = Some(Set("Social Services", "Environment", "Housing & Development")),
-    tags = Some(Set("taxi", "art", "clowns")),
+    domains = Set("www.example.com", "test.example.com", "socrata.com"),
+    categories = Set("Social Services", "Environment", "Housing & Development"),
+    tags = Set("taxi", "art", "clowns"),
     only = Some("dataset"),
+    boosts = Map[CeteraFieldType, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
     offset = 10,
     limit = 20
   )
@@ -83,6 +84,13 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     }
   }"""
 
+  val multiMatchQuery = j"""{
+    "multi_match" : {
+      "query" : ${params.searchQuery.get},
+      "fields" : [ "indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "_all" ]
+    }
+  }"""
+
   val filteredQuery = j"""{
     "filtered": {
       "filter": ${complexFilter},
@@ -109,10 +117,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildBaseRequest(
         searchQuery = None,
-        domains = None,
-        categories = None,
-        tags = None,
-        only = None
+        domains = Set.empty,
+        categories = Set.empty,
+        tags = Set.empty,
+        only = None,
+        boosts = Map.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -127,10 +136,30 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = None,
-        categories = None,
-        tags = None,
-        only = None
+        domains = Set.empty,
+        categories = Set.empty,
+        tags = Set.empty,
+        only = None,
+        boosts = Map.empty
+      )
+      val actual = JsonReader.fromString(request.toString)
+
+      actual should be (expected)
+      request.request.types should be (Array())
+    }
+
+    "construct a multi match query with boosted fields" in {
+      val expected = j"""{
+        "query" : ${multiMatchQuery}
+      }"""
+
+      val request = client.buildBaseRequest(
+        searchQuery = params.searchQuery,
+        domains = Set.empty,
+        categories = Set.empty,
+        tags = Set.empty,
+        only = None,
+        boosts = params.boosts
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -153,10 +182,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildSearchRequest(
         searchQuery = None,
-        domains = None,
-        categories = None,
-        tags = None,
+        domains = Set.empty,
+        categories = Set.empty,
+        tags = Set.empty,
         only = params.only,
+        boosts = Map.empty,
         offset = params.offset,
         limit = params.limit
       )
@@ -180,6 +210,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         categories = params.categories,
         tags = params.tags,
         only = params.only,
+        boosts = Map.empty,
         offset = params.offset,
         limit = params.limit
       )
@@ -215,9 +246,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildCountRequest(
         field = DomainFieldType,
         searchQuery = None,
-        domains = None,
-        categories = None,
-        tags = None,
+        domains = Set.empty,
+        categories = Set.empty,
+        tags = Set.empty,
         only = None
       )
 

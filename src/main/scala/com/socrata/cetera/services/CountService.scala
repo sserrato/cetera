@@ -47,6 +47,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
 
     val params = QueryParametersParser(req)
 
+    // non-exhaustive match
     implicit val cEncode = field match {
       case DomainFieldType => Countable.encode("domain")
       case CategoriesFieldType => Countable.encode("category")
@@ -72,13 +73,18 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
             val json = JsonReader.fromString(res.toString)
             val counts = extract(json)
             val formattedResults = format(counts).copy(timings = Some(timings))
+
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),
               "requested by",
-              req.servletRequest.getRemoteHost,
-              s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
+              req.servletRequest.getRemoteHost).mkString(" -- ")
+            val logTimings = s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
+
             logger.info(logMsg)
+            logger.info(request.toString)
+            logger.info(logTimings)
+
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
 

@@ -91,6 +91,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           params.categories,
           params.tags,
           params.only,
+          params.boosts,
           params.offset,
           params.limit
         )
@@ -102,13 +103,18 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
             val count = res.getHits().getTotalHits()
             val formattedResults = format(res).copy(resultSetSize = Some(count), timings = Some(timings))
+
             val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
               req.requestPathStr,
               req.queryStr.getOrElse("<no query params>"),
               "requested by",
-              req.servletRequest.getRemoteHost,
-              s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}""").mkString(" -- ")
+              req.servletRequest.getRemoteHost).mkString(" -- ")
+            val logTimings = s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
+
             logger.info(logMsg)
+            logger.info(request.toString)
+            logger.info(logTimings)
+
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
 

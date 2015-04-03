@@ -2,12 +2,15 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
+import com.socrata.cetera.types.{CeteraFieldType, TitleFieldType, DescriptionFieldType}
+
 case class ValidatedQueryParameters(
   searchQuery: Option[String],
-  domains: Option[Set[String]],
-  categories: Option[Set[String]],
-  tags: Option[Set[String]],
+  domains: Set[String],
+  categories: Set[String],
+  tags: Set[String],
   only: Option[String],
+  boosts: Map[CeteraFieldType, Float],
   offset: Int,
   limit: Int
 )
@@ -30,12 +33,16 @@ object QueryParametersParser {
     def convertFrom(s: String): Either[ParamConversionFailure, T]
   }
 
+  // monkeys have been here
   implicit class TypedQueryParams(req: HttpRequest) {
-    def queryParamOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
+    def queryParam[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
       req.queryParameters
         .get(name)
         .map(implicitly[ParamConverter[T]].convertFrom)
-        .getOrElse(Right(default))
+    }
+
+    def queryParamOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
+      queryParam[T](name).getOrElse(Right(default))
     }
   }
 
@@ -48,6 +55,13 @@ object QueryParametersParser {
     implicit object IntParam extends ParamConverter[Int] {
       override def convertFrom(s: String): Either[ParamConversionFailure, Int] = {
         try { Right(s.toInt) }
+        catch { case e : Exception => Left(InvalidValue(s)) }
+      }
+    }
+
+    implicit object FloatParam extends ParamConverter[Float] {
+      override def convertFrom(s: String): Either[ParamConversionFailure, Float] = {
+        try { Right(s.toFloat) }
         catch { case e : Exception => Left(InvalidValue(s)) }
       }
     }
@@ -71,30 +85,49 @@ object QueryParametersParser {
   /////////////////////////////////////////////////////
 
 
+  // for offset and limit
   case class NonNegativeInt(value: Int)
   implicit val nonNegativeIntParamConverter = ParamConverter.filtered { (a: Int) =>
-    if (a >= 0)
-      Some(NonNegativeInt(a))
-    else
-      None
+    if (a >= 0) Some(NonNegativeInt(a)) else None
+  }
+
+  // for boost
+  case class NonNegativeFloat(value: Float)
+  implicit val nonNegativeFloatParamConverter = ParamConverter.filtered { (a: Float) =>
+    if (a >= 0.0f) Some(NonNegativeFloat(a)) else None
   }
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val searchQuery = req.queryParameters.get("q")
-    val domains = req.queryParameters.get("domains").map(_.split(",").toSet)
-    val categories = req.queryParameters.get("categories").map(_.split(",").toSet)
-    val tags = req.queryParameters.get("tags").map(_.split(",").toSet)
+    val domains = req.queryParameters.get("domains").map(_.split(",").toSet).getOrElse(Set.empty)
+    val categories = req.queryParameters.get("categories").map(_.split(",").toSet).getOrElse(Set.empty)
+    val tags = req.queryParameters.get("tags").map(_.split(",").toSet).getOrElse(Set.empty)
 
-    val only = req.queryParameters.get("only") match {
-      case Some("datasets") => Right(Some("dataset"))
-      case Some("pages") => Right(Some("page"))
-      case Some(invalid) =>
-        Left(OnlyError(s"only must be one of {datasets, pages} got only=${invalid}"))
-      case None => Right(None)
+    val boosts = {
+      val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle") match {
+        case Some(param) => Some(validated(param).value)
+        case None => None
+      }
+
+      val boostDesc = req.queryParam[NonNegativeFloat]("boostDesc") match {
+        case Some(param) => Some(validated(param).value)
+        case None => None
+      }
+
+      Map(TitleFieldType -> boostTitle, DescriptionFieldType -> boostDesc)
+        .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
+        .toMap[CeteraFieldType, Float]
     }
 
     val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
     val limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
+
+    val only = req.queryParameters.get("only") match {
+      case None => Right(None)
+      case Some("datasets") => Right(Some("dataset"))
+      case Some("pages") => Right(Some("page"))
+      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, pages}, got ${invalid}"))
+    }
 
     only match {
       case Right(o) =>
@@ -104,6 +137,7 @@ object QueryParametersParser {
           categories,
           tags,
           o,
+          boosts,
           offset,
           limit
         ))
