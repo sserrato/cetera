@@ -5,7 +5,7 @@ import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest.{ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.types.Countable
+import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends WordSpec with ShouldMatchers {
@@ -60,12 +60,12 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
     }
 
     "format" in {
-      val expected = SearchResults[Countable](
+      val expected = SearchResults[Count](
         List(
-          Countable(JString("onethousand.example.com"), JNumber(1000)),
-          Countable(JString("two-thirty-four.example.com"),  JNumber(234)),
-          Countable(JString("seven-ate-nine.com"),  JNumber(78)),
-          Countable(JString("poor-bono.example.com"),  JNumber(1))
+          Count(JString("onethousand.example.com"), JNumber(1000)),
+          Count(JString("two-thirty-four.example.com"),  JNumber(234)),
+          Count(JString("seven-ate-nine.com"),  JNumber(78)),
+          Count(JString("poor-bono.example.com"),  JNumber(1))
         )
       )
 
