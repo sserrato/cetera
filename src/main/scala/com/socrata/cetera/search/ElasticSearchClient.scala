@@ -44,13 +44,15 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                        categories: Set[String],
                        tags: Set[String],
                        only: Option[String],
-                       boosts: Map[CeteraFieldType, Float]): SearchRequestBuilder = {
+                       boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
 
     val matchQuery = searchQuery match {
       case None =>
         QueryBuilders.matchAllQuery
+
       case Some(sq) if boosts.isEmpty =>
         QueryBuilders.matchQuery("_all", sq)
+
       case Some(sq) =>
         val text_args = boosts.map {
           case (field, weight) =>
@@ -75,7 +77,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
           )
         }
 
-        if(filters.nonEmpty) {
+        if (filters.nonEmpty) {
           QueryBuilders.filteredQuery(
             matchQuery,
             FilterBuilders.andFilter(filters:_*)
@@ -97,7 +99,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
                          categories: Set[String],
                          tags: Set[String],
                          only: Option[String],
-                         boosts: Map[CeteraFieldType, Float],
+                         boosts: Map[CeteraFieldType with Boostable, Float],
                          offset: Int,
                          limit: Int): SearchRequestBuilder = {
 

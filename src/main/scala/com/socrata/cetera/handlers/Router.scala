@@ -12,7 +12,7 @@ import com.socrata.cetera.util.JsonResponses._
 class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
-    countResource: CeteraFieldType => HttpService) {
+    countResource: CeteraFieldType with Groupable => HttpService) {
 
   val routes = Routes(
     // /version is for internal use

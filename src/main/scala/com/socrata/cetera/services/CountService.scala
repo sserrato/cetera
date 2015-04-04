@@ -41,13 +41,12 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     )
   }
 
-  def aggregate(field: CeteraFieldType)(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: CeteraFieldType with Groupable)(req: HttpRequest): HttpServletResponse => Unit = {
 
     val now = Timings.now()
 
     val params = QueryParametersParser(req)
 
-    // non-exhaustive match
     implicit val cEncode = field match {
       case DomainFieldType => Countable.encode("domain")
       case CategoriesFieldType => Countable.encode("category")
@@ -98,7 +97,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     }
   }
 
-  case class Service(field: CeteraFieldType) extends SimpleResource {
+  case class Service(field: CeteraFieldType with Groupable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
 }

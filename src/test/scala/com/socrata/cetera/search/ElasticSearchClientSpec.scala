@@ -29,7 +29,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     categories = Set("Social Services", "Environment", "Housing & Development"),
     tags = Set("taxi", "art", "clowns"),
     only = Some("dataset"),
-    boosts = Map[CeteraFieldType, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
+    boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
     offset = 10,
     limit = 20
   )

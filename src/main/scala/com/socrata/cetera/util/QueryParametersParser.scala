@@ -2,7 +2,7 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
-import com.socrata.cetera.types.{CeteraFieldType, TitleFieldType, DescriptionFieldType}
+import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
   searchQuery: Option[String],
@@ -10,7 +10,7 @@ case class ValidatedQueryParameters(
   categories: Set[String],
   tags: Set[String],
   only: Option[String],
-  boosts: Map[CeteraFieldType, Float],
+  boosts: Map[CeteraFieldType with Boostable, Float],
   offset: Int,
   limit: Int
 )
@@ -116,7 +116,7 @@ object QueryParametersParser {
 
       Map(TitleFieldType -> boostTitle, DescriptionFieldType -> boostDesc)
         .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
-        .toMap[CeteraFieldType, Float]
+        .toMap[CeteraFieldType with Boostable, Float]
     }
 
     val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
