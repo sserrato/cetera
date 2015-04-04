@@ -41,7 +41,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     )
   }
 
-  def aggregate(field: CeteraFieldType with Groupable)(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: CeteraFieldType with Countable)(req: HttpRequest): HttpServletResponse => Unit = {
 
     val now = Timings.now()
 
@@ -97,7 +97,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
     }
   }
 
-  case class Service(field: CeteraFieldType with Groupable) extends SimpleResource {
+  case class Service(field: CeteraFieldType with Countable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
 }
