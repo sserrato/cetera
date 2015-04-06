@@ -52,6 +52,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
 
+        // WARN: Non-exhaustive match
         // TODO: Fix production schema to make domain_cname an array again
         // and add back .last.asInstanceOf[JArray]
         val cname = r.dyn.socrata_id.domain_cname.! match {
@@ -104,16 +105,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
             val count = res.getHits().getTotalHits()
             val formattedResults = format(res).copy(resultSetSize = Some(count), timings = Some(timings))
 
-            val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-              req.requestPathStr,
-              req.queryStr.getOrElse("<no query params>"),
-              "requested by",
-              req.servletRequest.getRemoteHost).mkString(" -- ")
-            val logTimings = s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
-
+            val logMsg = LogHelper.formatRequest(req, timings)
             logger.info(logMsg)
-            logger.info(request.toString)
-            logger.info(logTimings)
 
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
