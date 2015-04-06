@@ -42,10 +42,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
   }
 
   def aggregate(field: CeteraFieldType with Countable)(req: HttpRequest): HttpServletResponse => Unit = {
-
     val now = Timings.now()
-
-    val params = QueryParametersParser(req)
 
     implicit val cEncode = field match {
       case DomainFieldType => Count.encode("domain")
@@ -53,7 +50,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
       case TagsFieldType => Count.encode("tag")
     }
 
-    params match {
+    QueryParametersParser(req) match {
       case Right(params) =>
         val request = elasticSearchClient.buildCountRequest(
           field,
@@ -69,20 +66,13 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
         response match {
           case Success(res) =>
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
+
             val json = JsonReader.fromString(res.toString)
             val counts = extract(json)
             val formattedResults = format(counts).copy(timings = Some(timings))
 
-            val logMsg = List[String]("[" + req.servletRequest.getMethod + "]",
-              req.requestPathStr,
-              req.queryStr.getOrElse("<no query params>"),
-              "requested by",
-              req.servletRequest.getRemoteHost).mkString(" -- ")
-            val logTimings = s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
-
+            val logMsg = LogHelper.formatRequest(req, timings)
             logger.info(logMsg)
-            logger.info(request.toString)
-            logger.info(logTimings)
 
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
