@@ -65,7 +65,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
         case None => fail("metadata.domain field missing")
       }
 
-      datasetResponse.link should be (JString("https://socrata.com/ux/dataset/four-four"))
+      datasetResponse.link should be (JString("https://socrata.com/d/four-four"))
 
       val pageResponse = results(1)
       pageResponse.resource should be (j"""${resource}""")
