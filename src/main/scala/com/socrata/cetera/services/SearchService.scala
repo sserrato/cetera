@@ -68,7 +68,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           case Right(pgId) =>
             JString(s"""https://${cname}/view/${pgId.asInstanceOf[JString].string}""")
           case _ =>
-            JString(s"""https://${cname}/ux/dataset/${datasetID.string}""")
+            JString(s"""https://${cname}/d/${datasetID.string}""")
         }
 
         SearchResult(
