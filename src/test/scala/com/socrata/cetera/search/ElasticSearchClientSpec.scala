@@ -18,6 +18,10 @@ class LocalESClient() extends ElasticSearchClient("local", 5704, "useless") {
 
 ////////////////////////////////////////////////////////
 // Brittleness deliberate. Query building not finalized.
+//
+// Just to reiterate: VERY BRITTLE!!!
+//
+// JSON does not guarantee order.
 
 class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
@@ -25,9 +29,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
   val params = ValidatedQueryParameters(
     searchQuery = Some("search query terms"),
-    domains = Set("www.example.com", "test.example.com", "socrata.com"),
-    categories = Set("Social Services", "Environment", "Housing & Development"),
-    tags = Set("taxi", "art", "clowns"),
+    domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+    categories = Some(Set("Social Services", "Environment", "Housing & Development")),
+    tags = Some(Set("taxi", "art", "clowns")),
     only = Some("dataset"),
     boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
     offset = 10,
@@ -35,41 +39,72 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   )
 
   val complexFilter = j"""{
-    "and": {
-      "filters" : [
-      {
-        "terms" :
+    "and" :
+    {
+      "filters" :
+      [
         {
-          "socrata_id.domain_cname.raw" : [
-          "www.example.com",
-          "test.example.com",
-          "socrata.com"
-          ]
-        }
-      },
-      {
-        "terms" :
+          "terms" :
+          {
+            "socrata_id.domain_cname.raw" :
+            [
+              "www.example.com",
+              "test.example.com",
+              "socrata.com"
+            ]
+          }
+        },
         {
-          "animl_annotations.category_names.raw" : [
-          "Social Services",
-          "Environment",
-          "Housing & Development"
-          ]
-        }
-      },
-      {
-        "terms" :
+          "nested" :
+          {
+            "filter" :
+            {
+              "terms" :
+              {
+                "name" :
+                [
+                  "Social Services",
+                  "Environment",
+                  "Housing & Development"
+                ]
+              }
+            },
+            "path" : "animl_annotations.categories"
+          }
+        },
         {
-          "animl_annotations.tag_names.raw" : [
-          "taxi",
-          "art",
-          "clowns"
-          ]
+          "nested" :
+          {
+            "filter" :
+            {
+              "terms" : { "name" : [ "taxi", "art", "clowns" ] }
+            },
+            "path" : "animl_annotations.tags"
+          }
         }
-      }
       ]
     }
   }"""
+
+  val sortByCategories = j"""[{
+    "animl_annotations.categories.score" :
+    {
+      "order" : "desc",
+      "mode" : "max",
+      "nested_filter" :
+      {
+        "terms" :
+        {
+          "name" :
+          [
+            "Social Services",
+            "Environment",
+            "Housing & Development"
+          ]
+        }
+      }
+    }
+  }]"""
 
   val matchAllQuery = j"""{
     "match_all" : {}
@@ -93,15 +128,16 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
   val filteredQuery = j"""{
     "filtered": {
-      "filter": ${complexFilter},
-      "query": ${matchAllQuery}
+      "query": ${matchAllQuery},
+      "filter": ${complexFilter}
     }
   }"""
 
+  // So brittle!!!
   val complexQuery = j"""{
     "filtered": {
-      "filter": ${complexFilter},
-      "query": ${matchTermsQuery}
+      "query": ${matchTermsQuery},
+      "filter": ${complexFilter}
     }
   }"""
 
@@ -117,9 +153,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildBaseRequest(
         searchQuery = None,
-        domains = Set.empty,
-        categories = Set.empty,
-        tags = Set.empty,
+        domains = None,
+        categories = None,
+        tags = None,
         only = None,
         boosts = Map.empty
       )
@@ -136,9 +172,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty,
-        categories = Set.empty,
-        tags = Set.empty,
+        domains = None,
+        categories = None,
+        tags = None,
         only = None,
         boosts = Map.empty
       )
@@ -155,9 +191,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty,
-        categories = Set.empty,
-        tags = Set.empty,
+        domains = None,
+        categories = None,
+        tags = None,
         only = None,
         boosts = params.boosts
       )
@@ -173,35 +209,12 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   // buildSearchRequest
   //
   "buildSearchRequest" should {
-    "add from and size to request and set type per only" in {
+    "add from, size, sort and only to a complex base request" in {
       val expected = j"""{
         "from": ${params.offset},
         "size": ${params.limit},
-        "query": ${matchAllQuery}
-      }"""
-
-      val request = client.buildSearchRequest(
-        searchQuery = None,
-        domains = Set.empty,
-        categories = Set.empty,
-        tags = Set.empty,
-        only = params.only,
-        boosts = Map.empty,
-        offset = params.offset,
-        limit = params.limit
-      )
-
-      val actual = JsonReader.fromString(request.toString)
-
-      actual should be (expected)
-      request.request.types should be (Array[String](params.only.get))
-    }
-
-    "add from, size, and only to a complex base request" in {
-      val expected = j"""{
-        "from": ${params.offset},
-        "size": ${params.limit},
-        "query": ${complexQuery}
+        "query": ${complexQuery},
+        "sort": [ { "_score" : {} } ]
       }"""
 
       val request = client.buildSearchRequest(
@@ -218,7 +231,32 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array[String]("dataset"))
+      request.request.types should be (Array[String](params.only.get))
+    }
+
+    "sort by categories score when query term is missing but cat filter is present" in {
+      val expected = j"""{
+        "from": ${params.offset},
+        "size": ${params.limit},
+        "query": ${filteredQuery},
+        "sort": ${sortByCategories}
+      }"""
+
+      val request = client.buildSearchRequest(
+        searchQuery = None,
+        domains = params.domains,
+        categories = params.categories,
+        tags = params.tags,
+        only = params.only,
+        boosts = Map.empty,
+        offset = params.offset,
+        limit = params.limit
+      )
+
+      val actual = JsonReader.fromString(request.toString)
+
+      actual should be (expected)
+      request.request.types should be (Array[String](params.only.get))
     }
   }
 
@@ -227,11 +265,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   // buildCountRequest
   //
   "buildCountRequest" should {
-    "construct a default search query with aggregation" in {
+    "construct a default search query with normal aggregation for domains" in {
       val expected = j"""{
         "query" : ${matchAllQuery},
         "aggregations" : {
-          "counts" :
+          "domains" :
           {
             "terms" :
             {
@@ -246,9 +284,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildCountRequest(
         field = DomainFieldType,
         searchQuery = None,
-        domains = Set.empty,
-        categories = Set.empty,
-        tags = Set.empty,
+        domains = None,
+        categories = None,
+        tags = None,
         only = None
       )
 
@@ -258,18 +296,14 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       request.request.searchType should be (COUNT)
     }
 
-    "construct a filtered match query with aggregation" in {
+    "construct a filtered match query with nested aggregation for annotations" in {
       val expected = j"""{
         "query" : ${complexQuery},
         "aggregations" : {
-          "counts" :
+          "annotations" :
           {
-            "terms" :
-            {
-              "field" : "animl_annotations.category_names.raw",
-              "size" : 0,
-              "order" : { "_count" : "desc" }
-            }
+            "nested" : { "path" : "animl_annotations.categories" },
+            "aggregations" : { "names" : { "terms" : { "field" : "name" } } }
           }
         }
       }"""

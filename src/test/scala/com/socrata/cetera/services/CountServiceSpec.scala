@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import com.rojoma.json.v3.ast.{JNumber, JString}
+import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest.{ShouldMatchers, WordSpec}
@@ -26,7 +27,7 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
         "hits" : [ ]
       },
       "aggregations" : {
-        "counts" : {
+        "domains" : {
           "doc_count_error_upper_bound" : 0,
           "sum_other_doc_count" : 0,
           "buckets" : [ {
@@ -54,9 +55,13 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
         j"""{ "key" : "poor-bono.example.com", "doc_count" : 1 }"""
       )
 
-      val actual = service.extract(es_response)
+      service.extract(es_response) match {
+        case Right(actual) =>
+          (actual, expected).zipped.foreach{ (a, e) => a should be(e) }
 
-      (actual, expected).zipped.foreach{ (a, e) => a should be(e) }
+        case Left(e) =>
+          fail(e.toString)
+      }
     }
 
     "format" in {
@@ -69,19 +74,26 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
         )
       )
 
-      val extracted = service.extract(es_response)
-      val formatted = service.format(extracted)
-      val results = formatted.results
+      service.extract(es_response) match {
+        case Right(extracted) =>
+          val formatted = service.format(extracted)
+          val results = formatted.results
+          results.zip(expected.results).foreach{ case (a, e) => a should be (e) }
 
-      results.zip(expected.results).foreach{ case (a, e) => a should be (e) }
+        case Left(e) =>
+          fail(e.toString)
+      }
     }
 
-    // Well, no, it shouldn't actually.
-    "fail silently when the expected path to resources does not exist" in {
+    "return an error when the expected path to resources does not exist" in {
       val body = j"""{}"""
-      val aggregations = service.extract(body)
-
-      aggregations.size should be (0)
+      service.extract(body) match {
+        case Right(aggregations) => fail("We should have returned a decode error!")
+        case Left(error) => error match {
+          case _: DecodeError =>
+          case _ => fail("Expected a DecodeError")
+        }
+      }
     }
   }
 }

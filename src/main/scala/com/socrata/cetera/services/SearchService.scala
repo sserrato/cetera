@@ -42,12 +42,14 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val source = hit.sourceAsString()
         val r = JsonReader.fromString(source)
 
-        val categories = r.dyn.animl_annotations.category_names.? match {
+        // TODO/WARN: I should only return names, not scores!!
+        val categories = r.dyn.animl_annotations.categories.? match {
           case Right(cats) => cats
           case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
 
-        val tags = r.dyn.animl_annotations.tag_names.? match {
+        // TODO/WARN: I should only return names, not scores!!
+        val tags = r.dyn.animl_annotations.tags.? match {
           case Right(tags) => tags
           case Left(error) => JArray.canonicalEmpty // for consistent return body
         }
@@ -107,6 +109,9 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
 
             val logMsg = LogHelper.formatRequest(req, timings)
             logger.info(logMsg)
+
+            // TODO/WARN I will break Sumo DO NOT COMMIT ME
+            logger.info(request.toString)
 
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload

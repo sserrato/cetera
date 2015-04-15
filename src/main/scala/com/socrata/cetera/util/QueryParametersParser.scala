@@ -6,9 +6,9 @@ import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
   searchQuery: Option[String],
-  domains: Set[String],
-  categories: Set[String],
-  tags: Set[String],
+  domains: Option[Set[String]],
+  categories: Option[Set[String]],
+  tags: Option[Set[String]],
   only: Option[String],
   boosts: Map[CeteraFieldType with Boostable, Float],
   offset: Int,
@@ -99,9 +99,12 @@ object QueryParametersParser {
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val searchQuery = req.queryParameters.get("q")
-    val domains = req.queryParameters.get("domains").map(_.split(",").toSet).getOrElse(Set.empty)
-    val categories = req.queryParameters.get("categories").map(_.split(",").toSet).getOrElse(Set.empty)
-    val tags = req.queryParameters.get("tags").map(_.split(",").toSet).getOrElse(Set.empty)
+
+    // Convert these params to lower case because of Elasticsearch filters
+    // Yes, the params parser now concerns itself with ES internals
+    val domains     = req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet)
+    val categories  = req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet)
+    val tags        = req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet)
 
     val boosts = {
       val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle") match {
@@ -122,6 +125,7 @@ object QueryParametersParser {
     val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
     val limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
 
+    // This can stay case-sensitive because it is so specific
     val only = req.queryParameters.get("only") match {
       case None => Right(None)
       case Some("datasets") => Right(Some("dataset"))
