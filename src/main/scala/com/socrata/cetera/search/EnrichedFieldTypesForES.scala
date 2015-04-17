@@ -1,4 +1,5 @@
 package com.socrata.cetera.search
+
 import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 
@@ -19,7 +20,6 @@ object EnrichedFieldTypesForES {
     def fieldName:String = baseFieldName(field)
   }
 
-
   implicit class FieldTypeToRawFieldName(field: CeteraFieldType with Countable) {
     def rawFieldName: String = {
       field match {
@@ -29,10 +29,9 @@ object EnrichedFieldTypesForES {
       }
     }
   }
-  // NOTE: domain_cname does not currently have a score associated with it
+
+  // NOTE: domain_cname does not have a score associated with it
   implicit class FieldTypeToScoreFieldName(field: CeteraFieldType with Countable with Scorable) {
     def scoreFieldName: String = baseFieldName(field) + ".score"
   }
-
-
 }
