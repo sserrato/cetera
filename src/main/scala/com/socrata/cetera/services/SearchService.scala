@@ -110,9 +110,6 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
             val logMsg = LogHelper.formatRequest(req, timings)
             logger.info(logMsg)
 
-            // TODO/WARN I will break Sumo DO NOT COMMIT ME
-            logger.info(request.toString)
-
             val payload = Json(formattedResults, pretty=true)
             OK ~> Header("Access-Control-Allow-Origin", "*") ~> payload
 

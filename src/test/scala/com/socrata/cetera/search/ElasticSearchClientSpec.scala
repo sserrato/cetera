@@ -61,7 +61,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
             {
               "terms" :
               {
-                "name" :
+                "animl_annotations.categories.name.raw" :
                 [
                   "Social Services",
                   "Environment",
@@ -77,7 +77,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
           {
             "filter" :
             {
-              "terms" : { "name" : [ "taxi", "art", "clowns" ] }
+              "terms" : { "animl_annotations.tags.name.raw" : [ "taxi", "art", "clowns" ] }
             },
             "path" : "animl_annotations.tags"
           }
@@ -95,7 +95,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       {
         "terms" :
         {
-          "name" :
+          "animl_annotations.categories.name.raw" :
           [
             "Social Services",
             "Environment",
@@ -303,7 +303,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
           "annotations" :
           {
             "nested" : { "path" : "animl_annotations.categories" },
-            "aggregations" : { "names" : { "terms" : { "field" : "name" } } }
+            "aggregations" : { "names" : { "terms" : { "field" : "animl_annotations.categories.name.raw" } } }
           }
         }
       }"""

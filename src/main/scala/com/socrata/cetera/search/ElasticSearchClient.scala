@@ -15,16 +15,34 @@ import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 
-object ElasticSearchFieldTranslator {
-  def getFieldName(field: CeteraFieldType): String = {
+// Elastic Search Field Translator
+//
+// There is some confusion here because semantic types and implementation details are out of sync.
+// categories and tags are nested in ES whereas domain_cname is not.
+object ESFT {
+  def fieldName(field: CeteraFieldType): String = {
     field match {
-      case DomainFieldType => "socrata_id.domain_cname.raw"
+      case DomainFieldType => "socrata_id.domain_cname"
+
       case CategoriesFieldType => "animl_annotations.categories"
       case TagsFieldType => "animl_annotations.tags"
 
       case TitleFieldType => "indexed_metadata.name"
       case DescriptionFieldType => "indexed_metadata.description"
     }
+  }
+
+  def rawFieldName(field: CeteraFieldType with Countable): String = {
+    field match {
+      case DomainFieldType => fieldName(field) + ".raw"
+      case CategoriesFieldType => fieldName(field) + ".name.raw"
+      case TagsFieldType => fieldName(field) + ".name.raw"
+    }
+  }
+
+  // NOTE: domain_cname does not currently have a score associated with it
+  def scoreFieldName(field: CeteraFieldType with Countable): String = {
+    fieldName(field) + ".score"
   }
 }
 
@@ -57,7 +75,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       case Some(sq) =>
         val text_args = boosts.map {
           case (field, weight) =>
-            val fieldName = ElasticSearchFieldTranslator.getFieldName(field)
+            val fieldName = ESFT.fieldName(field)
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
         } ++ List("_all")
 
@@ -66,26 +84,23 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
     val query = locally {
       val domainFilter = domains.map { domains =>
-        FilterBuilders.termsFilter(ElasticSearchFieldTranslator.getFieldName(DomainFieldType),
-          domains.toSeq:_*)
+        FilterBuilders.termsFilter(ESFT.rawFieldName(DomainFieldType), domains.toSeq:_*)
       }
 
       val categoriesFilter = categories.map { categories =>
-        FilterBuilders.nestedFilter(ElasticSearchFieldTranslator.getFieldName(CategoriesFieldType),
-          FilterBuilders.termsFilter("animl_annotations.categories.name.raw", categories.toSeq:_*))
+        FilterBuilders.nestedFilter(ESFT.fieldName(CategoriesFieldType),
+          FilterBuilders.termsFilter(ESFT.rawFieldName(CategoriesFieldType), categories.toSeq:_*))
       }
 
       val tagsFilter = tags.map { tags =>
-        FilterBuilders.nestedFilter(ElasticSearchFieldTranslator.getFieldName(TagsFieldType),
-          FilterBuilders.termsFilter("animl_annotations.tags.name.raw", tags.toSeq:_*))
+        FilterBuilders.nestedFilter(ESFT.fieldName(TagsFieldType),
+          FilterBuilders.termsFilter(ESFT.rawFieldName(TagsFieldType), tags.toSeq:_*))
       }
 
-      // factor me out!!
       val filters = List(domainFilter, categoriesFilter, tagsFilter).flatten
 
       if (filters.nonEmpty) {
-        QueryBuilders.filteredQuery(matchQuery,
-          FilterBuilders.andFilter(filters:_*))
+        QueryBuilders.filteredQuery(matchQuery, FilterBuilders.andFilter(filters:_*))
       } else {
         matchQuery
       }
@@ -93,7 +108,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
     // Imperative builder --> order is important
     client
-      .prepareSearch("datasets", "pages")
+      .prepareSearch("datasets", "pages") // literals should not be here
       .setTypes(only.toList:_*)
       .setQuery(query)
   }
@@ -135,7 +150,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
           .sortMode("max")
-          .setNestedFilter(FilterBuilders.termsFilter("animl_annotations.categories.name.raw", cats.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(ESFT.rawFieldName(CategoriesFieldType), cats.toSeq:_*))
 
       // Tags
       case (_, _, Some(ts)) =>
@@ -143,7 +158,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
           .sortMode("max")
-          .setNestedFilter(FilterBuilders.termsFilter("animl_annotations.tags.name.raw", ts.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(ESFT.rawFieldName(TagsFieldType), ts.toSeq:_*))
     }
 
     baseRequest
@@ -172,24 +187,28 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       case DomainFieldType =>
         AggregationBuilders
           .terms("domains")
-          .field(ElasticSearchFieldTranslator.getFieldName(field))
+          .field(ESFT.rawFieldName(field))
           .order(Terms.Order.count(false)) // count desc
           .size(0) // unlimited
 
       case CategoriesFieldType =>
         AggregationBuilders
           .nested("annotations")
-          .path(ElasticSearchFieldTranslator.getFieldName(field))
+          .path(ESFT.fieldName(field))
           .subAggregation(
-            AggregationBuilders.terms("names").field("animl_annotations.categories.name.raw")
+            AggregationBuilders
+              .terms("names")
+              .field(ESFT.rawFieldName(field))
           )
 
       case TagsFieldType =>
         AggregationBuilders
           .nested("annotations")
-          .path(ElasticSearchFieldTranslator.getFieldName(field))
+          .path(ESFT.fieldName(field))
           .subAggregation(
-            AggregationBuilders.terms("names").field("animl_annotations.tags.name.raw")
+            AggregationBuilders
+              .terms("names")
+              .field(ESFT.rawFieldName(field))
           )
     }
 
