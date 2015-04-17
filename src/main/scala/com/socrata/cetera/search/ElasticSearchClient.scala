@@ -19,32 +19,6 @@ import com.socrata.cetera.types._
 //
 // There is some confusion here because semantic types and implementation details are out of sync.
 // categories and tags are nested in ES whereas domain_cname is not.
-object ESFT {
-  def fieldName(field: CeteraFieldType): String = {
-    field match {
-      case DomainFieldType => "socrata_id.domain_cname"
-
-      case CategoriesFieldType => "animl_annotations.categories"
-      case TagsFieldType => "animl_annotations.tags"
-
-      case TitleFieldType => "indexed_metadata.name"
-      case DescriptionFieldType => "indexed_metadata.description"
-    }
-  }
-
-  def rawFieldName(field: CeteraFieldType with Countable): String = {
-    field match {
-      case DomainFieldType => fieldName(field) + ".raw"
-      case CategoriesFieldType => fieldName(field) + ".name.raw"
-      case TagsFieldType => fieldName(field) + ".name.raw"
-    }
-  }
-
-  // NOTE: domain_cname does not currently have a score associated with it
-  def scoreFieldName(field: CeteraFieldType with Countable): String = {
-    fieldName(field) + ".score"
-  }
-}
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
@@ -56,6 +30,40 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
     .addTransportAddress(new InetSocketTransportAddress(host, port))
 
   def close(): Unit = client.close()
+
+  implicit class FieldTypeToFieldName(field: CeteraFieldType) {
+    def fieldName: String = {
+      field match {
+        case DomainFieldType => "socrata_id.domain_cname"
+
+        case CategoriesFieldType => "animl_annotations.categories"
+        case TagsFieldType => "animl_annotations.tags"
+
+        case TitleFieldType => "indexed_metadata.name"
+        case DescriptionFieldType => "indexed_metadata.description"
+      }
+    }
+  }
+
+
+  implicit class FieldTypeToRawFieldName(field: CeteraFieldType with Countable) {
+    def rawFieldName: String = {
+      field match {
+        case DomainFieldType => "socrata_id.domain_cname.raw"
+        case CategoriesFieldType => "animl_annotations.categories.name.raw"
+        case TagsFieldType => "animl_annotations.tags.name.raw"
+      }
+    }
+  }
+  // NOTE: domain_cname does not currently have a score associated with it
+  implicit class FieldTypeToScoreFieldName(field: CeteraFieldType with Countable with Scorable) {
+    def scoreFieldName: String = {
+      field match {
+        case CategoriesFieldType => "animl_annotations.categories.score"
+        case TagsFieldType => "animl_annotations.tags.score"
+      }
+    }
+  }
 
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: Option[String],
@@ -75,7 +83,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       case Some(sq) =>
         val text_args = boosts.map {
           case (field, weight) =>
-            val fieldName = ESFT.fieldName(field)
+            val fieldName = field.fieldName
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
         } ++ List("_all")
 
@@ -84,17 +92,17 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
     val query = locally {
       val domainFilter = domains.map { domains =>
-        FilterBuilders.termsFilter(ESFT.rawFieldName(DomainFieldType), domains.toSeq:_*)
+        FilterBuilders.termsFilter(DomainFieldType.rawFieldName, domains.toSeq:_*)
       }
 
       val categoriesFilter = categories.map { categories =>
-        FilterBuilders.nestedFilter(ESFT.fieldName(CategoriesFieldType),
-          FilterBuilders.termsFilter(ESFT.rawFieldName(CategoriesFieldType), categories.toSeq:_*))
+        FilterBuilders.nestedFilter(CategoriesFieldType.fieldName,
+          FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, categories.toSeq:_*))
       }
 
       val tagsFilter = tags.map { tags =>
-        FilterBuilders.nestedFilter(ESFT.fieldName(TagsFieldType),
-          FilterBuilders.termsFilter(ESFT.rawFieldName(TagsFieldType), tags.toSeq:_*))
+        FilterBuilders.nestedFilter(TagsFieldType.fieldName,
+          FilterBuilders.termsFilter(TagsFieldType.rawFieldName, tags.toSeq:_*))
       }
 
       val filters = List(domainFilter, categoriesFilter, tagsFilter).flatten
@@ -150,7 +158,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
           .sortMode("max")
-          .setNestedFilter(FilterBuilders.termsFilter(ESFT.rawFieldName(CategoriesFieldType), cats.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
 
       // Tags
       case (_, _, Some(ts)) =>
@@ -158,7 +166,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
           .sortMode("max")
-          .setNestedFilter(FilterBuilders.termsFilter(ESFT.rawFieldName(TagsFieldType), ts.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
     }
 
     baseRequest
@@ -187,28 +195,28 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
       case DomainFieldType =>
         AggregationBuilders
           .terms("domains")
-          .field(ESFT.rawFieldName(field))
+          .field(field.rawFieldName)
           .order(Terms.Order.count(false)) // count desc
           .size(0) // unlimited
 
       case CategoriesFieldType =>
         AggregationBuilders
           .nested("annotations")
-          .path(ESFT.fieldName(field))
+          .path(field.fieldName)
           .subAggregation(
             AggregationBuilders
               .terms("names")
-              .field(ESFT.rawFieldName(field))
+              .field(field.rawFieldName)
           )
 
       case TagsFieldType =>
         AggregationBuilders
           .nested("annotations")
-          .path(ESFT.fieldName(field))
+          .path(field.fieldName)
           .subAggregation(
             AggregationBuilders
               .terms("names")
-              .field(ESFT.rawFieldName(field))
+              .field(field.rawFieldName)
           )
     }
 
