@@ -5,6 +5,7 @@ import scala.util.{Try, Success, Failure}
 
 import com.rojoma.json.v3.ast.{JValue, JArray, JString}
 import com.rojoma.json.v3.io.JsonReader
+import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
@@ -17,7 +18,7 @@ import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
-case class Classification(categories: JValue, tags: JValue)
+case class Classification(categories: Seq[JValue], tags: Seq[JValue])
 
 object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
@@ -42,18 +43,11 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val source = hit.sourceAsString()
         val r = JsonReader.fromString(source)
 
-        val categories = r.dyn.animl_annotations.category_names.? match {
-          case Right(cats) => cats
-          case Left(error) => JArray.canonicalEmpty // for consistent return body
-        }
-
-        val tags = r.dyn.animl_annotations.tag_names.? match {
-          case Right(tags) => tags
-          case Left(error) => JArray.canonicalEmpty // for consistent return body
-        }
+        val categories = new JPath(r).down("animl_annotations").down("categories").*.down("name").finish
+        val tags = new JPath(r).down("animl_annotations").down("tags").*.down("name").finish
 
         // WARN: Non-exhaustive match
-        // TODO: Fix production schema to make domain_cname an array again
+        // TODO: When production mapping changes domain_cname back to array,
         // and add back .last.asInstanceOf[JArray]
         val cname = r.dyn.socrata_id.domain_cname.! match {
           case JString(string) => string
