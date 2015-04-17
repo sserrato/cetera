@@ -15,10 +15,6 @@ import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 import EnrichedFieldTypesForES._
-// Elastic Search Field Translator
-//
-// There is some confusion here because semantic types and implementation details are out of sync.
-// categories and tags are nested in ES whereas domain_cname is not.
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
