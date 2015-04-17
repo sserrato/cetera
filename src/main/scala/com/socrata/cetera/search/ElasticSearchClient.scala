@@ -14,7 +14,7 @@ import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 
 import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
-
+import EnrichedFieldTypesForES._
 // Elastic Search Field Translator
 //
 // There is some confusion here because semantic types and implementation details are out of sync.
@@ -31,39 +31,6 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
 
   def close(): Unit = client.close()
 
-  implicit class FieldTypeToFieldName(field: CeteraFieldType) {
-    def fieldName: String = {
-      field match {
-        case DomainFieldType => "socrata_id.domain_cname"
-
-        case CategoriesFieldType => "animl_annotations.categories"
-        case TagsFieldType => "animl_annotations.tags"
-
-        case TitleFieldType => "indexed_metadata.name"
-        case DescriptionFieldType => "indexed_metadata.description"
-      }
-    }
-  }
-
-
-  implicit class FieldTypeToRawFieldName(field: CeteraFieldType with Countable) {
-    def rawFieldName: String = {
-      field match {
-        case DomainFieldType => "socrata_id.domain_cname.raw"
-        case CategoriesFieldType => "animl_annotations.categories.name.raw"
-        case TagsFieldType => "animl_annotations.tags.name.raw"
-      }
-    }
-  }
-  // NOTE: domain_cname does not currently have a score associated with it
-  implicit class FieldTypeToScoreFieldName(field: CeteraFieldType with Countable with Scorable) {
-    def scoreFieldName: String = {
-      field match {
-        case CategoriesFieldType => "animl_annotations.categories.score"
-        case TagsFieldType => "animl_annotations.tags.score"
-      }
-    }
-  }
 
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: Option[String],
