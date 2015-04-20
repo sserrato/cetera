@@ -120,7 +120,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
         SortBuilders
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
-          .sortMode("max")
+          .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
 
       // Tags
@@ -128,7 +128,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
-          .sortMode("max")
+          .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
     }
 

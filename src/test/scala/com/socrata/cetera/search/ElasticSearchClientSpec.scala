@@ -90,7 +90,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     "animl_annotations.categories.score" :
     {
       "order" : "desc",
-      "mode" : "max",
+      "mode" : "avg",
       "nested_filter" :
       {
         "terms" :
