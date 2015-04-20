@@ -43,49 +43,51 @@ object SearchServer extends App {
 
   for {
     executor <- managed(Executors.newCachedThreadPool())
+
     livenessChecker <- managedStartable(
       new InetLivenessChecker(config.http.liveness.interval,
-        config.http.liveness.range,
-        config.http.liveness.missable,
-        executor))
+                              config.http.liveness.range,
+                              config.http.liveness.missable,
+                              executor))
+
     elasticSearch <- managed(
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
-        config.elasticSearch.elasticSearchPort,
-        config.elasticSearch.elasticSearchClusterName))
-    } {
-      logger.info("ElasticSearchClient initialized on nodes " +
-        elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
+                              config.elasticSearch.elasticSearchPort,
+                              config.elasticSearch.elasticSearchClusterName))
+  } {
+    logger.info("ElasticSearchClient initialized on nodes " +
+                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
 
-      logger.info("Initializing VersionService")
-      val versionService = VersionService
+    logger.info("Initializing VersionService")
+    val versionService = VersionService
 
-      logger.info("Initializing SearchService with Elasticsearch TransportClient")
-      val searchService = new SearchService(elasticSearch)
+    logger.info("Initializing SearchService with Elasticsearch TransportClient")
+    val searchService = new SearchService(elasticSearch)
 
-      logger.info("Initializing CountService with Elasticsearch TransportClient")
-      val countService = new CountService(elasticSearch)
+    logger.info("Initializing CountService with Elasticsearch TransportClient")
+    val countService = new CountService(elasticSearch)
 
-      logger.info("Initializing router with services")
-      val router = new Router(
-        versionService.Service,
-        searchService.Service,
-        countService.Service
-      )
+    logger.info("Initializing router with services")
+    val router = new Router(
+      versionService.Service,
+      searchService.Service,
+      countService.Service
+    )
 
-      logger.info("Initializing handler")
-      val handler = router.route _
+    logger.info("Initializing handler")
+    val handler = router.route _
 
-      logger.info("Initializing server")
-      val server = new SocrataServerJetty(
-        handler,
-        SocrataServerJetty
-          .defaultOptions
-          .withPort(config.server.port)
-          .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout))
+    logger.info("Initializing server")
+    val server = new SocrataServerJetty(
+      handler,
+      SocrataServerJetty
+        .defaultOptions
+        .withPort(config.server.port)
+        .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout))
 
-      logger.info("Running server!")
-      server.run()
-    }
+    logger.info("Running server!")
+    server.run()
+  }
 
-    logger.info("All done!")
+  logger.info("All done!")
 }
