@@ -303,7 +303,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
           "annotations" :
           {
             "nested" : { "path" : "animl_annotations.categories" },
-            "aggregations" : { "names" : { "terms" : { "field" : "animl_annotations.categories.name.raw" } } }
+            "aggregations" : { "names" : { "terms" : { "field" : "animl_annotations.categories.name.raw", "size" : 0 } } }
           }
         }
       }"""

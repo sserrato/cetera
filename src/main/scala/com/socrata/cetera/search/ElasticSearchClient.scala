@@ -170,6 +170,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
             AggregationBuilders
               .terms("names")
               .field(field.rawFieldName)
+              .size(0)
           )
 
       case TagsFieldType =>
@@ -180,6 +181,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
             AggregationBuilders
               .terms("names")
               .field(field.rawFieldName)
+              .size(0)
           )
     }
 
