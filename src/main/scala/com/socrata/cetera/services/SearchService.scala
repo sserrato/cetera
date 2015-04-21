@@ -41,22 +41,22 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
     SearchResults(
       resources.map { hit =>
         val source = hit.sourceAsString()
-        val r = JsonReader.fromString(source)
+        val json = JsonReader.fromString(source)
 
-        val categories = new JPath(r).down("animl_annotations").down("categories").*.down("name").finish
-        val tags = new JPath(r).down("animl_annotations").down("tags").*.down("name").finish
+        val categories = new JPath(json).down("animl_annotations").down("categories").*.down("name").finish.distinct
+        val tags = new JPath(json).down("animl_annotations").down("tags").*.down("name").finish.distinct
 
         // WARN: Non-exhaustive match
         // TODO: When production mapping changes domain_cname back to array,
         // and add back .last.asInstanceOf[JArray]
-        val cname = r.dyn.socrata_id.domain_cname.! match {
+        val cname = json.dyn.socrata_id.domain_cname.! match {
           case JString(string) => string
           case JArray(elems) => elems.last.asInstanceOf[JString].string
         }
 
-        val datasetID = r.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
+        val datasetID = json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
 
-        val pageID = r.dyn.socrata_id.page_id.?
+        val pageID = json.dyn.socrata_id.page_id.?
 
         val link = pageID match {
           case Right(pgId) =>
@@ -66,7 +66,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         }
 
         SearchResult(
-          r.dyn.resource.!,
+          json.dyn.resource.!,
           Classification(categories, tags),
           Map("domain" -> JString(cname)),
           link
