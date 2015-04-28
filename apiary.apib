@@ -12,10 +12,14 @@ All calls return a JSON object containing a list of datasets and pages ranked by
 
 Pages and datasets are distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
 
- - Pages include the fields `pageId`, `datasetId`, and `cards`,
- - Datasets include the fields `id` and `columns`.
+- Pages include the fields `pageId`, `datasetId`, and `cards`,
+- Datasets include the fields `id` and `columns`.
 
 With the exception of the additional `type` field, the objects in the `resources` field are unaltered from their representation in whatever owns their truth.
+
+The production API endpoint for the Labs version of this API is `https://api.us.socrata.com/api/catalog/v1`. For example, to query for datasets categorized as `Crime`, you could use the following query:
+
+<a class="tryit" href="http://api.us.socrata.com/api/catalog/v1?categories=public%20safety">http://api.us.socrata.com/api/catalog/v1?categories=public safety</a>
 
 *Please note that we assume that all calls include either the `X-App-Token` header or the ``$$app_token`` parameters set to a valid token. This is assumed and not documented in the API spec below.*
 
