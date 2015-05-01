@@ -34,7 +34,7 @@ object SearchServer extends App {
 
   def managedStartable[T <: { def start() } : Resource](resource: => T): Managed[T] = new Managed[T] {
     override def run[A](f: T => A): A =
-      using(resource) { r =>        import scala.language.reflectiveCalls
+      using(resource) { r =>
         import scala.language.reflectiveCalls
         r.start()
         f(r)
