@@ -9,6 +9,7 @@ import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders }
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders
+import org.elasticsearch.index.query.MultiMatchQueryBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
@@ -18,7 +19,7 @@ import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 import EnrichedFieldTypesForES._
 
-class ElasticSearchClient(host: String, port: Int, clusterName: String) extends Closeable {
+class ElasticSearchClient(host: String, port: Int, clusterName: String, useCustomRanker: Boolean = false) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
                    .put("cluster.name", clusterName)
                    .put("client.transport.sniff", true)
@@ -52,7 +53,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
         } ++ List("_all")
 
-        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
+        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*).`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
     }
 
     val query = locally {
@@ -78,16 +79,25 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String) extends 
         matchQuery
       }
     }
-    
-    val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
-    val script = ScoreFunctionBuilders.scriptFunction("cetera-ranker", "native", Map("boostLastUpdatedAtValue"-> 2.0, "boostPopularityValue" -> 2.0).asInstanceOf[Map[String,Object]].asJava)
-    custom.add(script)
+
+
+    val finalQuery = client
+                       .prepareSearch("datasets", "pages") // literals should not be here
+                       .setTypes(only.toList:_*)
+   
+    if (useCustomRanker) {
+      val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
+      val script = ScoreFunctionBuilders.scriptFunction("cetera-ranker", 
+                                                        "native", 
+                                                        Map("boostLastUpdatedAtValue"-> 1.5, 
+                                                          "boostPopularityValue" -> 1.0).
+                                                          asInstanceOf[Map[String,Object]].asJava)
+      custom.add(script)
+      println(custom.toString) 
+      finalQuery.setQuery(custom)
+    }
+    else finalQuery.setQuery(query)
     // Imperative builder --> order is important
-   println(custom.toString) 
-    client
-      .prepareSearch("datasets", "pages") // literals should not be here
-      .setTypes(only.toList:_*)
-      .setQuery(custom)
   }
 
   def buildSearchRequest(searchQuery: Option[String],

@@ -36,4 +36,5 @@ class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config
   val elasticSearchServer = getString("es-server")
   val elasticSearchPort = getInt("es-port")
   val elasticSearchClusterName = getString("es-cluster-name")
+  val useCustomRanker = optionally(getBoolean("use-custom-ranker")).getOrElse(false)
 }

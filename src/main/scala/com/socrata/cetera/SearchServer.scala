@@ -34,7 +34,7 @@ object SearchServer extends App {
 
   def managedStartable[T <: { def start() } : Resource](resource: => T): Managed[T] = new Managed[T] {
     override def run[A](f: T => A): A =
-      using(resource) { r =>
+      using(resource) { r =>        import scala.language.reflectiveCalls
         import scala.language.reflectiveCalls
         r.start()
         f(r)
@@ -53,10 +53,13 @@ object SearchServer extends App {
     elasticSearch <- managed(
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
                               config.elasticSearch.elasticSearchPort,
-                              config.elasticSearch.elasticSearchClusterName))
+                              config.elasticSearch.elasticSearchClusterName,
+                              config.elasticSearch.useCustomRanker))
   } {
     logger.info("ElasticSearchClient initialized on nodes " +
-                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
+                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString +
+                " using ranker " +
+                {if(config.elasticSearch.useCustomRanker) "custom" else "default"})
 
     logger.info("Initializing VersionService")
     val versionService = VersionService
