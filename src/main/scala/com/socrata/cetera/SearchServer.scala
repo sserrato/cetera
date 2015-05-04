@@ -53,10 +53,13 @@ object SearchServer extends App {
     elasticSearch <- managed(
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
                               config.elasticSearch.elasticSearchPort,
-                              config.elasticSearch.elasticSearchClusterName))
+                              config.elasticSearch.elasticSearchClusterName,
+                              config.elasticSearch.useCustomRanker))
   } {
     logger.info("ElasticSearchClient initialized on nodes " +
-                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
+                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString +
+                " using ranker " +
+                {if(config.elasticSearch.useCustomRanker) "custom" else "default"})
 
     logger.info("Initializing VersionService")
     val versionService = VersionService
