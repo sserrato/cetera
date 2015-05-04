@@ -1,21 +1,20 @@
 package com.socrata.cetera.search
 
 import java.io.Closeable
+import scala.collection.JavaConverters._
 
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders }
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders
 import org.elasticsearch.index.query.MultiMatchQueryBuilder
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders
+import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 
-import scala.collection.JavaConverters._
-import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 import EnrichedFieldTypesForES._
 
@@ -84,16 +83,16 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     val finalQuery = client
                        .prepareSearch("datasets", "pages") // literals should not be here
                        .setTypes(only.toList:_*)
-   
+
     if (useCustomRanker) {
       val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
-      val script = ScoreFunctionBuilders.scriptFunction("cetera-ranker", 
-                                                        "native", 
-                                                        Map("boostLastUpdatedAtValue"-> 1.5, 
-                                                          "boostPopularityValue" -> 1.0).
-                                                          asInstanceOf[Map[String,Object]].asJava)
+      val script = ScoreFunctionBuilders.scriptFunction(
+        "cetera-ranker",
+        "native",
+        Map("boostLastUpdatedAtValue"-> 1.5,
+            "boostPopularityValue" -> 1.0).asInstanceOf[Map[String,Object]].asJava
+      )
       custom.add(script)
-      println(custom.toString) 
       finalQuery.setQuery(custom)
     }
     else finalQuery.setQuery(query)

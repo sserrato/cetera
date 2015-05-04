@@ -1,6 +1,5 @@
 package com.socrata.cetera.search
 
-import com.socrata.cetera.types.CeteraFieldType
 import com.socrata.cetera.types._
 
 object EnrichedFieldTypesForES {
