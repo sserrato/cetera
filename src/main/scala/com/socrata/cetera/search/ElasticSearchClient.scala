@@ -3,7 +3,7 @@ package com.socrata.cetera.search
 import java.io.Closeable
 import scala.collection.JavaConverters._
 
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
+import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
@@ -15,8 +15,8 @@ import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 
+import com.socrata.cetera.search.EnrichedFieldTypesForES._
 import com.socrata.cetera.types._
-import EnrichedFieldTypesForES._
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String, useCustomRanker: Boolean = false) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
@@ -28,7 +28,6 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     .addTransportAddress(new InetSocketTransportAddress(host, port))
 
   def close(): Unit = client.close()
-
 
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: Option[String],
@@ -43,7 +42,9 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         QueryBuilders.matchAllQuery
 
       case Some(sq) if boosts.isEmpty =>
-        QueryBuilders.multiMatchQuery(sq, "_all").`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS).analyzer("snowball")
+        QueryBuilders.multiMatchQuery(sq, "_all")
+          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+          .analyzer("snowball")
 
       case Some(sq) =>
         val text_args = boosts.map {
@@ -52,7 +53,9 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
         } ++ List("_all")
 
-        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*).`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS).analyzer("snowball")
+        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
+          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+          .analyzer("snowball")
     }
 
     val query = locally {
@@ -79,9 +82,10 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       }
     }
 
+    // Imperative builder --> order is important
     val finalQuery = client
-                       .prepareSearch("datasets", "pages") // literals should not be here
-                       .setTypes(only.toList:_*)
+      .prepareSearch("datasets", "pages") // literals should not be here
+      .setTypes(only.toList:_*)
 
     if (useCustomRanker) {
       val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
@@ -92,10 +96,10 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
             "boostPopularityValue" -> 1.0).asInstanceOf[Map[String,Object]].asJava
       )
       custom.add(script)
+      println(custom.toString)
       finalQuery.setQuery(custom)
     }
     else finalQuery.setQuery(query)
-    // Imperative builder --> order is important
   }
 
   def buildSearchRequest(searchQuery: Option[String],

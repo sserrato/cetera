@@ -110,7 +110,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     "match_all" : {}
   }"""
 
-  val matchTermsQuery = j"""{
+  val multiMatchQuery = j"""{
     "multi_match" : {
       "query" : ${params.searchQuery.get},
       "fields" : ["_all"],
@@ -119,7 +119,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     }
   }"""
 
-  val multiMatchQuery = j"""{
+  val boostedMultiMatchQuery = j"""{
     "multi_match" : {
       "query" : ${params.searchQuery.get},
       "fields" : [ "indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "_all" ],
@@ -138,7 +138,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   // So brittle!!!
   val complexQuery = j"""{
     "filtered": {
-      "query": ${matchTermsQuery},
+      "query": ${multiMatchQuery},
       "filter": ${complexFilter}
     }
   }"""
@@ -169,7 +169,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "construct a match query with terms" in {
       val expected = j"""{
-        "query" : ${matchTermsQuery}
+        "query" : ${multiMatchQuery}
       }"""
 
       val request = client.buildBaseRequest(
@@ -188,7 +188,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "construct a multi match query with boosted fields" in {
       val expected = j"""{
-        "query" : ${multiMatchQuery}
+        "query" : ${boostedMultiMatchQuery}
       }"""
 
       val request = client.buildBaseRequest(

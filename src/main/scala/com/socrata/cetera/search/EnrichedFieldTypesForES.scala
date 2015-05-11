@@ -3,7 +3,7 @@ package com.socrata.cetera.search
 import com.socrata.cetera.types._
 
 object EnrichedFieldTypesForES {
-  def baseFieldName(field:CeteraFieldType): String = {
+  def baseFieldName(field: CeteraFieldType): String = {
     field match {
       case DomainFieldType => "socrata_id.domain_cname"
 
