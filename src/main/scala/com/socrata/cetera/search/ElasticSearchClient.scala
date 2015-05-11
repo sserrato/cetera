@@ -43,7 +43,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         QueryBuilders.matchAllQuery
 
       case Some(sq) if boosts.isEmpty =>
-        QueryBuilders.matchQuery("_all", sq)
+        QueryBuilders.multiMatchQuery(sq, "_all").`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS).analyzer("snowball")
 
       case Some(sq) =>
         val text_args = boosts.map {
@@ -52,7 +52,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
         } ++ List("_all")
 
-        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*).`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*).`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS).analyzer("snowball")
     }
 
     val query = locally {
@@ -78,7 +78,6 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         matchQuery
       }
     }
-
 
     val finalQuery = client
                        .prepareSearch("datasets", "pages") // literals should not be here
