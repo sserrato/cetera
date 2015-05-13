@@ -1,22 +1,25 @@
 FORMAT: 1A
 
-HOST: api.us.test-socrata.com/api
+HOST: api.us.socrata.com/api
 
-# Cetera -- Search Service
+# Catalog
 
-Features may not be implemented yet (such as the `highlight` option); however, we wish to future proof the API against version changes.
-The flag `include_internal_metadata` should be set to `true` for the frontend, although its presence (or lack of presence) may be ignored for now.
-Once we understand the behavior for the civic hacker, we will optimize the use case to return the appropriate, less verbose payload.
-Given that our internal resource names will change, we will require external documentation that shares the resource that a civic hacker can use to load a dataset or page from its id.
+Main endpoint for querying the catalog of datasets housed by Socrata. Datasets can be found by keywords, domains, high level categorizations, or more granular tags. A given datset may be associated with 0 or more categories or tags. Tags are assigned automatically via stastically derived models; an individual tag may return a confidence value corresponding to model confidence.
 
-All calls will return a JSON object containing the list of datasets and pages in the relevance that is appropriate to the query in a field called `results`. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource will be either a page or a dataset.
+Note: select features may not be implemented but are included to future proof the API against version changes.
 
-Pages and datasets may be distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
+All calls return a JSON object containing a list of datasets and pages ranked by relevance in a `results` field. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource is either a page or a dataset.
 
- - Pages include the fields `pageId`, `datasetId`, and `cards`,
- - Datasets include the fields `id` and `columns`.
+Pages and datasets are distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
+
+- Pages include the fields `pageId`, `datasetId`, and `cards`,
+- Datasets include the fields `id` and `columns`.
 
 With the exception of the additional `type` field, the objects in the `resources` field are unaltered from their representation in whatever owns their truth.
+
+The production API endpoint for the Labs version of this API is `https://api.us.socrata.com/api/catalog/v1`. For example, to query for datasets categorized as `Crime`, you could use the following query:
+
+<a class="tryit" href="http://api.us.socrata.com/api/catalog/v1?categories=public%20safety">http://api.us.socrata.com/api/catalog/v1?categories=public safety</a>
 
 *Please note that we assume that all calls include either the `X-App-Token` header or the ``$$app_token`` parameters set to a valid token. This is assumed and not documented in the API spec below.*
 
@@ -27,73 +30,109 @@ With the exception of the additional `type` field, the objects in the `resources
             {
               "results": [
                 {
-                  "classification": {
-                    "tags":["tag1", "tag2"],
-                    "category":"Public Health"
-                  },
-                    
-                  "resource": {
-                    "type":"dataset",
-                    "columns": {
-                      "location_state": {
-                        "cardinality": 1,
-                        "description": "A location (state)",
-                        "fred": "category",
-                        "name": "Location (state)",
-                        "physicalDatatype": "text"
-                      },
-                      "city": {
-                        "cardinality": 15,
-                        "description": "City for the Public Library",
-                        "fred": "category",
-                        "name": "CITY",
-                        "physicalDatatype": "text"
-                      },
-                      "zipcode": {
-                        "cardinality": 23,
-                        "description": "5 digit postal Zip Code for the Public Library",
-                        "fred": "category",
-                        "name": "ZIPCODE",
-                        "physicalDatatype": "number"
-                      }
-                    },
-                    "defaultPage": "5b5c-jj6z",
-                    "description": "Locations of all Montgomery County, MD Public Libraries.",
-                    "domain": "moco-migrationtest.demo.socrata.com",
-                    "id": "xqvj-wiwq",
-                    "locale": "en_US",
-                    "name": "Libraries",
-                    "ownerId": "h6pt-apgn",
-                    "rowDisplayUnit": "row",
-                    "updatedAt": "2015-01-06T16:59:37.000-08:00",
-                    "version": 1
-                  }
-                },
-                {
-                  "resource": {
-                    "type":"page",
-                    "cards": [
+                "resource" :
+                  {
+                    "domain" : "data.seattle.gov",
+                    "description" : "These sensors counts both people riding bikes and pedestrians. Separate volumes are tallied for each travel mode. Wires in a diamond formation in the concrete detect bikes and an infrared sensor mounted on a wooden post detects pedestrians. The counters also capture the direction of travel for both bikes and pedestrians.",
+                    "updatedAt" : "2015-02-19T20:01:56.000Z",
+                    "type" : "dataset",
+                    "id" : "ekqi-b8f3",
+                    "columns" :
                       {
-                        "appliedFilters": [],
-                        "cardSize": 2,
-                        "cardType": "Column",
-                        "description": "Supervisor district",
-                        "expanded": false,
-                        "fieldName": ":@computed_region_p3v4_2swa",
-                        "name": "District"
-                     }
-                    ],
-                    "datasetId": "xqvj-wiwq",
-                    "description": "Locations of all Montgomery County, MD Public Libraries.",
-                    "name": "Libraries",
-                    "pageId": "5b5c-jj6z",
-                    "primaryAmountField": null,
-                    "primaryAggregation": null,
-                    "version": 1
-                  }
+                        "mts_trail_west_of_i_90_bridge_total" :
+                          {
+                            "name" : "MTS Trail West of I-90 Bridge Total",
+                            "description" : ""
+                          },
+                        ":created_at" : { "name" : ":created_at", "description" : "" },
+                        ":updated_at" : { "name" : ":updated_at", "description" : "" },
+                        "bike_south" : { "name" : "Bike West", "description" : "" },
+                        "ped_north" : { "name" : "Ped East", "description" : "" },
+                        ":id" : { "name" : ":id", "description" : "" },
+                        "date" : { "name" : "Date", "description" : "" },
+                        "bike_north" : { "name" : "Bike East", "description" : "" },
+                        "ped_south" : { "name" : "Ped West", "description" : "" },
+                        ":version" : { "name" : ":version", "description" : "" }
+                      },
+                    "name" : "MTS Trail west of I-90 Bridge"
+                  },
+                  "classification" : {
+                    "categories" : ["Transportation"], 
+                    "tags" : ["transportation"]
+                    },
+                  "metadata" : { "domain" : "data.seattle.gov" },
+                  "link" : "https://data.seattle.gov/ux/dataset/ekqi-b8f3"
+                   },
+                    {
+                "resource" :
+                  {
+                    "pageId" : "jct9-bvdr",
+                    "name" : "Deficiencies",
+                    "cards" :
+                      [
+                        {
+                          "fieldName" : "location_state",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "deficiency_prefix",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        { "fieldName" : "location", "name" : "", "description" : "" },
+                        {
+                          "fieldName" : ":@computed_region_4wsx_3rak",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "survey_date",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "deficiency_description",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "survey_type",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "correction_date",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "location_zip",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        {
+                          "fieldName" : "inspection_cycle",
+                          "name" : "",
+                          "description" : ""
+                        },
+                        { "fieldName" : "*", "name" : "", "description" : "" }
+                      ],
+                    "type" : "page",
+                    "datasetId" : "56bb-wjan",
+                    "description" : "A list of all deficiencies currently listed on Nursing Home Compare, including the nursing home that received the deficiency, the associated inspection date, deficiency tag number, scope and severity, the current status of the deficiency and the correction date.  Data are presented as one deficiency per row."
+                  },
+                "classification" : { 
+                    "categories" : [ "Health" ],
+                    "tags" : [ "health" ] 
+                },
+                "metadata" : { "domain" : "data.medicare.gov" },
+                "link" : "https://data.medicare.gov/view/jct9-bvdr"
                 }
-              ]
-            }
+                ],
+            "resultSetSize" : 11588,
+            "timings" : { "serviceMillis" : 5, "searchMillis" : 5 }
+        }
 
 
 
@@ -102,7 +141,7 @@ With the exception of the additional `type` field, the objects in the `resources
 When no `domain` parameter is passed, the search service returns results from the entire corpus.
 
 + Parameters
-    + domains (optional, list[string], `data.seattle.gov,data.kingcounty.gov`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
+    + domains (optional, list[string], `data.seattle.gov,data.hawaii.gov`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
     
 
 ### Domain Search API [GET]
@@ -115,7 +154,7 @@ When no `domain` parameter is passed, the search service returns results from th
 When no `categories` parameter is passed, the search service returns results from the entire set of categories.
     
 + Parameters
-    + categories (optional, list[string], `category1,categoryk`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
+    + categories (optional, list[string], `Health,Finance`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
 
 ### Category Search API [GET]
 
@@ -127,7 +166,7 @@ When no `categories` parameter is passed, the search service returns results fro
 Full text search will perform a query against all documents in the corpus. Specifically, we will query the fields `name, description, category` as well as the fields representing `column fieldnames, names and description`.
 
 + Parameters
-    + q (optional, string, `potholes`) ... A string for full text search
+    + q (optional, string, `chicago crime`) ... A string for full text search
 
 ### Full text search API [GET]
 
@@ -178,9 +217,9 @@ By default (not yet implemented), the search service will only return result dat
 The full search API is detailed here, with some additional options such as `tags` and `highlight` which are not yet implemented.
 
 + Parameters
-    + domains (optional, list[string], `cname1,cname2`) ... A comma seperated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
-    + categories (optional, list[string], `category1,categoryk`) ... A comma seperated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
-    + tags (optional, list[string], `tag1,tag2`) ... A comma seperated list of tags. Return results restricted to only the tags specified (OR). When not present, searches all tags.
+    + domains (optional, list[string], `cname1,cname2`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
+    + categories (optional, list[string], `category1,categoryk`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
+    + tags (optional, list[string], `tag1,tag2`) ... A comma separated list of tags. Return results restricted to only the tags specified (OR). When not present, searches all tags.
     + q (optional, string, `potholes`) ... A string for full text search
     + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
     + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
@@ -196,35 +235,148 @@ The full search API is detailed here, with some additional options such as `tags
     
     
 ## Listing Domains [/catalog/v1/domains]
-The search service has the ability to return information regarding the domains in its index.  Return body and functionality to be determined
+The search service has the ability to return information regarding the domains in its index. 
+The complete set of query parameters is available to this endpoint as described in the above section.
 
 ### Return all domains [GET]
     
 + Response 200
     
         {
-            "message": "Not yet implemented"
+          "results" :
+            [
+              { "domain" : "opendata.utah.gov", "count" : 1239 },
+              { "domain" : "data.cityofnewyork.us", "count" : 956 },
+              { "domain" : "data.illinois.gov", "count" : 491 },
+              { "domain" : "data.oregon.gov", "count" : 466 },
+              { "domain" : "data.hawaii.gov", "count" : 454 },
+              { "domain" : "data.ok.gov", "count" : 423 },
+              { "domain" : "data.maryland.gov", "count" : 399 },
+              { "domain" : "data.ny.gov", "count" : 391 },
+              { "domain" : "www.opendata.go.ke", "count" : 341 },
+              { "domain" : "data.cityofchicago.org", "count" : 334 },
+              { "domain" : "datacatalog.cookcountyil.gov", "count" : 308 },
+              { "domain" : "bronx.lehman.cuny.edu", "count" : 245 },
+              { "domain" : "data.colorado.gov", "count" : 238 },
+              { "domain" : "data.edmonton.ca", "count" : 238 },
+              { "domain" : "data.lacity.org", "count" : 232 },
+              { "domain" : "data.mo.gov", "count" : 219 },
+              { "domain" : "www.natsdatasct.gob.mx", "count" : 211 },
+              { "domain" : "health.data.ny.gov", "count" : 208 },
+              { "domain" : "data.ct.gov", "count" : 204 },
+              { "domain" : "data.cdc.gov", "count" : 190 },
+              { "domain" : "finances.worldbank.org", "count" : 188 },
+              { "domain" : "data.medicare.gov", "count" : 186 },
+              { "domain" : "data.wa.gov", "count" : 170 },
+              { "domain" : "data.baltimorecity.gov", "count" : 167 },
+              { "domain" : "data.sfgov.org", "count" : 165 },
+              { "domain" : "data.raleighnc.gov", "count" : 139 },
+              { "domain" : "data.seattle.gov", "count" : 124 },
+              { "domain" : "data.cityofboston.gov", "count" : 123 },
+              { "domain" : "data.iowa.gov", "count" : 119 },
+              { "domain" : "bythenumbers.sco.ca.gov", "count" : 116 },
+              { "domain" : "data.oaklandnet.com", "count" : 114 },
+              { "domain" : "data.smcgov.org", "count" : 114 },
+              { "domain" : "data.kcmo.org", "count" : 111 },
+              { "domain" : "chronicdata.cdc.gov", "count" : 98 },
+              { "domain" : "data.cms.gov", "count" : 95 },
+              { "domain" : "data.kingcounty.gov", "count" : 90 },
+              { "domain" : "data.nola.gov", "count" : 88 },
+              { "domain" : "healthdata.nj.gov", "count" : 88 },
+              { "domain" : "www.datossct.gob.mx", "count" : 87 },
+              { "domain" : "data.nj.gov", "count" : 76 },
+              { "domain" : "data.iae.alberta.ca", "count" : 74 },
+              { "domain" : "data.michigan.gov", "count" : 69 },
+              { "domain" : "data.energystar.gov", "count" : 68 },
+              { "domain" : "data.acgov.org", "count" : 61 },
+              { "domain" : "data.montgomerycountymd.gov", "count" : 59 },
+              { "domain" : "opendata.lasvegasnevada.gov", "count" : 58 },
+              { "domain" : "cdph.data.ca.gov", "count" : 57 },
+              { "domain" : "data.cambridgema.gov", "count" : 56 },
+              { "domain" : "data.melbourne.vic.gov.au", "count" : 51 },
+              { "domain" : "controllerdata.lacity.org", "count" : 48 },
+              { "domain" : "data.austintexas.gov", "count" : 46 },
+              { "domain" : "data.chattlibrary.org", "count" : 45 },
+              { "domain" : "data.brla.gov", "count" : 44 },
+              { "domain" : "data.winnipeg.ca", "count" : 43 },
+              { "domain" : "chhs.data.ca.gov", "count" : 41 },
+              { "domain" : "data.cityofberkeley.info", "count" : 40 },
+              { "domain" : "data.hartford.gov", "count" : 35 },
+              { "domain" : "data.cityofgainesville.org", "count" : 34 },
+              { "domain" : "data.datamontana.us", "count" : 34 },
+              { "domain" : "data.mass.gov", "count" : 30 },
+              { "domain" : "data.awcnet.org", "count" : 27 },
+              { "domain" : "data.dcpcsb.org", "count" : 25 },
+              { "domain" : "data.providenceri.gov", "count" : 25 },
+              { "domain" : "data.strathcona.ca", "count" : 25 },
+              { "domain" : "databox.worldbank.org", "count" : 24 },
+              { "domain" : "www.dallasopendata.com", "count" : 24 },
+              { "domain" : "data.smgov.net", "count" : 22 },
+              { "domain" : "data.montgomeryschoolsmd.org", "count" : 21 },
+              { "domain" : "data.tol.ca", "count" : 20 },
+              { "domain" : "data.texas.gov", "count" : 19 },
+              { "domain" : "openpaymentsdata.cms.gov", "count" : 19 },
+              { "domain" : "data.nashville.gov", "count" : 16 },
+              { "domain" : "data.princegeorgescountymd.gov", "count" : 16 },
+              { "domain" : "data.vermont.gov", "count" : 14 },
+              { "domain" : "data.murphytx.org", "count" : 12 },
+              { "domain" : "data.cityofgp.com", "count" : 11 },
+              { "domain" : "data.fortworthtexas.gov", "count" : 9 },
+              { "domain" : "data.hampton.gov", "count" : 5 },
+              { "domain" : "data.vta.org", "count" : 2 }
+            ],
+          "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
         }
 
 
 ## Searching for tags [/catalog/v1/tags]
-Returns aggregate tag statistics as well as a list of tags.  Return body and functionality to be determined
+Returns aggregate tag statistics as well as a list of tags. The compelte set of query functionality is available to this endpoint.
+
 
 ### Return tags [GET]
 
 + Response 200
 
         {
-            "message": "Not yet implemented"
+          "results" :
+            [
+              { "tag" : "health", "count" : 1401 },
+              { "tag" : "transportation", "count" : 1051 },
+              { "tag" : "politics", "count" : 979 },
+              { "tag" : "finance", "count" : 917 },
+              { "tag" : "business", "count" : 877 },
+              { "tag" : "homeless", "count" : 739 },
+              { "tag" : "environment", "count" : 587 },
+              { "tag" : "crime", "count" : 567 },
+              { "tag" : "education", "count" : 467 },
+              { "tag" : "construction", "count" : 390 },
+              { "tag" : "library", "count" : 171 },
+              { "tag" : "infrastructure", "count" : 120 }
+            ],
+          "timings" : { "serviceMillis" : 4, "searchMillis" : 4 }
         }
 
 ## Searching for categories [/catalog/v1/categories]
-Returns aggregate category statistics as well as a list of categories.  Return body and functionality to be determined
+Returns aggregate category statistics as well as a list of categories.  Complete search functionality is available at this endpoint.
+
 
 ### Return categories [GET]
 
 + Response 200
 
         {
-            "message": "Not yet implemented"
+          "results" :
+            [
+              { "category" : "Health", "count" : 1401 },
+              { "category" : "Transportation", "count" : 1051 },
+              { "category" : "Finance", "count" : 917 },
+              { "category" : "Social Services", "count" : 739 },
+              { "category" : "Environment", "count" : 587 },
+              { "category" : "Public Safety", "count" : 567 },
+              { "category" : "Education", "count" : 467 },
+              { "category" : "Housing & Development", "count" : 390 },
+              { "category" : "Infrastructure", "count" : 390 },
+              { "category" : "Recreation", "count" : 171 }
+            ],
+          "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
         }
