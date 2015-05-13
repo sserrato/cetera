@@ -138,7 +138,7 @@ The production API endpoint for the Labs version of this API is `https://api.us.
 
 
 ## Searching particular domains [/catalog/v1{?domains}]
-When no `domain` parameter is passed, the search service returns results from the entire corpus.
+When no `domains` parameter is passed, the search service returns results from the entire corpus.
 
 + Parameters
     + domains (optional, list[string], `data.seattle.gov,data.hawaii.gov`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
@@ -218,7 +218,7 @@ The full search API is detailed here, with some additional options such as `tags
 
 + Parameters
     + domains (optional, list[string], `cname1,cname2`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
-    + categories (optional, list[string], `category1,categoryk`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
+    + categories (optional, list[string], `category1,category2`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
     + tags (optional, list[string], `tag1,tag2`) ... A comma separated list of tags. Return results restricted to only the tags specified (OR). When not present, searches all tags.
     + q (optional, string, `potholes`) ... A string for full text search
     + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
