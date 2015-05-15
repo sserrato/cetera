@@ -115,7 +115,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       "query" : ${params.searchQuery.get},
       "fields" : ["_all"],
       "type" : "cross_fields",
-      "analyzer" : "snowball"
+      "analyzer" : "standard"
     }
   }"""
 
@@ -124,7 +124,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       "query" : ${params.searchQuery.get},
       "fields" : [ "indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "_all" ],
       "type" : "cross_fields",
-      "analyzer" : "snowball"
+      "analyzer" : "standard"
     }
   }"""
 
