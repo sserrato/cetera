@@ -1,6 +1,6 @@
 import sbtassembly.Plugin.AssemblyKeys._ // put this at the top of the file
 
-name := "Cetera"
+name := "cetera"
 
 organization := "com.socrata"
 

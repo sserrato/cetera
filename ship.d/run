@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -ev
+
+/bin/env_parse /etc/cetera.conf.j2
+
+HEAP_SIZE=${CETERA_HEAP_SIZE:-512m}
+
+CMD="/usr/bin/java \
+  -Dconfig.file=${CETERA_CONFIG} \
+  -Xmx${HEAP_SIZE} \
+  -jar ${CETERA_ROOT}/${CETERA_ARTIFACT}
+"
+
+exec su socrata -c "$CMD"

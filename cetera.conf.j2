@@ -1,0 +1,26 @@
+include "application"
+
+com.socrata {
+  cetera {
+    port = 5704
+    graceful-shutdown-time = 60s
+  }
+
+  http {
+    liveness {
+      interval = 10s
+      range = 5s
+      missable = 5
+    }
+  }
+
+  log4j {
+  }
+
+  elasticsearch {
+    es-server = {{ ES_SERVER }}
+    es-port = {{ ES_PORT }}
+    es-cluster-name = {{ ES_CLUSTER_NAME }}
+    use-custom-ranker = {{ USE_CUSTOM_RANKER }}
+  }
+}
