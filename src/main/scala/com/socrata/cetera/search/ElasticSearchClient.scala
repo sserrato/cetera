@@ -44,7 +44,6 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       case Some(sq) if boosts.isEmpty =>
         QueryBuilders.multiMatchQuery(sq, "_all")
           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-          .analyzer("standard")
 
       case Some(sq) =>
         val text_args = boosts.map {
@@ -55,7 +54,6 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
         QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-          .analyzer("standard")
     }
 
     val query = locally {
