@@ -91,6 +91,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           params.limit
         )
 
+        logger.debug("ElasticSearch Query using Java Client API:\n" + request.internalBuilder());
+
         val response = Try(request.execute().actionGet())
 
         response match {
