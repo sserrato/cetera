@@ -42,7 +42,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         QueryBuilders.matchAllQuery
 
       case Some(sq) if boosts.isEmpty =>
-        QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw")
+        QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw", "domain_cname")
           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
       case Some(sq) =>
@@ -50,7 +50,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           case (field, weight) =>
             val fieldName = field.fieldName
             s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
-        } ++ List("fts_analyzed", "fts_raw")
+        } ++ List("fts_analyzed", "fts_raw", "domain_cname")
 
         QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)

@@ -113,7 +113,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val multiMatchQuery = j"""{
     "multi_match" : {
       "query" : ${params.searchQuery.get},
-      "fields" : ["fts_analyzed", "fts_raw"],
+      "fields" : ["fts_analyzed", "fts_raw", "domain_cname"],
       "type" : "cross_fields"
     }
   }"""
@@ -121,7 +121,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val boostedMultiMatchQuery = j"""{
     "multi_match" : {
       "query" : ${params.searchQuery.get},
-      "fields" : [ "indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "fts_analyzed", "fts_raw" ],
+      "fields" : ["indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "fts_analyzed", "fts_raw", "domain_cname"],
       "type" : "cross_fields"
     }
   }"""
