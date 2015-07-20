@@ -1,12 +1,14 @@
 package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
-import scala.util.{Try, Success, Failure}
 
-import com.rojoma.json.v3.ast.{JValue, JArray, JString}
+import com.rojoma.json.v3.ast.{JArray, JString, JValue}
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
+import com.socrata.cetera.search.ElasticSearchClient
+import com.socrata.cetera.util.JsonResponses._
+import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
@@ -14,9 +16,7 @@ import com.socrata.http.server.{HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.util.JsonResponses._
-import com.socrata.cetera.util._
+import scala.util.{Failure, Success, Try}
 
 case class Classification(categories: Seq[JValue], tags: Seq[JValue])
 
@@ -46,12 +46,12 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val categories = new JPath(json).down("animl_annotations").down("categories").*.down("name").finish.distinct
         val tags = new JPath(json).down("animl_annotations").down("tags").*.down("name").finish.distinct
 
-        // WARN: Non-exhaustive match
         // TODO: When production mapping changes domain_cname back to array,
         // and add back .last.asInstanceOf[JArray]
-        val cname = json.dyn.socrata_id.domain_cname.! match {
+        val cname: String = json.dyn.socrata_id.domain_cname.! match {
           case JString(string) => string
           case JArray(elems) => elems.last.asInstanceOf[JString].string
+          case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
         }
 
         val datasetID = json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString]
