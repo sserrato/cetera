@@ -1,10 +1,4 @@
-import sbtassembly.Plugin.AssemblyKeys._ // put this at the top of the file
-
 name := "cetera"
-
-organization := "com.socrata"
-
-scalaVersion := "2.10.4"
 
 resolvers ++= Seq(
   "socrata maven" at "https://repository-socrata-oss.forge.cloudbees.com/release",
@@ -21,7 +15,6 @@ libraryDependencies ++= Seq(
   "com.socrata" %% "socrata-thirdparty-utils" % "2.6.2",
   "com.rojoma" %% "rojoma-json-v3" % "3.2.2",
   "com.rojoma" %% "simple-arm-v2" % "2.0.0",
-  "org.scalatest" %% "scalatest" % "2.2.0" % "test" withSources() withJavadoc(),
   "org.scalacheck" %% "scalacheck" % "1.11.4" % "test" withSources() withJavadoc(),
   "com.typesafe" % "config" % "1.0.2",
   "log4j" % "log4j" % "1.2.17",
@@ -29,32 +22,16 @@ libraryDependencies ++= Seq(
   "org.elasticsearch" % "elasticsearch" % "1.4.2"
 )
 
-resourceGenerators in Compile <+=
-  (resourceManaged in Compile, version in Compile, scalaVersion in Compile) map { (dir, v, sV) =>
-   val file = dir / "com/socrata/cetera" / "version"
-   val revision = Process(Seq("git", "describe", "--always", "--dirty", "--long")).!!.split("\n")(0)
-   val contents =
-     "{\"service\":\"%s\",\"version\":\"%s\",\"scala_version\":\"%s\",git:\"%s\"}".format("cetera", v, sV, revision)
-   IO.write(file, contents)
-   Seq(file)
-  }
-
 initialCommands := "import com.socrata.cetera._"
 
+enablePlugins(sbtbuildinfo.BuildInfoPlugin)
+scalacOptions ++= Seq("-Yinline-warnings")
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
-
-// WARNING: do not use -optimize if we start using akka
-// Had to turn off "-Xfatal-warnings", alas such is life
-scalacOptions ++= Seq("-optimize", "-deprecation", "-feature", "-Xlint", "-Yinline-warnings")
+// TODO: enable scalastyle build failures
+com.socrata.sbtplugins.StylePlugin.StyleKeys.styleFailOnError in Compile := false
 
 // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
+fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "configs") }
 fullClasspath in Test <+= baseDirectory map { d => Attributed.blank(d / "configs") }
 
-fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "configs") }
-
-net.virtualvoid.sbt.graph.Plugin.graphSettings
-
-com.socrata.cloudbeessbt.SocrataCloudbeesSbt.socrataSettings(assembly = true)
-
-
-jacoco.settings
+de.johoop.jacoco4sbt.JacocoPlugin.jacoco.settings
