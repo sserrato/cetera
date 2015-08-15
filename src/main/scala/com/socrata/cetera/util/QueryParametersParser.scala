@@ -12,7 +12,8 @@ case class ValidatedQueryParameters(
   only: Option[String],
   boosts: Map[CeteraFieldType with Boostable, Float],
   offset: Int,
-  limit: Int
+  limit: Int,
+  advancedSearchQuery: Option[String] = None
 )
 
 sealed trait ParseError { def message: String }
@@ -99,7 +100,7 @@ object QueryParametersParser {
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val searchQuery = req.queryParameters.get("q")
-
+    val advancedQuery = req.queryParameters.get("q_internal")
     // Convert these params to lower case because of Elasticsearch filters
     // Yes, the params parser now concerns itself with ES internals
     val domains     = req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet)
@@ -143,7 +144,8 @@ object QueryParametersParser {
           o,
           boosts,
           offset,
-          limit
+          limit,
+          advancedQuery
         ))
 
       case Left(e) => Left(Seq(e))
