@@ -36,7 +36,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                        tags: Option[Set[String]],
                        only: Option[String],
                        boosts: Map[CeteraFieldType with Boostable, Float],
-                       advancedQuery:Option[String]=None ): SearchRequestBuilder = {
+                       advancedQuery: Option[String]=None ): SearchRequestBuilder = {
 
 
     val matchQuery = advancedQuery match {
@@ -60,9 +60,11 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
             .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
       }
       case Some(sq) => // advanced query
-        QueryBuilders.queryString(sq).field("fts_analyzed").field("fts_raw").autoGeneratePhraseQueries(true)
+        QueryBuilders.queryString(sq).
+                      field("fts_analyzed").
+                      field("fts_raw").
+                      autoGeneratePhraseQueries(true)
     }
-
 
 
     val query = locally {
@@ -117,7 +119,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                          boosts: Map[CeteraFieldType with Boostable, Float],
                          offset: Int,
                          limit: Int,
-                         advancedQuery:Option[String] = None ): SearchRequestBuilder = {
+                         advancedQuery: Option[String] = None ): SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
       searchQuery,
@@ -129,21 +131,30 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       advancedQuery
     )
 
-    // First pass logic is very simple. query >> categories >> tags
-    val sort = (searchQuery, categories, tags) match {
-      case (None, None, None) =>
+    // First pass logic is very simple. advanced query >> query >> categories >> tags
+    val sort = (searchQuery, categories, tags, advancedQuery) match {
+      case (None, None, None, None) =>
+        SortBuilders
+          .scoreSort()
+          .order(SortOrder.DESC)
+
+      //advanced query
+      case (_, _, _, Some(aq))  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
       // Query
-      case (Some(sq), _, _) =>
+      case (Some(sq), _, _, _ )  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
+
+
+
       // Categories
-      case (_, Some(cats), _) =>
+      case (_, Some(cats), _, _) =>
         SortBuilders
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
@@ -151,7 +162,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
 
       // Tags
-      case (_, _, Some(ts)) =>
+      case (_, _, Some(ts), _) =>
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
