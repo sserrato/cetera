@@ -59,11 +59,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
             .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
       }
-      case Some(sq) => // advanced query
-        QueryBuilders.queryString(sq).
-                      field("fts_analyzed").
-                      field("fts_raw").
-                      autoGeneratePhraseQueries(true)
+
+        case Some(sq) => // advanced query
+          QueryBuilders.queryString(sq).
+                        field("fts_analyzed").
+                        field("fts_raw").
+                        field("domain_cname").
+                        autoGeneratePhraseQueries(true)
     }
 
 
