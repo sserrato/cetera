@@ -38,22 +38,29 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                        boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
 
 
+
+    
     val matchQuery = searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
 
       case SimpleQuery(sq) if boosts.isEmpty =>
-        QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw", "domain_cname")
-          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+        QueryBuilders.multiMatchQuery(sq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
       case SimpleQuery(sq) =>
-        val text_args = boosts.map {
-          case (field, weight) =>
-            val fieldName = field.fieldName
-            s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
-        } ++ List("fts_analyzed", "fts_raw", "domain_cname")
+       val nonBoostedQuery =  QueryBuilders.multiMatchQuery(sq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
-          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+        boosts.foldLeft(nonBoostedQuery) {
+          case (q,(field,weight)) =>
+            q.field(field.fieldName,weight)
+        }
 
       case AdvancedQuery(aq) if boosts.isEmpty =>
         QueryBuilders.queryString(aq).
@@ -71,8 +78,8 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           autoGeneratePhraseQueries(true)
 
         boosts.foldLeft(nonBoostedQuery) {
-          case (query,(field,weight)) =>
-            query.field(field.fieldName,weight)
+          case (q,(field,weight)) =>
+            q.field(field.fieldName,weight)
         }
     }
 
