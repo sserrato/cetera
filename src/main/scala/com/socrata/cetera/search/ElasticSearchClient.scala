@@ -55,12 +55,25 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
           .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-      case AdvancedQuery(aq) =>
+      case AdvancedQuery(aq) if boosts.isEmpty =>
         QueryBuilders.queryString(aq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").
           autoGeneratePhraseQueries(true)
+
+
+      case AdvancedQuery(aq) =>
+        val nonBoostedQuery = QueryBuilders.queryString(aq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          autoGeneratePhraseQueries(true)
+
+        boosts.foldLeft(nonBoostedQuery) {
+          case (query,(field,weight)) =>
+            query.field(field.fieldName,weight)
+        }
     }
 
 
