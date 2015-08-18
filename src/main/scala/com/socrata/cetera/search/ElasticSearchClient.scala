@@ -30,42 +30,37 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   def close(): Unit = client.close()
 
   // Assumes validation has already been done
-  def buildBaseRequest(searchQuery: Option[String],
+  def buildBaseRequest(searchQuery: QueryType,
                        domains: Option[Set[String]],
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
                        only: Option[String],
-                       boosts: Map[CeteraFieldType with Boostable, Float],
-                       advancedQuery: Option[String]=None ): SearchRequestBuilder = {
+                       boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
 
 
-    val matchQuery = advancedQuery match {
-      case None =>  // No advanced query, so use standard query
-        searchQuery match {
-        case None =>
-          QueryBuilders.matchAllQuery
+    val matchQuery = searchQuery match {
+      case NoQuery => QueryBuilders.matchAllQuery
 
-        case Some(sq) if boosts.isEmpty =>
-          QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw", "domain_cname")
-            .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+      case SimpleQuery(sq) if boosts.isEmpty =>
+        QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw", "domain_cname")
+          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-        case Some(sq) =>
-          val text_args = boosts.map {
-            case (field, weight) =>
-              val fieldName = field.fieldName
-              s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
-          } ++ List("fts_analyzed", "fts_raw", "domain_cname")
+      case SimpleQuery(sq) =>
+        val text_args = boosts.map {
+          case (field, weight) =>
+            val fieldName = field.fieldName
+            s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
+        } ++ List("fts_analyzed", "fts_raw", "domain_cname")
 
-          QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
-            .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-      }
+        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
+          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-        case Some(sq) => // advanced query
-          QueryBuilders.queryString(sq).
-                        field("fts_analyzed").
-                        field("fts_raw").
-                        field("domain_cname").
-                        autoGeneratePhraseQueries(true)
+      case AdvancedQuery(aq) =>
+        QueryBuilders.queryString(aq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          autoGeneratePhraseQueries(true)
     }
 
 
@@ -113,7 +108,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     else finalQuery.setQuery(query)
   }
 
-  def buildSearchRequest(searchQuery: Option[String],
+  def buildSearchRequest(searchQuery: QueryType,
                          domains: Option[Set[String]],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
@@ -129,34 +124,30 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       categories,
       tags,
       only,
-      boosts,
-      advancedQuery
+      boosts
     )
 
     // First pass logic is very simple. advanced query >> query >> categories >> tags
-    val sort = (searchQuery, categories, tags, advancedQuery) match {
-      case (None, None, None, None) =>
+    val sort = (searchQuery, categories, tags) match {
+      case (NoQuery, None, None) =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
       //advanced query
-      case (_, _, _, Some(aq))  =>
+      case (AdvancedQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
       // Query
-      case (Some(sq), _, _, _ )  =>
+      case (SimpleQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
-
-
-
       // Categories
-      case (_, Some(cats), _, _) =>
+      case (_, Some(cats), _) =>
         SortBuilders
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
@@ -164,7 +155,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
 
       // Tags
-      case (_, _, Some(ts), _) =>
+      case (_, _, Some(ts)) =>
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
@@ -179,7 +170,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   }
 
   def buildCountRequest(field: CeteraFieldType with Countable,
-                        searchQuery: Option[String],
+                        searchQuery: QueryType,
                         domains: Option[Set[String]],
                         categories: Option[Set[String]],
                         tags: Option[Set[String]],

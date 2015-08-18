@@ -88,8 +88,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           params.only,
           params.boosts,
           params.offset,
-          params.limit,
-          params.advancedSearchQuery
+          params.limit
         )
 
         logger.debug("ElasticSearch Query using Java Client API:\n" + request.internalBuilder());
