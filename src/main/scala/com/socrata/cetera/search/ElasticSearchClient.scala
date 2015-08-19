@@ -20,9 +20,9 @@ import com.socrata.cetera.types._
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String, useCustomRanker: Boolean = false) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
-                   .put("cluster.name", clusterName)
-                   .put("client.transport.sniff", true)
-                   .build()
+                                  .put("cluster.name", clusterName)
+                                  .put("client.transport.sniff", true)
+                                  .build()
 
   val client: Client = new TransportClient(settings)
     .addTransportAddress(new InetSocketTransportAddress(host, port))
@@ -37,9 +37,8 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                        only: Option[String],
                        boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
 
-
-
-    
+    // use an if for the NoQuery and factor everything else out
+    // OR leave this as is because we're working
     val matchQuery = searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
 
@@ -51,16 +50,18 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
       case SimpleQuery(sq) =>
-       val nonBoostedQuery =  QueryBuilders.multiMatchQuery(sq).
+       val query =  QueryBuilders.multiMatchQuery(sq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").
           `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-        boosts.foldLeft(nonBoostedQuery) {
-          case (q,(field,weight)) =>
-            q.field(field.fieldName,weight)
+        // Side effects!
+        boosts.foreach {
+          case (field,weight) =>
+            query.field(field.fieldName, weight)
         }
+        query
 
       case AdvancedQuery(aq) if boosts.isEmpty =>
         QueryBuilders.queryString(aq).
@@ -69,20 +70,20 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           field("domain_cname").
           autoGeneratePhraseQueries(true)
 
-
       case AdvancedQuery(aq) =>
-        val nonBoostedQuery = QueryBuilders.queryString(aq).
+        val query = QueryBuilders.queryString(aq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").
           autoGeneratePhraseQueries(true)
 
-        boosts.foldLeft(nonBoostedQuery) {
-          case (q,(field,weight)) =>
-            q.field(field.fieldName,weight)
+        // Side effects!
+        boosts.foreach {
+          case (field,weight) =>
+            query.field(field.fieldName, weight)
         }
+        query
     }
-
 
     val query = locally {
       val domainFilter = domains.map { domains =>
@@ -154,7 +155,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .scoreSort()
           .order(SortOrder.DESC)
 
-      //advanced query
+      // Advanced query
       case (AdvancedQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
