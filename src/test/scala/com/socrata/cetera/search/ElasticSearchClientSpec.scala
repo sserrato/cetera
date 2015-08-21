@@ -28,7 +28,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val client = new LocalESClient()  // Remember to close() me!!
 
   val params = ValidatedQueryParameters(
-    searchQuery = Some("search query terms"),
+    searchQuery = SimpleQuery("search query terms"),
     domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
@@ -112,7 +112,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
   val multiMatchQuery = j"""{
     "multi_match" : {
-      "query" : ${params.searchQuery.get},
+      "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
       "fields" : ["fts_analyzed", "fts_raw", "domain_cname"],
       "type" : "cross_fields"
     }
@@ -120,8 +120,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
   val boostedMultiMatchQuery = j"""{
     "multi_match" : {
-      "query" : ${params.searchQuery.get},
-      "fields" : ["indexed_metadata.name^2.2", "indexed_metadata.description^1.1", "fts_analyzed", "fts_raw", "domain_cname"],
+      "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
+      "fields" : ["fts_analyzed", "fts_raw", "domain_cname", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"],
       "type" : "cross_fields"
     }
   }"""
@@ -152,7 +152,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       }"""
 
       val request = client.buildBaseRequest(
-        searchQuery = None,
+        searchQuery = NoQuery,
         domains = None,
         categories = None,
         tags = None,
@@ -243,7 +243,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       }"""
 
       val request = client.buildSearchRequest(
-        searchQuery = None,
+        searchQuery = NoQuery,
         domains = params.domains,
         categories = params.categories,
         tags = params.tags,
@@ -283,7 +283,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
       val request = client.buildCountRequest(
         field = DomainFieldType,
-        searchQuery = None,
+        searchQuery = NoQuery,
         domains = None,
         categories = None,
         tags = None,

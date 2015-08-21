@@ -20,9 +20,9 @@ import com.socrata.cetera.types._
 
 class ElasticSearchClient(host: String, port: Int, clusterName: String, useCustomRanker: Boolean = false) extends Closeable {
   val settings = ImmutableSettings.settingsBuilder()
-                   .put("cluster.name", clusterName)
-                   .put("client.transport.sniff", true)
-                   .build()
+                                  .put("cluster.name", clusterName)
+                                  .put("client.transport.sniff", true)
+                                  .build()
 
   val client: Client = new TransportClient(settings)
     .addTransportAddress(new InetSocketTransportAddress(host, port))
@@ -30,30 +30,59 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   def close(): Unit = client.close()
 
   // Assumes validation has already been done
-  def buildBaseRequest(searchQuery: Option[String],
+  def buildBaseRequest(searchQuery: QueryType,
                        domains: Option[Set[String]],
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
                        only: Option[String],
                        boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
 
+    // use an if for the NoQuery and factor everything else out
+    // OR leave this as is because we're working
     val matchQuery = searchQuery match {
-      case None =>
-        QueryBuilders.matchAllQuery
+      case NoQuery => QueryBuilders.matchAllQuery
 
-      case Some(sq) if boosts.isEmpty =>
-        QueryBuilders.multiMatchQuery(sq, "fts_analyzed", "fts_raw", "domain_cname")
-          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+      case SimpleQuery(sq) if boosts.isEmpty =>
+        QueryBuilders.multiMatchQuery(sq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-      case Some(sq) =>
-        val text_args = boosts.map {
-          case (field, weight) =>
-            val fieldName = field.fieldName
-            s"${fieldName}^${weight}" // NOTE ^ does not mean exponentiate, it means multiply
-        } ++ List("fts_analyzed", "fts_raw", "domain_cname")
+      case SimpleQuery(sq) =>
+       val query =  QueryBuilders.multiMatchQuery(sq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-        QueryBuilders.multiMatchQuery(sq, text_args.toList:_*)
-          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+        // Side effects!
+        boosts.foreach {
+          case (field,weight) =>
+            query.field(field.fieldName, weight)
+        }
+        query
+
+      case AdvancedQuery(aq) if boosts.isEmpty =>
+        QueryBuilders.queryString(aq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          autoGeneratePhraseQueries(true)
+
+      case AdvancedQuery(aq) =>
+        val query = QueryBuilders.queryString(aq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          autoGeneratePhraseQueries(true)
+
+        // Side effects!
+        boosts.foreach {
+          case (field,weight) =>
+            query.field(field.fieldName, weight)
+        }
+        query
     }
 
     val query = locally {
@@ -100,14 +129,15 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     else finalQuery.setQuery(query)
   }
 
-  def buildSearchRequest(searchQuery: Option[String],
+  def buildSearchRequest(searchQuery: QueryType,
                          domains: Option[Set[String]],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
                          only: Option[String],
                          boosts: Map[CeteraFieldType with Boostable, Float],
                          offset: Int,
-                         limit: Int): SearchRequestBuilder = {
+                         limit: Int,
+                         advancedQuery: Option[String] = None ): SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
       searchQuery,
@@ -118,15 +148,21 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       boosts
     )
 
-    // First pass logic is very simple. query >> categories >> tags
+    // First pass logic is very simple. advanced query >> query >> categories >> tags
     val sort = (searchQuery, categories, tags) match {
-      case (None, None, None) =>
+      case (NoQuery, None, None) =>
+        SortBuilders
+          .scoreSort()
+          .order(SortOrder.DESC)
+
+      // Advanced query
+      case (AdvancedQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
 
       // Query
-      case (Some(sq), _, _) =>
+      case (SimpleQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
@@ -155,7 +191,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   }
 
   def buildCountRequest(field: CeteraFieldType with Countable,
-                        searchQuery: Option[String],
+                        searchQuery: QueryType,
                         domains: Option[Set[String]],
                         categories: Option[Set[String]],
                         tags: Option[Set[String]],

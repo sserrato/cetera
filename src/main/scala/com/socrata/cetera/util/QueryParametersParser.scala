@@ -5,7 +5,7 @@ import com.socrata.http.server.HttpRequest
 import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
-  searchQuery: Option[String],
+  searchQuery: QueryType,
   domains: Option[Set[String]],
   categories: Option[Set[String]],
   tags: Option[Set[String]],
@@ -98,7 +98,15 @@ object QueryParametersParser {
   }
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
-    val searchQuery = req.queryParameters.get("q")
+    val simpleQuery = req.queryParameters.get("q")
+    val advancedQuery = req.queryParameters.get("q_internal")
+    // If both are specified, prefer the advanced query over the search query
+   val query =  (simpleQuery, advancedQuery) match {
+      case (_, Some(aq)) => AdvancedQuery(aq)
+      case (Some(sq), None) => SimpleQuery(sq)
+      case (None, None) => NoQuery
+    }
+
 
     // Convert these params to lower case because of Elasticsearch filters
     // Yes, the params parser now concerns itself with ES internals
@@ -136,7 +144,7 @@ object QueryParametersParser {
     only match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
-          searchQuery,
+          query,
           domains,
           categories,
           tags,
