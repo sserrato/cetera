@@ -39,6 +39,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
     // use an if for the NoQuery and factor everything else out
     // OR leave this as is because we're working
+
     val matchQuery = searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
 
@@ -111,7 +112,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
     // Imperative builder --> order is important
     val finalQuery = client
-      .prepareSearch("datasets", "pages") // literals should not be here
+      .prepareSearch("datasets", "files", "hrefs", "maps") // literals should not be here
       .setTypes(only.toList:_*)
 
     if (useCustomRanker) {
