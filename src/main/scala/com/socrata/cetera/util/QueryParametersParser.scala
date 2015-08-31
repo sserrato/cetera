@@ -137,9 +137,9 @@ object QueryParametersParser {
     val only = req.queryParameters.get("only") match {
       case None => Right(None)
       case Some("datasets") => Right(Some("dataset"))
-      case Some("files") => Right(Some("files"))
+      case Some("files") => Right(Some("file"))
       case Some("external") => Right(Some("href"))
-      case Some("maps") => Right(Some("maps"))
+      case Some("maps") => Right(Some("map"))
       case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, files, external, maps}, got ${invalid}"))
     }
 
