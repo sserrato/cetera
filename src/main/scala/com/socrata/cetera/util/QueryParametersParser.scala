@@ -7,6 +7,7 @@ import com.socrata.cetera.types._
 case class ValidatedQueryParameters(
   searchQuery: QueryType,
   domains: Option[Set[String]],
+  searchContext: Option[String],
   categories: Option[Set[String]],
   tags: Option[Set[String]],
   only: Option[String],
@@ -113,6 +114,7 @@ object QueryParametersParser {
     val domains     = req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet)
     val categories  = req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet)
     val tags        = req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet)
+    val searchContext = req.queryParameter("search_context").map(_.toLowerCase)
 
     val boosts = {
       val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle") match {
@@ -148,6 +150,7 @@ object QueryParametersParser {
         Right(ValidatedQueryParameters(
           query,
           domains,
+          searchContext,
           categories,
           tags,
           o,

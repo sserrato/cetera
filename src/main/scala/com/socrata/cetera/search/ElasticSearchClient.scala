@@ -32,6 +32,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: QueryType,
                        domains: Option[Set[String]],
+                       searchContext: Option[String],
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
                        only: Option[String],
@@ -92,8 +93,15 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       }
 
       val categoriesFilter = categories.map { categories =>
-        FilterBuilders.nestedFilter(CategoriesFieldType.fieldName,
-          FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, categories.toSeq:_*))
+        // If there is no search context, use the ODN categories, otherwise use the customer categories
+        if (searchContext.isDefined)
+          FilterBuilders.nestedFilter(
+            CustomerCategoryFieldType.fieldName,
+            FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, categories.toSeq: _*))
+        else
+          FilterBuilders.nestedFilter(
+            CategoriesFieldType.fieldName,
+            FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, categories.toSeq: _*))
       }
 
       val tagsFilter = tags.map { tags =>
@@ -132,6 +140,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
   def buildSearchRequest(searchQuery: QueryType,
                          domains: Option[Set[String]],
+                         searchContext: Option[String],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
                          only: Option[String],
@@ -143,6 +152,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
+      searchContext,
       categories,
       tags,
       only,
@@ -169,12 +179,17 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .order(SortOrder.DESC)
 
       // Categories
-      case (_, Some(cats), _) =>
+      case (_, Some(cats), _) if searchContext.isEmpty =>
         SortBuilders
           .fieldSort("animl_annotations.categories.score")
           .order(SortOrder.DESC)
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
+
+      case (_, Some(cats), _) if searchContext.isDefined =>
+        SortBuilders
+          .scoreSort()
+          .order(SortOrder.DESC)
 
       // Tags
       case (_, _, Some(ts)) =>
@@ -194,6 +209,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
   def buildCountRequest(field: CeteraFieldType with Countable,
                         searchQuery: QueryType,
                         domains: Option[Set[String]],
+                        searchContext: Option[String],
                         categories: Option[Set[String]],
                         tags: Option[Set[String]],
                         only: Option[String]): SearchRequestBuilder = {
@@ -201,6 +217,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
+      searchContext,
       categories,
       tags,
       only,
@@ -236,6 +253,13 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
               .field(field.rawFieldName)
               .size(0)
           )
+
+      case CustomerCategoryFieldType =>
+        AggregationBuilders
+          .terms("categories")
+          .field(field.rawFieldName)
+          .order(Terms.Order.count(false)) // count desc
+          .size(0) // unlimited
     }
 
     baseRequest

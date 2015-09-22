@@ -57,6 +57,7 @@ class CountService(elasticSearchClient: ElasticSearchClient) {
           field,
           params.searchQuery,
           params.domains,
+          params.searchContext,
           params.categories,
           params.tags,
           params.only

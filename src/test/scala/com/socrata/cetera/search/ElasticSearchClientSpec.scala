@@ -30,6 +30,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
     domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+    searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
     only = Some("dataset"),
@@ -154,6 +155,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildBaseRequest(
         searchQuery = NoQuery,
         domains = None,
+        searchContext = None,
         categories = None,
         tags = None,
         only = None,
@@ -173,6 +175,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildBaseRequest(
         searchQuery = params.searchQuery,
         domains = None,
+        searchContext = None,
         categories = None,
         tags = None,
         only = None,
@@ -192,6 +195,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildBaseRequest(
         searchQuery = params.searchQuery,
         domains = None,
+        searchContext = None,
         categories = None,
         tags = None,
         only = None,
@@ -220,6 +224,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildSearchRequest(
         searchQuery = params.searchQuery,
         domains = params.domains,
+        searchContext = None,
         categories = params.categories,
         tags = params.tags,
         only = params.only,
@@ -245,6 +250,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val request = client.buildSearchRequest(
         searchQuery = NoQuery,
         domains = params.domains,
+        searchContext = None,
         categories = params.categories,
         tags = params.tags,
         only = params.only,
@@ -285,6 +291,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         field = DomainFieldType,
         searchQuery = NoQuery,
         domains = None,
+        searchContext = None,
         categories = None,
         tags = None,
         only = None
@@ -312,6 +319,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         CategoriesFieldType,
         searchQuery = params.searchQuery,
         domains = params.domains,
+        searchContext = None,
         categories = params.categories,
         tags = params.tags,
         only = params.only

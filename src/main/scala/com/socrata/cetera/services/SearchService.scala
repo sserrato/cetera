@@ -2,7 +2,7 @@ package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
 
-import com.rojoma.json.v3.ast.{JArray, JString, JValue}
+import com.rojoma.json.v3.ast.{JNull, JArray, JString, JValue}
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Success, Try}
 
-case class Classification(categories: Seq[JValue], tags: Seq[JValue])
+case class Classification(categories: Seq[JValue], tags: Seq[JValue], customerCategory: Option[JValue])
 
 object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
@@ -65,9 +65,15 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
             JString(s"""https://${cname}/d/${datasetID.string}""")
         }
 
+        val customerCategory = json.dyn.customer_category.? match {
+          case Left(e) => None
+          case Right(jv) if jv != JNull => Some(jv)
+          case Right(jv) => Some(JString(""))
+        }
+
         SearchResult(
           json.dyn.resource.!,
-          Classification(categories, tags),
+          Classification(categories, tags, customerCategory),
           Map("domain" -> JString(cname)),
           link
         )
@@ -83,6 +89,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val request = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
+          params.searchContext,
           params.categories,
           params.tags,
           params.only,

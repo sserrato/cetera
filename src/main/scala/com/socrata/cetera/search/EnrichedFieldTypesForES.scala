@@ -7,6 +7,7 @@ object EnrichedFieldTypesForES {
     field match {
       case DomainFieldType => "socrata_id.domain_cname"
       case CategoriesFieldType => "animl_annotations.categories"
+      case CustomerCategoryFieldType => "customer_category"
       case TagsFieldType => "animl_annotations.tags"
       case TitleFieldType => "indexed_metadata.name"
       case DescriptionFieldType => "indexed_metadata.description"
@@ -22,6 +23,7 @@ object EnrichedFieldTypesForES {
       field match {
         case DomainFieldType => baseFieldName(field)+".raw"
         case CategoriesFieldType => baseFieldName(field) + ".name.raw"
+        case CustomerCategoryFieldType => baseFieldName(field) + ".raw"
         case TagsFieldType => baseFieldName(field) + ".name.raw"
       }
     }

@@ -58,7 +58,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
       val datasetResponse = results(0)
       datasetResponse.resource should be (j"""${resource}""")
-      datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue]))
+      datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None))
 
       datasetResponse.metadata.get("domain") match {
         case Some(domain) => domain should be (JString("socrata.com"))
@@ -69,7 +69,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
       val pageResponse = results(1)
       pageResponse.resource should be (j"""${resource}""")
-      pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue]))
+      pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None))
 
       pageResponse.metadata.get("domain") match {
         case Some(domain) => domain should be (JString("second-socrata.com"))
