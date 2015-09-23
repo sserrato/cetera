@@ -38,13 +38,6 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     val popularity: SearchHitField = new InternalSearchHitField(
       "popularity", List.empty[Object].asJava)
 
-    //datasetHit.fields(Map("metadata" -> updateFreq).asJava)
-
-    // val  = new InternalSearchHitField(
-    //   "update_freq" -> List[Object](2.0))
-
-    //   , "popularity" -> 0.5).asJava).asJava)
-
     val pageHit = new InternalSearchHit(1, "64_6uy3-7akf", new StringText("page"), null)
     pageHit.shardTarget(shardTarget)
     pageHit.sourceRef(page_source)

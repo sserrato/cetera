@@ -110,7 +110,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           params.limit
         )
 
-        logger.info("ElasticSearch Query using Java Client API:\n" + request.internalBuilder());
+        logger.info("ElasticSearch query: " + request.internalBuilder().toString().replaceAll("""[\n\s]+""", " "))
 
         val response = Try(request.execute().actionGet())
 
