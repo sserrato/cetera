@@ -12,6 +12,11 @@ case class ValidatedQueryParameters(
   tags: Option[Set[String]],
   only: Option[String],
   boosts: Map[CeteraFieldType with Boostable, Float],
+  minShouldMatch: Option[String],
+  slop: Option[Int],
+  functionScores: List[ScriptScoreFunction],
+  showFeatureVals: Boolean,
+  showScore: Boolean,
   offset: Int,
   limit: Int
 )
@@ -100,14 +105,40 @@ object QueryParametersParser {
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val simpleQuery = req.queryParameters.get("q")
-    val advancedQuery = req.queryParameters.get("q_internal")
+    val advancedQuery = req.queryParameters.get("q_internal")        
+
     // If both are specified, prefer the advanced query over the search query
-   val query =  (simpleQuery, advancedQuery) match {
+    val query = (simpleQuery, advancedQuery) match {
       case (_, Some(aq)) => AdvancedQuery(aq)
       case (Some(sq), None) => SimpleQuery(sq)
       case (None, None) => NoQuery
     }
 
+    // Check for minShouldMatch constraint
+    val minShouldMatch =
+      req.queryParameters.get("min_should_match").flatMap {
+        case param => MinShouldMatch.fromParam(query, param)
+      }
+
+    // Check for slop parameter
+    val slop = req.queryParam[Int]("slop").map(validated(_))
+
+    // Check for function score functions
+    val functionScores =
+      req.queryParameters.get("function_score").map(
+        _.split(',').toList.flatMap {
+          param => ScriptScoreFunction.fromParam(query, param)
+        }).getOrElse(List.empty[ScriptScoreFunction])
+
+    // Whether to return feature values in metadata
+    val showFeatureVals =
+      functionScores.nonEmpty && req.queryParameters.contains("show_feature_vals")
+
+    // Whether to return score in metadata
+    val showScore = query match {
+      case NoQuery => false
+      case _ => req.queryParameters.contains("show_score")
+    }
 
     // Convert these params to lower case because of Elasticsearch filters
     // Yes, the params parser now concerns itself with ES internals
@@ -155,6 +186,11 @@ object QueryParametersParser {
           tags,
           o,
           boosts,
+          minShouldMatch,
+          slop,
+          functionScores,
+          showFeatureVals,
+          showScore,
           offset,
           limit
         ))

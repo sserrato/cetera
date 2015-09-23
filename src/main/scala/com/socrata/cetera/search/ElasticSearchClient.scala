@@ -8,8 +8,9 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.index.query.MultiMatchQueryBuilder
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders
+import org.elasticsearch.index.query.{MultiMatchQueryBuilder, BaseQueryBuilder}
+import org.elasticsearch.index.query.functionscore.{ScoreFunctionBuilders, FunctionScoreQueryBuilder}
+import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
@@ -36,23 +37,36 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
                        only: Option[String],
-                       boosts: Map[CeteraFieldType with Boostable, Float]): SearchRequestBuilder = {
+                       boosts: Map[CeteraFieldType with Boostable, Float],
+                       minShouldMatch: Option[String],
+                       slop: Option[Int],
+                       functionScores: List[ScriptScoreFunction]): SearchRequestBuilder = {
+
+    def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String) = {
+      query.minimumShouldMatch(constraint)
+    }
+
+    def addSlopParam(query: MultiMatchQueryBuilder, slop: Int) = {
+      query.slop(slop)
+    }
+
+    def addFunctionScores(query: FunctionScoreQueryBuilder,
+                          functions: List[ScriptScoreFunction]) = {
+      functions.foreach { fn =>
+        query.add(ScoreFunctionBuilders.scriptFunction(fn.script, fn.params.asJava))
+      }
+
+      query.scoreMode("sum")
+        .boostMode("replace")
+    }
 
     // use an if for the NoQuery and factor everything else out
     // OR leave this as is because we're working
-
-    val matchQuery = searchQuery match {
+    val matchQuery: BaseQueryBuilder = searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
 
-      case SimpleQuery(sq) if boosts.isEmpty =>
-        QueryBuilders.multiMatchQuery(sq).
-          field("fts_analyzed").
-          field("fts_raw").
-          field("domain_cname").
-          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-
       case SimpleQuery(sq) =>
-       val query =  QueryBuilders.multiMatchQuery(sq).
+        val query = QueryBuilders.multiMatchQuery(sq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").
@@ -60,17 +74,17 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
         // Side effects!
         boosts.foreach {
-          case (field,weight) =>
+          case (field, weight) =>
             query.field(field.fieldName, weight)
         }
-        query
 
-      case AdvancedQuery(aq) if boosts.isEmpty =>
-        QueryBuilders.queryString(aq).
-          field("fts_analyzed").
-          field("fts_raw").
-          field("domain_cname").
-          autoGeneratePhraseQueries(true)
+        // Side effects!
+        minShouldMatch.foreach { case msm => addMinMatchConstraint(query, msm) }
+
+        // Side effects!
+        slop.foreach { case s => addSlopParam(query, s) }
+
+        query
 
       case AdvancedQuery(aq) =>
         val query = QueryBuilders.queryString(aq).
@@ -81,11 +95,17 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
         // Side effects!
         boosts.foreach {
-          case (field,weight) =>
+          case (field, weight) =>
             query.field(field.fieldName, weight)
         }
+
         query
     }
+
+    val q = if (functionScores.nonEmpty) {
+      val query = QueryBuilders.functionScoreQuery(matchQuery)
+      addFunctionScores(query, functionScores)
+    } else matchQuery
 
     val query = locally {
       val domainFilter = domains.map { domains =>
@@ -95,9 +115,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       val categoriesFilter = categories.map { categories =>
         // If there is no search context, use the ODN categories, otherwise use the customer categories
         if (searchContext.isDefined)
-          FilterBuilders.nestedFilter(
-            CustomerCategoryFieldType.fieldName,
-            FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, categories.toSeq: _*))
+          FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, categories.toSeq: _*)
         else
           FilterBuilders.nestedFilter(
             CategoriesFieldType.fieldName,
@@ -109,12 +127,12 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           FilterBuilders.termsFilter(TagsFieldType.rawFieldName, tags.toSeq:_*))
       }
 
-      val filters = List(domainFilter, categoriesFilter, tagsFilter).flatten
+      val filters = List.concat(domainFilter, categoriesFilter, tagsFilter)
 
       if (filters.nonEmpty) {
-        QueryBuilders.filteredQuery(matchQuery, FilterBuilders.andFilter(filters:_*))
+        QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters:_*))
       } else {
-        matchQuery
+        q
       }
     }
 
@@ -145,6 +163,9 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                          tags: Option[Set[String]],
                          only: Option[String],
                          boosts: Map[CeteraFieldType with Boostable, Float],
+                         minShouldMatch: Option[String],
+                         slop: Option[Int],
+                         functionScores: List[ScriptScoreFunction],
                          offset: Int,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
@@ -156,7 +177,10 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       categories,
       tags,
       only,
-      boosts
+      boosts,
+      minShouldMatch,
+      slop,
+      functionScores
     )
 
     // First pass logic is very simple. advanced query >> query >> categories >> tags
@@ -166,14 +190,8 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .scoreSort()
           .order(SortOrder.DESC)
 
-      // Advanced query
-      case (AdvancedQuery(_), _, _)  =>
-        SortBuilders
-          .scoreSort()
-          .order(SortOrder.DESC)
-
       // Query
-      case (SimpleQuery(_), _, _)  =>
+      case (AdvancedQuery(_) | SimpleQuery(_), _, _)  =>
         SortBuilders
           .scoreSort()
           .order(SortOrder.DESC)
@@ -186,9 +204,11 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
 
+      // Categories and search context
+      // TODO: Should we sort by popularity?
       case (_, Some(cats), _) if searchContext.isDefined =>
         SortBuilders
-          .scoreSort()
+          .fieldSort(TitleFieldType.fieldName)
           .order(SortOrder.DESC)
 
       // Tags
@@ -221,7 +241,10 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       categories,
       tags,
       only,
-      Map.empty
+      Map.empty,
+      None,
+      None,
+      List.empty
     )
 
     val aggregation = field match {

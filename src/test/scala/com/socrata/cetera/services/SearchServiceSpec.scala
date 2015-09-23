@@ -1,5 +1,6 @@
 package com.socrata.cetera.services
 
+import scala.collection.JavaConverters._
 import com.rojoma.json.v3.ast.{JArray, JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import org.elasticsearch.action.search._
@@ -31,6 +32,19 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     datasetHit.sourceRef(dataset_source)
     datasetHit.score(score)
 
+    val updateFreq: SearchHitField = new InternalSearchHitField(
+      "update_freq", List.empty[Object].asJava)
+
+    val popularity: SearchHitField = new InternalSearchHitField(
+      "popularity", List.empty[Object].asJava)
+
+    //datasetHit.fields(Map("metadata" -> updateFreq).asJava)
+
+    // val  = new InternalSearchHitField(
+    //   "update_freq" -> List[Object](2.0))
+
+    //   , "popularity" -> 0.5).asJava).asJava)
+
     val pageHit = new InternalSearchHit(1, "64_6uy3-7akf", new StringText("page"), null)
     pageHit.shardTarget(shardTarget)
     pageHit.sourceRef(page_source)
@@ -47,7 +61,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     "extract and format resources from SearchResponse" in {
       val resource = j"""{ "I'm" : "OK", "you're" : "so-so" }"""
 
-      val searchResults = service.format(searchResponse)
+      val searchResults = service.format(false, false, searchResponse)
 
       searchResults.resultSetSize should be (None) // not yet added
       searchResults.timings should be (None) // not yet added

@@ -35,6 +35,11 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     tags = Some(Set("taxi", "art", "clowns")),
     only = Some("dataset"),
     boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
+    None,
+    None,
+    List.empty,
+    false,
+    false,
     offset = 10,
     limit = 20
   )
@@ -159,7 +164,10 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         categories = None,
         tags = None,
         only = None,
-        boosts = Map.empty
+        boosts = Map.empty,
+        None,
+        None,
+        List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -179,7 +187,10 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         categories = None,
         tags = None,
         only = None,
-        boosts = Map.empty
+        boosts = Map.empty,
+        None,
+        None,
+        List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -199,7 +210,10 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         categories = None,
         tags = None,
         only = None,
-        boosts = params.boosts
+        boosts = params.boosts,
+        None,
+        None,
+        List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -229,6 +243,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         tags = params.tags,
         only = params.only,
         boosts = Map.empty,
+        minShouldMatch = None,
+        slop = None,
+        functionScores = List.empty,
         offset = params.offset,
         limit = params.limit
       )
@@ -255,6 +272,9 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         tags = params.tags,
         only = params.only,
         boosts = Map.empty,
+        minShouldMatch = None,
+        slop = None,
+        functionScores = List.empty,        
         offset = params.offset,
         limit = params.limit
       )

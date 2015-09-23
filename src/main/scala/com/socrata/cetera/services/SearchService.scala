@@ -2,7 +2,7 @@ package com.socrata.cetera.services
 
 import javax.servlet.http.HttpServletResponse
 
-import com.rojoma.json.v3.ast.{JNull, JArray, JString, JValue}
+import com.rojoma.json.v3.ast._
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
@@ -36,7 +36,7 @@ object SearchResult {
 class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  def format(searchResponse: SearchResponse): SearchResults[SearchResult] = {
+  def format(showFeatureVals: Boolean, showScore: Boolean, searchResponse: SearchResponse): SearchResults[SearchResult] = {
     val resources = searchResponse.getHits().hits()
     SearchResults(
       resources.map { hit =>
@@ -44,7 +44,16 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         val json = JsonReader.fromString(source)
 
         val categories = new JPath(json).down("animl_annotations").down("categories").*.down("name").finish.distinct
-        val tags = new JPath(json).down("animl_annotations").down("tags").*.down("name").finish.distinct
+        val tags = new JPath(json).down("animl_annotations").down("tags").*.down("name").finish.distinct        
+
+        val updateFreq = json.dyn.update_freq.?.fold(_ => None, r => Option(("update_freq", r)))
+        val popularity = json.dyn.popularity.?.fold(_ => None, r => Option(("popularity", r)))
+
+        val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
+
+        val featureVals = if (showFeatureVals)
+          Seq("features" -> JObject(List(updateFreq, popularity).flatten.toMap))
+        else Seq.empty
 
         // TODO: When production mapping changes domain_cname back to array,
         // and add back .last.asInstanceOf[JArray]
@@ -74,7 +83,7 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
         SearchResult(
           json.dyn.resource.!,
           Classification(categories, tags, customerCategory),
-          Map("domain" -> JString(cname)),
+          Map("domain" -> JString(cname)) ++ score ++ featureVals,
           link
         )
       }
@@ -94,11 +103,14 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           params.tags,
           params.only,
           params.boosts,
+          params.minShouldMatch,
+          params.slop,
+          params.functionScores,
           params.offset,
           params.limit
         )
 
-        logger.debug("ElasticSearch Query using Java Client API:\n" + request.internalBuilder());
+        logger.info("ElasticSearch Query using Java Client API:\n" + request.internalBuilder());
 
         val response = Try(request.execute().actionGet())
 
@@ -106,7 +118,8 @@ class SearchService(elasticSearchClient: ElasticSearchClient) extends SimpleReso
           case Success(res) =>
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis()))
             val count = res.getHits().getTotalHits()
-            val formattedResults = format(res).copy(resultSetSize = Some(count), timings = Some(timings))
+            val formattedResults = format(params.showFeatureVals, params.showScore, res)
+              .copy(resultSetSize = Some(count), timings = Some(timings))
 
             val logMsg = LogHelper.formatRequest(req, timings)
             logger.info(logMsg)
