@@ -53,7 +53,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
     def addFunctionScores(query: FunctionScoreQueryBuilder,
                           functions: List[ScriptScoreFunction]) = {
       functions.foreach { fn =>
-        query.add(ScoreFunctionBuilders.scriptFunction(fn.script, fn.params.asJava))
+        query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression", fn.params.asJava))
       }
 
       query.scoreMode("sum")
