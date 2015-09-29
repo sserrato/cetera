@@ -117,19 +117,50 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   }"""
 
   val multiMatchQuery = j"""{
-    "multi_match" : {
-      "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
-      "fields" : ["fts_analyzed", "fts_raw", "domain_cname"],
-      "type" : "cross_fields"
-    }
+                           "bool" :
+                             {
+                               "must" :
+                                 {
+                                   "multi_match" :
+                                     {
+                                       "query" : "search query terms",
+                                       "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                                       "type" : "cross_fields"
+                                     }
+                                 },
+                               "should" :
+                                 {
+                                   "multi_match" :
+                                     {
+                                       "query" : "search query terms",
+                                       "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                                       "type" : "phrase"
+                                     }
+                                 }
+                             }
   }"""
 
   val boostedMultiMatchQuery = j"""{
-    "multi_match" : {
-      "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
-      "fields" : ["fts_analyzed", "fts_raw", "domain_cname", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"],
-      "type" : "cross_fields"
+   "bool" :
+   {
+     "must" :
+       {
+          "multi_match" : {
+          "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
+          "fields" : ["fts_analyzed", "fts_raw", "domain_cname", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"],
+           "type" : "cross_fields"
     }
+    },
+    "should" :
+         {
+           "multi_match" :
+             {
+               "query" : "search query terms",
+               "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+               "type" : "phrase"
+             }
+         }
+     }
   }"""
 
   val filteredQuery = j"""{
@@ -274,7 +305,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         boosts = Map.empty,
         minShouldMatch = None,
         slop = None,
-        functionScores = List.empty,        
+        functionScores = List.empty,
         offset = params.offset,
         limit = params.limit
       )

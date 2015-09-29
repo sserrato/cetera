@@ -15,3 +15,6 @@ case object TagsFieldType extends CeteraFieldType with Countable with Scorable
 // These field types are used for boosting (giving extra weight to fields)
 case object TitleFieldType extends CeteraFieldType with Boostable
 case object DescriptionFieldType extends CeteraFieldType with Boostable
+case object ColumnNameFieldType extends CeteraFieldType with Boostable
+case object ColumnDescriptionFieldType extends CeteraFieldType with Boostable
+case object ColumnFieldNameFieldType extends CeteraFieldType with Boostable

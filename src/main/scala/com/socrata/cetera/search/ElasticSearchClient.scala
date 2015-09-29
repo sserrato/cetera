@@ -66,7 +66,19 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
       case NoQuery => QueryBuilders.matchAllQuery
 
       case SimpleQuery(sq) =>
-        val query = QueryBuilders.multiMatchQuery(sq).
+        // This query is complex, as it generates two queries that are then combined
+        // into a single query. By default, the must match clause enforces a term match
+        // such that one or more of the query terms must be present in at least one of the
+        // fields specified. The optional minimum_should_match constraint applies to this
+        // clause. The should clause handles applies to a phrase search, with an optional slop
+        // param. (specified by the query parameter). This has the effect of giving a boost
+        // to documents where there is a phrasal match. The scores are then averaged together
+        // by ES with a defacto score of 0 for should a clause if it does not in fact match any
+        // documents. See the ElasticSearch documentation here:
+        //
+        //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
+
+        val matchTerms = QueryBuilders.multiMatchQuery(sq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").
@@ -75,16 +87,24 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
         // Side effects!
         boosts.foreach {
           case (field, weight) =>
-            query.field(field.fieldName, weight)
+            matchTerms.field(field.fieldName, weight)
         }
 
-        // Side effects!
-        minShouldMatch.foreach { case msm => addMinMatchConstraint(query, msm) }
+        minShouldMatch.foreach(addMinMatchConstraint(matchTerms, _))
 
-        // Side effects!
-        slop.foreach { case s => addSlopParam(query, s) }
+        val matchPhrase = QueryBuilders.multiMatchQuery(sq).
+          field("fts_analyzed").
+          field("fts_raw").
+          field("domain_cname").
+          `type`(MultiMatchQueryBuilder.Type.PHRASE)
 
-        query
+        // Note, if no slop is specified, we do not set a default
+        slop.foreach(addSlopParam(matchPhrase, _))
+
+        // Combines the two queries above into a single Boolean query
+        QueryBuilders.boolQuery().
+          must(matchTerms).
+          should(matchPhrase)
 
       case AdvancedQuery(aq) =>
         val query = QueryBuilders.queryString(aq).

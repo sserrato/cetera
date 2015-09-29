@@ -11,6 +11,9 @@ object EnrichedFieldTypesForES {
       case TagsFieldType => "animl_annotations.tags"
       case TitleFieldType => "indexed_metadata.name"
       case DescriptionFieldType => "indexed_metadata.description"
+      case ColumnNameFieldType => "indexed_metadata.columns_name"
+      case ColumnDescriptionFieldType => "indexed_metadata.columns_description"
+      case ColumnFieldNameFieldType => "indexed_metadata.columns_field_name"
     }
   }
 

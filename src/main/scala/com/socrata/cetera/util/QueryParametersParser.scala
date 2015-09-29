@@ -115,9 +115,8 @@ object QueryParametersParser {
     }
 
     // Check for minShouldMatch constraint
-    val minShouldMatch =
-      req.queryParameters.get("min_should_match").flatMap {
-        case param => MinShouldMatch.fromParam(query, param)
+    val minShouldMatch = req.queryParameters.get("min_should_match").flatMap {
+      case param => MinShouldMatch.fromParam(query, param)
       }
 
     // Check for slop parameter
@@ -148,17 +147,20 @@ object QueryParametersParser {
     val searchContext = req.queryParameter("search_context").map(_.toLowerCase)
 
     val boosts = {
-      val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle") match {
-        case Some(param) => Some(validated(param).value)
-        case None => None
-      }
+      val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle").map(
+        validated(_).value)
 
-      val boostDesc = req.queryParam[NonNegativeFloat]("boostDesc") match {
-        case Some(param) => Some(validated(param).value)
-        case None => None
-      }
+      val boostDesc = req.queryParam[NonNegativeFloat]("boostDesc").map(
+        validated(_).value)
 
-      Map(TitleFieldType -> boostTitle, DescriptionFieldType -> boostDesc)
+      val boostColumns = req.queryParam[NonNegativeFloat]("boostColumns").map(
+        validated(_).value)
+
+      Map(TitleFieldType -> boostTitle,
+          DescriptionFieldType -> boostDesc,
+          ColumnNameFieldType -> boostColumns,
+          ColumnDescriptionFieldType -> boostColumns,
+          ColumnFieldNameFieldType -> boostColumns)
         .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
         .toMap[CeteraFieldType with Boostable, Float]
     }
