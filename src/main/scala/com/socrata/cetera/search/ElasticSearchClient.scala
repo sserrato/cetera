@@ -107,7 +107,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           should(matchPhrase)
 
       case AdvancedQuery(aq) =>
-        val query = QueryBuilders.queryString(aq).
+        val query = QueryBuilders.queryStringQuery(aq).
           field("fts_analyzed").
           field("fts_raw").
           field("domain_cname").

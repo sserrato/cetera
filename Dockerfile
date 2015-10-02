@@ -1,4 +1,4 @@
-FROM socrata/java
+FROM socrata/java8
 
 ENV CETERA_ROOT /srv/cetera/
 ENV CETERA_ARTIFACT cetera-assembly.jar
