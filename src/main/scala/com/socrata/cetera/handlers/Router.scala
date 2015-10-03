@@ -1,5 +1,6 @@
 package com.socrata.cetera.handlers
 
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.http.server.implicits._
@@ -39,6 +40,6 @@ class Router(
       case Some(s) =>
         s(req)
       case None =>
-        NotFound ~> Header("Access-Control-Allow-Origin", "*") ~> jsonError("not found")
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError("not found")
     }
 }

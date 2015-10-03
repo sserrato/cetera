@@ -1,8 +1,7 @@
 package com.socrata.cetera.util
 
-import com.socrata.http.server.HttpRequest
-
 import com.socrata.cetera.types._
+import com.socrata.http.server.HttpRequest
 
 case class ValidatedQueryParameters(
   searchQuery: QueryType,
@@ -28,6 +27,8 @@ case class LimitError(override val message: String) extends ParseError
 
 // Parses and validates
 object QueryParametersParser {
+  val defaultPageOffset: Int = 0
+  val defaultPageLength: Int = 100
 
   /////////////////////////////////////////////////////
   // code from rjmac likely to be added to socrata-http
@@ -103,58 +104,48 @@ object QueryParametersParser {
     if (a >= 0.0f) Some(NonNegativeFloat(a)) else None
   }
 
-  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
-    val simpleQuery = req.queryParameters.get("q")
-    val advancedQuery = req.queryParameters.get("q_internal")        
-
-    // If both are specified, prefer the advanced query over the search query
-    val query = (simpleQuery, advancedQuery) match {
+  // If both are specified, prefer the advanced query over the search query
+  private def pickQuery(simple: Option[String], advanced: Option[String]): QueryType =
+    (simple, advanced) match {
       case (_, Some(aq)) => AdvancedQuery(aq)
-      case (Some(sq), None) => SimpleQuery(sq)
-      case (None, None) => NoQuery
+      case (Some(sq), _) => SimpleQuery(sq)
+      case _             => NoQuery
     }
 
-    // Check for minShouldMatch constraint
-    val minShouldMatch = req.queryParameters.get("min_should_match").flatMap {
-      case param => MinShouldMatch.fromParam(query, param)
-      }
+  // Whether to return score in metadata
+  private def showScore(query: QueryType, req: HttpRequest) = query match {
+    case NoQuery => false
+    case _       => req.queryParameters.contains("show_score")
+  }
 
-    // Check for slop parameter
-    val slop = req.queryParam[Int]("slop").map(validated(_))
+  // Check for function score functions
+  private def scriptScoreFunctions(req: HttpRequest, query: QueryType): List[ScriptScoreFunction] =
+    req.queryParameters.get("function_score").map(
+      _.split(',').toList.flatMap {
+        param => ScriptScoreFunction.fromParam(query, param)
+      }).getOrElse(List.empty[ScriptScoreFunction])
 
-    // Check for function score functions
-    val functionScores =
-      req.queryParameters.get("function_score").map(
-        _.split(',').toList.flatMap {
-          param => ScriptScoreFunction.fromParam(query, param)
-        }).getOrElse(List.empty[ScriptScoreFunction])
-
-    // Whether to return feature values in metadata
-    val showFeatureVals =
-      functionScores.nonEmpty && req.queryParameters.contains("show_feature_vals")
-
-    // Whether to return score in metadata
-    val showScore = query match {
-      case NoQuery => false
-      case _ => req.queryParameters.contains("show_score")
+  // This can stay case-sensitive because it is so specific
+  private def restrictQueryParameters(req: HttpRequest): Either[OnlyError,Option[String]] =
+    req.queryParameters.get("only") match {
+      case None => Right(None)
+      case Some("datasets") => Right(Some("dataset"))
+      case Some("files") => Right(Some("file"))
+      case Some("external") => Right(Some("href"))
+      case Some("maps") => Right(Some("map"))
+      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, files, external, maps}, got $invalid"))
     }
 
-    // Convert these params to lower case because of Elasticsearch filters
-    // Yes, the params parser now concerns itself with ES internals
-    val domains     = req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet)
-    val categories  = req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet)
-    val tags        = req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet)
-    val searchContext = req.queryParameter("search_context").map(_.toLowerCase)
+  // Convert these params to lower case because of Elasticsearch filters
+  // Yes, the params parser now concerns itself with ES internals
+  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
+    val query = pickQuery(req.queryParameters.get("q"), req.queryParameters.get("q_internal"))
+    val functionScores = scriptScoreFunctions(req, query)
 
     val boosts = {
-      val boostTitle = req.queryParam[NonNegativeFloat]("boostTitle").map(
-        validated(_).value)
-
-      val boostDesc = req.queryParam[NonNegativeFloat]("boostDesc").map(
-        validated(_).value)
-
-      val boostColumns = req.queryParam[NonNegativeFloat]("boostColumns").map(
-        validated(_).value)
+      val boostTitle   = req.queryParam[NonNegativeFloat]("boostTitle").map(validated(_).value)
+      val boostDesc    = req.queryParam[NonNegativeFloat]("boostDesc").map(validated(_).value)
+      val boostColumns = req.queryParam[NonNegativeFloat]("boostColumns").map(validated(_).value)
 
       Map(TitleFieldType -> boostTitle,
           DescriptionFieldType -> boostDesc,
@@ -165,38 +156,24 @@ object QueryParametersParser {
         .toMap[CeteraFieldType with Boostable, Float]
     }
 
-    val offset = validated(req.queryParamOrElse("offset", NonNegativeInt(0))).value
-    val limit = validated(req.queryParamOrElse("limit", NonNegativeInt(100))).value
-
-    // This can stay case-sensitive because it is so specific
-    val only = req.queryParameters.get("only") match {
-      case None => Right(None)
-      case Some("datasets") => Right(Some("dataset"))
-      case Some("files") => Right(Some("file"))
-      case Some("external") => Right(Some("href"))
-      case Some("maps") => Right(Some("map"))
-      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, files, external, maps}, got ${invalid}"))
-    }
-
-    only match {
+    restrictQueryParameters(req) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          domains,
-          searchContext,
-          categories,
-          tags,
+          req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet),
+          req.queryParameter("search_context").map(_.toLowerCase),
+          req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet),
+          req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet),
           o,
           boosts,
-          minShouldMatch,
-          slop,
+          req.queryParameters.get("min_should_match").flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          req.queryParam[Int]("slop").map(validated), // Check for slop
           functionScores,
-          showFeatureVals,
-          showScore,
-          offset,
-          limit
+          functionScores.nonEmpty && req.queryParameters.contains("show_feature_vals"),
+          showScore(query, req),
+          validated(req.queryParamOrElse("offset", NonNegativeInt(defaultPageOffset))).value,
+          validated(req.queryParamOrElse("limit", NonNegativeInt(defaultPageLength))).value
         ))
-
       case Left(e) => Left(Seq(e))
     }
   }

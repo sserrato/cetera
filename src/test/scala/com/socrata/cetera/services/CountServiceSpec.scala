@@ -3,17 +3,15 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
-import com.rojoma.json.v3.io.JsonReader
-import org.scalatest.{ShouldMatchers, WordSpec}
-
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.SearchResults
+import org.scalatest.{ShouldMatchers, WordSpec}
 
 class CountServiceSpec extends WordSpec with ShouldMatchers {
-  val service = new CountService(null)
+  val service = new CountService(None)
 
   "CountService" should {
-    val es_response = j"""{
+    val esResponse = j"""{
       "took" : 1,
       "timed_out" : false,
       "_shards" : {
@@ -55,7 +53,7 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
         j"""{ "key" : "poor-bono.example.com", "doc_count" : 1 }"""
       )
 
-      service.extract(es_response) match {
+      service.extract(esResponse) match {
         case Right(actual) =>
           (actual, expected).zipped.foreach{ (a, e) => a should be(e) }
 
@@ -74,7 +72,7 @@ class CountServiceSpec extends WordSpec with ShouldMatchers {
         )
       )
 
-      service.extract(es_response) match {
+      service.extract(esResponse) match {
         case Right(extracted) =>
           val formatted = service.format(extracted)
           val results = formatted.results

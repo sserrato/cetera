@@ -1,25 +1,29 @@
 package com.socrata.cetera.search
 
 import java.io.Closeable
-import scala.collection.JavaConverters._
 
+import com.socrata.cetera.search.EnrichedFieldTypesForES._
+import com.socrata.cetera.types._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.index.query.{MultiMatchQueryBuilder, BaseQueryBuilder}
-import org.elasticsearch.index.query.functionscore.{ScoreFunctionBuilders, FunctionScoreQueryBuilder}
-import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
+import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
+import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
-import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
+import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
+import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.search.EnrichedFieldTypesForES._
-import com.socrata.cetera.types._
+import scala.collection.JavaConverters._
 
-class ElasticSearchClient(host: String, port: Int, clusterName: String, useCustomRanker: Boolean = false) extends Closeable {
+class ElasticSearchClient(host: String,
+                          port: Int,
+                          clusterName: String,
+                          useCustomRanker: Boolean = false) extends Closeable {
+  val log = LoggerFactory.getLogger(getClass)
+
   val settings = ImmutableSettings.settingsBuilder()
                                   .put("cluster.name", clusterName)
                                   .put("client.transport.sniff", true)
@@ -30,81 +34,59 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
   def close(): Unit = client.close()
 
-  // Assumes validation has already been done
-  def buildBaseRequest(searchQuery: QueryType,
-                       domains: Option[Set[String]],
-                       searchContext: Option[String],
-                       categories: Option[Set[String]],
-                       tags: Option[Set[String]],
-                       only: Option[String],
-                       boosts: Map[CeteraFieldType with Boostable, Float],
-                       minShouldMatch: Option[String],
-                       slop: Option[Int],
-                       functionScores: List[ScriptScoreFunction]): SearchRequestBuilder = {
+  private def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String) =
+    query.minimumShouldMatch(constraint)
 
-    def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String) = {
-      query.minimumShouldMatch(constraint)
+  private def addSlopParam(query: MultiMatchQueryBuilder, slop: Int) = query.slop(slop)
+
+  private def addFunctionScores(query: FunctionScoreQueryBuilder,
+                        functions: List[ScriptScoreFunction]) = {
+    functions.foreach { fn =>
+      query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression", fn.params.asJava))
     }
 
-    def addSlopParam(query: MultiMatchQueryBuilder, slop: Int) = {
-      query.slop(slop)
-    }
+    query.scoreMode("sum")
+      .boostMode("replace")
+  }
 
-    def addFunctionScores(query: FunctionScoreQueryBuilder,
-                          functions: List[ScriptScoreFunction]) = {
-      functions.foreach { fn =>
-        query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression", fn.params.asJava))
-      }
+  private def multiMatch(q: String, mmType: MultiMatchQueryBuilder.Type) = QueryBuilders.multiMatchQuery(q).
+    field("fts_analyzed").
+    field("fts_raw").
+    field("domain_cname").
+    `type`(mmType)
 
-      query.scoreMode("sum")
-        .boostMode("replace")
-    }
-
-    // use an if for the NoQuery and factor everything else out
-    // OR leave this as is because we're working
-    val matchQuery: BaseQueryBuilder = searchQuery match {
+  // This query is complex, as it generates two queries that are then combined
+  // into a single query. By default, the must match clause enforces a term match
+  // such that one or more of the query terms must be present in at least one of the
+  // fields specified. The optional minimum_should_match constraint applies to this
+  // clause. The should clause handles applies to a phrase search, with an optional slop
+  // param. (specified by the query parameter). This has the effect of giving a boost
+  // to documents where there is a phrasal match. The scores are then averaged together
+  // by ES with a defacto score of 0 for should a clause if it does not in fact match any
+  // documents. See the ElasticSearch documentation here:
+  //
+  //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
+  def generateQuery(searchQuery: QueryType,
+                    boosts: Map[CeteraFieldType with Boostable,Float],
+                    minShouldMatch: Option[String],
+                    slop: Option[Int]): BaseQueryBuilder = {
+    searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
-
       case SimpleQuery(sq) =>
-        // This query is complex, as it generates two queries that are then combined
-        // into a single query. By default, the must match clause enforces a term match
-        // such that one or more of the query terms must be present in at least one of the
-        // fields specified. The optional minimum_should_match constraint applies to this
-        // clause. The should clause handles applies to a phrase search, with an optional slop
-        // param. (specified by the query parameter). This has the effect of giving a boost
-        // to documents where there is a phrasal match. The scores are then averaged together
-        // by ES with a defacto score of 0 for should a clause if it does not in fact match any
-        // documents. See the ElasticSearch documentation here:
-        //
-        //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
-
-        val matchTerms = QueryBuilders.multiMatchQuery(sq).
-          field("fts_analyzed").
-          field("fts_raw").
-          field("domain_cname").
-          `type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+        val matchTerms = multiMatch(sq, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
         // Side effects!
-        boosts.foreach {
-          case (field, weight) =>
-            matchTerms.field(field.fieldName, weight)
-        }
+        boosts.foreach { case (field, weight) => matchTerms.field(field.fieldName, weight) }
 
         minShouldMatch.foreach(addMinMatchConstraint(matchTerms, _))
 
-        val matchPhrase = QueryBuilders.multiMatchQuery(sq).
-          field("fts_analyzed").
-          field("fts_raw").
-          field("domain_cname").
-          `type`(MultiMatchQueryBuilder.Type.PHRASE)
+        val matchPhrase = multiMatch(sq, MultiMatchQueryBuilder.Type.PHRASE)
 
         // Note, if no slop is specified, we do not set a default
         slop.foreach(addSlopParam(matchPhrase, _))
 
         // Combines the two queries above into a single Boolean query
-        QueryBuilders.boolQuery().
-          must(matchTerms).
-          should(matchPhrase)
+        QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
       case AdvancedQuery(aq) =>
         val query = QueryBuilders.queryStringQuery(aq).
@@ -115,45 +97,55 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
         // Side effects!
         boosts.foreach {
-          case (field, weight) =>
-            query.field(field.fieldName, weight)
+          case (field, weight) => query.field(field.fieldName, weight)
         }
 
         query
     }
+  }
+
+  private def domainFilter(domains: Option[Set[String]]) =
+    domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq:_*) }
+
+  private def categoriesFilter(categories: Option[Set[String]], searchContext: Option[String]) = categories.map { cs =>
+    // If there is no search context, use the ODN categories, otherwise use the customer categories
+    if (searchContext.isDefined) {
+      FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, cs.toSeq: _*)
+    } else {
+      FilterBuilders.nestedFilter(
+        CategoriesFieldType.fieldName,
+        FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cs.toSeq: _*))
+    }
+  }
+
+  private def tagsFilter(tags: Option[Set[String]]) = tags.map { tags =>
+    FilterBuilders.nestedFilter(TagsFieldType.fieldName,
+      FilterBuilders.termsFilter(TagsFieldType.rawFieldName, tags.toSeq:_*))
+  }
+
+  // Assumes validation has already been done
+  def buildBaseRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
+                       domains: Option[Set[String]],
+                       searchContext: Option[String],
+                       categories: Option[Set[String]],
+                       tags: Option[Set[String]],
+                       only: Option[String],
+                       boosts: Map[CeteraFieldType with Boostable, Float],
+                       minShouldMatch: Option[String],
+                       slop: Option[Int],
+                       functionScores: List[ScriptScoreFunction]): SearchRequestBuilder = {
+    // use an if for the NoQuery and factor everything else out
+    // OR leave this as is because we're working
+    val matchQuery: BaseQueryBuilder = generateQuery(searchQuery, boosts, minShouldMatch, slop)
 
     val q = if (functionScores.nonEmpty) {
       val query = QueryBuilders.functionScoreQuery(matchQuery)
       addFunctionScores(query, functionScores)
-    } else matchQuery
+    } else { matchQuery }
 
     val query = locally {
-      val domainFilter = domains.map { domains =>
-        FilterBuilders.termsFilter(DomainFieldType.rawFieldName, domains.toSeq:_*)
-      }
-
-      val categoriesFilter = categories.map { categories =>
-        // If there is no search context, use the ODN categories, otherwise use the customer categories
-        if (searchContext.isDefined)
-          FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, categories.toSeq: _*)
-        else
-          FilterBuilders.nestedFilter(
-            CategoriesFieldType.fieldName,
-            FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, categories.toSeq: _*))
-      }
-
-      val tagsFilter = tags.map { tags =>
-        FilterBuilders.nestedFilter(TagsFieldType.fieldName,
-          FilterBuilders.termsFilter(TagsFieldType.rawFieldName, tags.toSeq:_*))
-      }
-
-      val filters = List.concat(domainFilter, categoriesFilter, tagsFilter)
-
-      if (filters.nonEmpty) {
-        QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters:_*))
-      } else {
-        q
-      }
+      val filters = List.concat(domainFilter(domains), categoriesFilter(categories, searchContext), tagsFilter(tags))
+      if (filters.nonEmpty) { QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters:_*)) } else { q }
     }
 
     // Imperative builder --> order is important
@@ -170,13 +162,16 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
             "boostPopularityValue" -> 1.0).asInstanceOf[Map[String,Object]].asJava
       )
       custom.add(script)
-      println(custom.toString)
+      log.info(custom.toString)
       finalQuery.setQuery(custom)
-    }
-    else finalQuery.setQuery(query)
+    } else { finalQuery.setQuery(query) }
   }
 
-  def buildSearchRequest(searchQuery: QueryType,
+  private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
+  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
+
+  // First pass logic is very simple. advanced query >> query >> categories >> tags
+  def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                          domains: Option[Set[String]],
                          searchContext: Option[String],
                          categories: Option[Set[String]],
@@ -189,32 +184,9 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                          offset: Int,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
-
-    val baseRequest = buildBaseRequest(
-      searchQuery,
-      domains,
-      searchContext,
-      categories,
-      tags,
-      only,
-      boosts,
-      minShouldMatch,
-      slop,
-      functionScores
-    )
-
-    // First pass logic is very simple. advanced query >> query >> categories >> tags
     val sort = (searchQuery, categories, tags) match {
-      case (NoQuery, None, None) =>
-        SortBuilders
-          .scoreSort()
-          .order(SortOrder.DESC)
-
-      // Query
-      case (AdvancedQuery(_) | SimpleQuery(_), _, _)  =>
-        SortBuilders
-          .scoreSort()
-          .order(SortOrder.DESC)
+      case (NoQuery, None, None) => sortScoreDesc
+      case (AdvancedQuery(_) | SimpleQuery(_), _, _)  => sortScoreDesc // Query
 
       // Categories
       case (_, Some(cats), _) if searchContext.isEmpty =>
@@ -226,10 +198,7 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
 
       // Categories and search context
       // TODO: Should we sort by popularity?
-      case (_, Some(cats), _) if searchContext.isDefined =>
-        SortBuilders
-          .fieldSort(TitleFieldType.fieldName)
-          .order(SortOrder.DESC)
+      case (_, Some(cats), _) if searchContext.isDefined => sortFieldDesc(TitleFieldType.fieldName)
 
       // Tags
       case (_, _, Some(ts)) =>
@@ -240,11 +209,48 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
           .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
     }
 
-    baseRequest
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
+      only, boosts, minShouldMatch, slop, functionScores)
       .setFrom(offset)
       .setSize(limit)
       .addSort(sort)
   }
+
+  private def aggDomain(field: CeteraFieldType with Countable) =
+    AggregationBuilders
+      .terms("domains")
+      .field(field.rawFieldName)
+      .order(Terms.Order.count(false)) // count desc
+      .size(0) // unlimited
+
+  private def aggCategories(field: CeteraFieldType with Countable) =
+    AggregationBuilders
+      .nested("annotations")
+      .path(field.fieldName)
+      .subAggregation(
+        AggregationBuilders
+          .terms("names")
+          .field(field.rawFieldName)
+          .size(0)
+      )
+
+  private def aggTags(field: CeteraFieldType with Countable) =
+    AggregationBuilders
+      .nested("annotations")
+      .path(field.fieldName)
+      .subAggregation(
+        AggregationBuilders
+          .terms("names")
+          .field(field.rawFieldName)
+          .size(0)
+      )
+
+  private def aggCustomerCategory(field: CeteraFieldType with Countable) =
+    AggregationBuilders
+      .terms("categories")
+      .field(field.rawFieldName)
+      .order(Terms.Order.count(false)) // count desc
+      .size(0) // unlimited
 
   def buildCountRequest(field: CeteraFieldType with Countable,
                         searchQuery: QueryType,
@@ -253,59 +259,14 @@ class ElasticSearchClient(host: String, port: Int, clusterName: String, useCusto
                         categories: Option[Set[String]],
                         tags: Option[Set[String]],
                         only: Option[String]): SearchRequestBuilder = {
-
-    val baseRequest = buildBaseRequest(
-      searchQuery,
-      domains,
-      searchContext,
-      categories,
-      tags,
-      only,
-      Map.empty,
-      None,
-      None,
-      List.empty
-    )
-
     val aggregation = field match {
-      case DomainFieldType =>
-        AggregationBuilders
-          .terms("domains")
-          .field(field.rawFieldName)
-          .order(Terms.Order.count(false)) // count desc
-          .size(0) // unlimited
-
-      case CategoriesFieldType =>
-        AggregationBuilders
-          .nested("annotations")
-          .path(field.fieldName)
-          .subAggregation(
-            AggregationBuilders
-              .terms("names")
-              .field(field.rawFieldName)
-              .size(0)
-          )
-
-      case TagsFieldType =>
-        AggregationBuilders
-          .nested("annotations")
-          .path(field.fieldName)
-          .subAggregation(
-            AggregationBuilders
-              .terms("names")
-              .field(field.rawFieldName)
-              .size(0)
-          )
-
-      case CustomerCategoryFieldType =>
-        AggregationBuilders
-          .terms("categories")
-          .field(field.rawFieldName)
-          .order(Terms.Order.count(false)) // count desc
-          .size(0) // unlimited
+      case DomainFieldType => aggDomain(field)
+      case CategoriesFieldType => aggCategories(field)
+      case TagsFieldType => aggTags(field)
+      case CustomerCategoryFieldType => aggCustomerCategory(field)
     }
 
-    baseRequest
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
       .addAggregation(aggregation)
       .setSearchType("count")
   }

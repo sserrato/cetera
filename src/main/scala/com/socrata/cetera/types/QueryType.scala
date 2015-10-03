@@ -11,11 +11,7 @@ case class AdvancedQuery(query: String) extends QueryType
 object MinShouldMatch {
   def fromParam(qt: QueryType, s: String): Option[String] =
     qt match {
-      case SimpleQuery(_) =>
-        s.trim match {
-          case s if s.nonEmpty => Some(s)
-          case _ => None
-        }
+      case SimpleQuery(_) => Option(s.trim)
       case _ => None
     }
 }
@@ -51,4 +47,3 @@ object ScriptScoreFunction {
       case _ => None
     }
 }
-

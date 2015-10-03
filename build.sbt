@@ -28,8 +28,6 @@ enablePlugins(sbtbuildinfo.BuildInfoPlugin)
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 scalacOptions ++= Seq("-Yinline-warnings")
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
-// TODO: enable scalastyle build failures
-com.socrata.sbtplugins.StylePlugin.StyleKeys.styleFailOnError in Compile := false
 
 // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
 fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "configs") }
