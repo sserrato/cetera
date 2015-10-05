@@ -1,21 +1,19 @@
 package com.socrata.cetera
 
-import java.util.concurrent.{Executors, ExecutorService}
-import scala.concurrent.duration._
+import java.util.concurrent.{ExecutorService, Executors}
 
 import com.rojoma.simplearm.v2._
-import com.socrata.http.client.InetLivenessChecker
-import com.socrata.http.server._
-import com.socrata.thirdparty.typesafeconfig.Propertizer
-import com.typesafe.config.ConfigFactory
-import org.apache.log4j.{Logger, PropertyConfigurator}
-import org.elasticsearch.client.transport.TransportClient
-import org.slf4j.LoggerFactory
-
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.services._
+import com.socrata.http.client.InetLivenessChecker
+import com.socrata.http.server._
+import com.socrata.thirdparty.typesafeconfig.Propertizer
+import com.typesafe.config.ConfigFactory
+import org.apache.log4j.PropertyConfigurator
+import org.elasticsearch.client.transport.TransportClient
+import org.slf4j.LoggerFactory
 
 object SearchServer extends App {
   val config = new CeteraConfig(ConfigFactory.load())
@@ -32,10 +30,10 @@ object SearchServer extends App {
     }
   }
 
-  def managedStartable[T <: { def start() } : Resource](resource: => T): Managed[T] = new Managed[T] {
+  trait Startable { def start(): Unit }
+  def managedStartable[T <: Startable : Resource](resource: => T): Managed[T] = new Managed[T] {
     override def run[A](f: T => A): A =
       using(resource) { r =>
-        import scala.language.reflectiveCalls
         r.start()
         f(r)
       }
@@ -48,7 +46,7 @@ object SearchServer extends App {
       new InetLivenessChecker(config.http.liveness.interval,
                               config.http.liveness.range,
                               config.http.liveness.missable,
-                              executor))
+                              executor) with Startable)
 
     elasticSearch <- managed(
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
@@ -65,10 +63,10 @@ object SearchServer extends App {
     val versionService = VersionService
 
     logger.info("Initializing SearchService with Elasticsearch TransportClient")
-    val searchService = new SearchService(elasticSearch)
+    val searchService = new SearchService(Some(elasticSearch))
 
     logger.info("Initializing CountService with Elasticsearch TransportClient")
-    val countService = new CountService(elasticSearch)
+    val countService = new CountService(Some(elasticSearch))
 
     logger.info("Initializing router with services")
     val router = new Router(

@@ -90,7 +90,8 @@ Any other url gives an error message.
 
 Cetera, in development use, assumes an ElasticSearch setup as follows:
 
-- ES version: 1.4.2
+- Java version: 1.8.0
+- ES version: 1.7.2
 - Host: localhost (127.0.0.1)
 - Port: 9200 for HTTP requests and 9300 for Transport (java access)
 - Cluster name: catalog
