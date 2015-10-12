@@ -168,7 +168,7 @@ class ElasticSearchClient(host: String,
   }
 
   private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
-  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
+  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
 
   // First pass logic is very simple. advanced query >> query >> categories >> tags
   def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
@@ -185,7 +185,7 @@ class ElasticSearchClient(host: String,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
     val sort = (searchQuery, categories, tags) match {
-      case (NoQuery, None, None) => sortScoreDesc
+      case (NoQuery, None, None) => sortFieldDesc(TitleFieldType.fieldName)
       case (AdvancedQuery(_) | SimpleQuery(_), _, _)  => sortScoreDesc // Query
 
       // Categories
@@ -201,12 +201,14 @@ class ElasticSearchClient(host: String,
       case (_, Some(cats), _) if searchContext.isDefined => sortFieldDesc(TitleFieldType.fieldName)
 
       // Tags
-      case (_, _, Some(ts)) =>
+      case (_, _, Some(ts)) if searchContext.isEmpty=>
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
+
+      case (_ , _, Some(ts)) => sortFieldDesc(TitleFieldType.fieldName)
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
