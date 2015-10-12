@@ -21,13 +21,14 @@ object EnrichedFieldTypesForES {
     def fieldName: String = baseFieldName(field)
   }
 
-  implicit class FieldTypeToRawFieldName(field: CeteraFieldType with Countable) {
+  implicit class FieldTypeToRawFieldName(field: CeteraFieldType with Rawable) {
     def rawFieldName: String = {
       field match {
         case DomainFieldType => baseFieldName(field) + ".raw"
         case CategoriesFieldType => baseFieldName(field) + ".name.raw"
         case CustomerCategoryFieldType => baseFieldName(field) + ".raw"
         case TagsFieldType => baseFieldName(field) + ".name.raw"
+        case TitleFieldType => baseFieldName(field) + ".raw"
       }
     }
   }
