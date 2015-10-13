@@ -1,5 +1,6 @@
 package com.socrata.cetera.services
 
+import com.socrata.cetera._
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import org.elasticsearch.action.search._
@@ -20,7 +21,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
   val searchResponse = {
-    val shardTarget = new SearchShardTarget("1", "datasets", 1)
+    val shardTarget = new SearchShardTarget("1", IndexDatasets, 1)
     val score = 0.12345f
 
     val resource = "\"resource\":{\"I'm\":\"OK\",\"you're\":\"so-so\"}"

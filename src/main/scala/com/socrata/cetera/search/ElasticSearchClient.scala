@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import java.io.Closeable
 
-import com.socrata.cetera.search.EnrichedFieldTypesForES._
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
@@ -150,8 +150,8 @@ class ElasticSearchClient(host: String,
 
     // Imperative builder --> order is important
     val finalQuery = client
-      .prepareSearch("datasets", "files", "hrefs", "maps") // literals should not be here
-      .setTypes(only.toList:_*)
+      .prepareSearch(Indices: _*)
+      .setTypes(only.toList: _*)
 
     if (useCustomRanker) {
       val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
@@ -185,8 +185,8 @@ class ElasticSearchClient(host: String,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
     val sort = (searchQuery, categories, tags) match {
-      case (NoQuery, None, None) => sortFieldAsc(TitleFieldType.rawFieldName )
-      case (AdvancedQuery(_) | SimpleQuery(_), _, _)  => sortScoreDesc // Query
+      case (NoQuery, None, None) => sortFieldAsc(TitleFieldType.rawFieldName)
+      case (AdvancedQuery(_) | SimpleQuery(_), _, _) => sortScoreDesc // Query
 
       // Categories
       case (_, Some(cats), _) if searchContext.isEmpty =>
@@ -201,7 +201,7 @@ class ElasticSearchClient(host: String,
       case (_, Some(cats), _) if searchContext.isDefined => sortFieldAsc(TitleFieldType.rawFieldName)
 
       // Tags
-      case (_, _, Some(ts)) if searchContext.isEmpty=>
+      case (_, _, Some(ts)) if searchContext.isEmpty =>
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
@@ -271,5 +271,24 @@ class ElasticSearchClient(host: String,
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
       .addAggregation(aggregation)
       .setSearchType("count")
+  }
+
+  def buildFacetRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
+    val facetField = facet match {
+      case None => "*"
+      case Some(f) => f
+    }
+    val sourceInclude = Array(
+      CustomerCategoryFieldType.fieldName,
+      CustomerTagsFieldType.fieldName,
+      s"${CustomerMetadataFlattenedPartialFieldType.fieldName}.$facetField")
+    val sourceExclude = Array.empty[String]
+    val size = Int.MaxValue // unlimited
+
+    val query = QueryBuilders.matchQuery("domain_cname", cname)
+    client.prepareSearch(Indices: _*)
+      .setQuery(query)
+      .setFetchSource(sourceInclude, sourceExclude)
+      .setSize(size)
   }
 }

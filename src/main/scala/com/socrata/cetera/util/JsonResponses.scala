@@ -2,7 +2,7 @@ package com.socrata.cetera.util
 
 import javax.servlet.http.HttpServletResponse
 
-import com.rojoma.json.v3.codec.{JsonDecode,JsonEncode}
+import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, AutomaticJsonEncodeBuilder}
 import com.socrata.http.server.responses._
 
@@ -16,6 +16,12 @@ object JsonResponses {
     val errorMap = Map("error" -> error)
     Json(errorMap)
   }
+
+  def jsonError(context: String, error: Throwable): HttpServletResponse => Unit = {
+    Json(Map("context" -> context,
+      "error" -> error.toString,
+      "stackTrace" -> error.getStackTraceString
+    ))}
 }
 
 // Helpers for internal timing information to report to the caller
