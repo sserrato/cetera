@@ -12,7 +12,7 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
-    countResource: CeteraFieldType with Countable => HttpService) {
+    countResource: CeteraFieldType with Countable with Rawable => HttpService) {
 
   val routes = Routes(
     // /version is for internal use

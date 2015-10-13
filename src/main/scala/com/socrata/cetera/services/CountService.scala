@@ -38,7 +38,7 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
     )
   }
 
-  def aggregate(field: CeteraFieldType with Countable)(req: HttpRequest): HttpServletResponse => Unit = {
+  def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpServletResponse => Unit = {
     val now = Timings.now()
 
     implicit val cEncode = field match {
@@ -87,7 +87,7 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
     }
   }
 
-  case class Service(field: CeteraFieldType with Countable) extends SimpleResource {
+  case class Service(field: CeteraFieldType with Countable with Rawable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
 }

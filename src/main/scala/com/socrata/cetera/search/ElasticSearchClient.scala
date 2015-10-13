@@ -168,7 +168,7 @@ class ElasticSearchClient(host: String,
   }
 
   private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
-  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
+  private def sortFieldAsc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
 
   // First pass logic is very simple. advanced query >> query >> categories >> tags
   def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
@@ -185,7 +185,7 @@ class ElasticSearchClient(host: String,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
     val sort = (searchQuery, categories, tags) match {
-      case (NoQuery, None, None) => sortScoreDesc
+      case (NoQuery, None, None) => sortFieldAsc(TitleFieldType.rawFieldName )
       case (AdvancedQuery(_) | SimpleQuery(_), _, _)  => sortScoreDesc // Query
 
       // Categories
@@ -198,15 +198,17 @@ class ElasticSearchClient(host: String,
 
       // Categories and search context
       // TODO: Should we sort by popularity?
-      case (_, Some(cats), _) if searchContext.isDefined => sortFieldDesc(TitleFieldType.fieldName)
+      case (_, Some(cats), _) if searchContext.isDefined => sortFieldAsc(TitleFieldType.rawFieldName)
 
       // Tags
-      case (_, _, Some(ts)) =>
+      case (_, _, Some(ts)) if searchContext.isEmpty=>
         SortBuilders
           .fieldSort("animl_annotations.tags.score")
           .order(SortOrder.DESC)
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
+
+      case (_ , _, Some(ts)) => sortFieldAsc(TitleFieldType.rawFieldName)
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
@@ -216,14 +218,14 @@ class ElasticSearchClient(host: String,
       .addSort(sort)
   }
 
-  private def aggDomain(field: CeteraFieldType with Countable) =
+  private def aggDomain(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
       .terms("domains")
       .field(field.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
       .size(0) // unlimited
 
-  private def aggCategories(field: CeteraFieldType with Countable) =
+  private def aggCategories(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
       .nested("annotations")
       .path(field.fieldName)
@@ -234,7 +236,7 @@ class ElasticSearchClient(host: String,
           .size(0)
       )
 
-  private def aggTags(field: CeteraFieldType with Countable) =
+  private def aggTags(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
       .nested("annotations")
       .path(field.fieldName)
@@ -245,14 +247,14 @@ class ElasticSearchClient(host: String,
           .size(0)
       )
 
-  private def aggCustomerCategory(field: CeteraFieldType with Countable) =
+  private def aggCustomerCategory(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
       .terms("categories")
       .field(field.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
       .size(0) // unlimited
 
-  def buildCountRequest(field: CeteraFieldType with Countable,
+  def buildCountRequest(field: CeteraFieldType with Countable with Rawable,
                         searchQuery: QueryType,
                         domains: Option[Set[String]],
                         searchContext: Option[String],
