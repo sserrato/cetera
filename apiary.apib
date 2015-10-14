@@ -33,6 +33,7 @@ The production API endpoint for the Labs version of this API is `https://api.us.
                 "resource" :
                   {
                     "domain" : "data.seattle.gov",
+                    "view_count": 3456
                     "description" : "These sensors counts both people riding bikes and pedestrians. Separate volumes are tallied for each travel mode. Wires in a diamond formation in the concrete detect bikes and an infrared sensor mounted on a wooden post detects pedestrians. The counters also capture the direction of travel for both bikes and pedestrians.",
                     "updatedAt" : "2015-02-19T20:01:56.000Z",
                     "type" : "dataset",
@@ -58,7 +59,9 @@ The production API endpoint for the Labs version of this API is `https://api.us.
                   },
                   "classification" : {
                     "categories" : ["Transportation"], 
-                    "tags" : ["transportation"]
+                    "tags" : ["transportation"],
+                    "contextual_categories": ["Things that move"],
+                    "contextual_tags" : ["planes", "trains", "automobiles"]
                     },
                   "metadata" : { "domain" : "data.seattle.gov" },
                   "link" : "https://data.seattle.gov/ux/dataset/ekqi-b8f3"
@@ -124,7 +127,7 @@ The production API endpoint for the Labs version of this API is `https://api.us.
                   },
                 "classification" : { 
                     "categories" : [ "Health" ],
-                    "tags" : [ "health" ] 
+                    "tags" : [ "health" ]
                 },
                 "metadata" : { "domain" : "data.medicare.gov" },
                 "link" : "https://data.medicare.gov/view/jct9-bvdr"
@@ -137,12 +140,12 @@ The production API endpoint for the Labs version of this API is `https://api.us.
 
 
 
-## Searching particular domains [/catalog/v1{?domains}]
-When no `domain` parameter is passed, the search service returns results from the entire corpus.
+## Searching particular domains [/catalog/v1{?domains,search_context}]
+When no `domains` parameter is passed, the search service returns results from the entire corpus.
 
 + Parameters
     + domains (optional, list[string], `data.seattle.gov,data.hawaii.gov`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
-    
+    + search_context (optional, string, `data.seattle.gov`) ... Specifies the domain from where this query was issues and for which categories will be used in search.
 
 ### Domain Search API [GET]
 
@@ -213,12 +216,13 @@ By default (not yet implemented), the search service will only return result dat
     
     [Search Endpoint][]
 
-## Complete Search API [/catalog/v1{?domains,categories,tags,q,offset,limit,only,include_internal_metadata,highlight}]
+## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,q,offset,limit,only,include_internal_metadata,highlight}]
 The full search API is detailed here, with some additional options such as `tags` and `highlight` which are not yet implemented.
 
 + Parameters
     + domains (optional, list[string], `cname1,cname2`) ... A comma separated list of cnames. Returns results restricted to only the domains in the list. When not present, searches the entire catalog.
-    + categories (optional, list[string], `category1,categoryk`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
+    + search_context (optional, string, `data.seattle.gov`) ... Specifies the domain from where this query was issues and for which categories will be used in search.
+    + categories (optional, list[string], `category1,category2`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
     + tags (optional, list[string], `tag1,tag2`) ... A comma separated list of tags. Return results restricted to only the tags specified (OR). When not present, searches all tags.
     + q (optional, string, `potholes`) ... A string for full text search
     + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
