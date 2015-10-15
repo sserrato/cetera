@@ -58,11 +58,16 @@ The production API endpoint for the Labs version of this API is `https://api.us.
                     "name" : "MTS Trail west of I-90 Bridge"
                   },
                   "classification" : {
-                    "categories" : ["Transportation"], 
+                    "categories" : ["Transportation"],
                     "tags" : ["transportation"],
-                    "contextual_categories": ["Things that move"],
-                    "contextual_tags" : ["planes", "trains", "automobiles"]
-                    },
+                    "domain_categories": ["Things that move"],
+                    "domain_tags" : ["planes", "trains", "automobiles"],
+                    "domain_metadata" : [
+                      {"key": "data-freshness_scope", "value": "daily"},
+                      {"key": "manufacturing_vendor", "value": "Boeing"},
+                      {"key": "manufacturing_plant-location", "value": "Renton"}
+                    ]
+                  },
                   "metadata" : { "domain" : "data.seattle.gov" },
                   "link" : "https://data.seattle.gov/ux/dataset/ekqi-b8f3"
                    },
@@ -125,7 +130,7 @@ The production API endpoint for the Labs version of this API is `https://api.us.
                     "datasetId" : "56bb-wjan",
                     "description" : "A list of all deficiencies currently listed on Nursing Home Compare, including the nursing home that received the deficiency, the associated inspection date, deficiency tag number, scope and severity, the current status of the deficiency and the correction date.  Data are presented as one deficiency per row."
                   },
-                "classification" : { 
+                "classification" : {
                     "categories" : [ "Health" ],
                     "tags" : [ "health" ]
                 },
@@ -150,12 +155,12 @@ When no `domains` parameter is passed, the search service returns results from t
 ### Domain Search API [GET]
 
 + Response 200
-    
+
     [Search Endpoint][]
 
 ## Searching particular categories [/catalog/v1{?categories}]
 When no `categories` parameter is passed, the search service returns results from the entire set of categories.
-    
+
 + Parameters
     + categories (optional, list[string], `Health,Finance`) ... A comma separated list of categories. Return results restricted to only the categories specified (OR). When not present, searches all categories.
 
@@ -164,7 +169,7 @@ When no `categories` parameter is passed, the search service returns results fro
 + Response 200
 
     [Search Endpoint][]
-    
+
 ## Full text search [/catalog/v1{?q}]
 Full text search will perform a query against all documents in the corpus. Specifically, we will query the fields `name, description, category` as well as the fields representing `column fieldnames, names and description`.
 
@@ -213,7 +218,7 @@ By default (not yet implemented), the search service will only return result dat
 ### Internal metadata API [GET]
 
 + Response 200
-    
+
     [Search Endpoint][]
 
 ## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,q,offset,limit,only,include_internal_metadata,highlight}]
@@ -233,19 +238,19 @@ The full search API is detailed here, with some additional options such as `tags
 
 ### Search API with all options [GET]
 
-+ Response 200 
++ Response 200
 
     [Search Endpoint][]
-    
-    
+
+
 ## Listing Domains [/catalog/v1/domains]
-The search service has the ability to return information regarding the domains in its index. 
+The search service has the ability to return information regarding the domains in its index.
 The complete set of query parameters is available to this endpoint as described in the above section.
 
 ### Return all domains [GET]
-    
+
 + Response 200
-    
+
         {
           "results" :
             [
@@ -383,4 +388,55 @@ Returns aggregate category statistics as well as a list of categories.  Complete
               { "category" : "Recreation", "count" : 171 }
             ],
           "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
+        }
+
+## Listing custom facets [/catalog/v1/domains/{domain}/facets]
+Returns a list of domain specific categories, tags, and metadata.
+
+### Return facets [GET]
+
++ Parameters
+    + domain: `data.seattle.gov` (string) - The domain name
+
++ Response 200 (application/json)
+
+        {
+          "categories": [
+            {"facet": "finance", "count": 470},
+            {"facet": "permits & licenses", "count": 245},
+            {"facet": "public assets", "count": 123},
+            {"facet": "public safety", "count": 99},
+            {"facet": "public services", "count": 42},
+            {"facet": "transportation" "count": 1}
+          ],
+          "tags": [
+            {"facet": "youth", "count": 42},
+            {"facet": "wellbeing", "count": 21},
+            {"facet": "reportcard" "count": 7}
+          ],
+          "metadata": [
+            {"facet": "data-freshness_scope", "count": 25},
+            {"facet": "data-freshness_time-period", "count": 5},
+            {"facet": "data-freshness_update-frequency" "count": 1}
+          ]
+        }
+
+## Listing custom metadata values [/catalog/v1/domains/{domain}/facets/{facet}]
+Returns a list of domain specific metadata facet values.
+
+### Return facet values [GET]
+
++ Parameters
+    + domain: `data.seattle.gov` (string) - The domain name
+    + facet: `data-freshness_scope` (string) - The metadata key name
+
++ Response 200 (application/json)
+
+        {
+          "data-freshness_scope": [
+            {"value": "all existing and proposed access points", "count": 59},
+            {"value": "all existing stations owned by the city of seattle", "count": 48},
+            {"value": "all public datasets, filtered views, and visualizations", "count": 37},
+            {"value": "all public parking lots in seattle" "count": 26}
+          ]
         }

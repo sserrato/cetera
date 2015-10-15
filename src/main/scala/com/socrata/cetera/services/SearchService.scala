@@ -6,7 +6,7 @@ import com.rojoma.json.v3.ast._
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
-import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
+import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Strategy}
 import com.socrata.cetera._
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.util.JsonResponses._
@@ -20,7 +20,12 @@ import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Success, Try}
 
-case class Classification(categories: Seq[JValue], tags: Seq[JValue], customerCategory: Option[JValue])
+@JsonKeyStrategy(Strategy.Underscore)
+case class Classification(categories: Seq[JValue],
+                          tags: Seq[JValue],
+                          domainCategory: Option[JValue],
+                          domainTags: Option[JValue],
+                          domainMetadata: Option[JValue])
 
 object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
@@ -38,10 +43,20 @@ object SearchResult {
 class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  private def customerCategory(j: JValue): Option[JValue] = j.dyn.customer_category.? match {
+  // TODO: cetera-etl rename customer_blah to domain_blah
+  private def domainCategory(j: JValue): Option[JValue] = j.dyn.customer_category.? match {
     case Left(e) => None
-    case Right(jv) if jv != JNull => Some(jv)
-    case Right(jv) => Some(JString(""))
+    case Right(jv) => Some(jv)
+  }
+
+  private def domainTags(j: JValue): Option[JValue] = j.dyn.customer_tags.? match {
+    case Left(e) => None
+    case Right(jv) => Some(jv)
+  }
+
+  private def domainMetadata(j: JValue): Option[JValue] = j.dyn.customer_metadata_flattened.? match {
+    case Left(e) => None
+    case Right(jv) => Some(jv)
   }
 
   private def categories(j: JValue): Stream[JValue] =
@@ -85,7 +100,12 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
 
       SearchResult(
         json.dyn.resource.!,
-        Classification(categories(json), tags(json), customerCategory(json)),
+        Classification(
+          categories(json),
+          tags(json),
+          domainCategory(json),
+          domainTags(json),
+          domainMetadata(json)),
         Map("domain" -> JString(cname(json))) ++ score ++ featureVals,
         link(cname(json), json.dyn.socrata_id.page_id.?, json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString])
       )

@@ -1,8 +1,8 @@
 package com.socrata.cetera.services
 
-import com.socrata.cetera._
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
+import com.socrata.cetera._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -78,7 +78,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
       val datasetResponse = results(0)
       datasetResponse.resource should be (j"""${resource}""")
-      datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None))
+      datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
       datasetResponse.metadata.get("domain") match {
         case Some(domain) => domain should be (JString("socrata.com"))
@@ -89,7 +89,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
 
       val pageResponse = results(1)
       pageResponse.resource should be (j"""${resource}""")
-      pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None))
+      pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
       pageResponse.metadata.get("domain") match {
         case Some(domain) => domain should be (JString("second-socrata.com"))

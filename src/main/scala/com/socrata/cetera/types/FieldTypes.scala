@@ -7,17 +7,27 @@ sealed trait Countable extends CeteraFieldType
 sealed trait Boostable extends CeteraFieldType
 
 sealed trait Scorable extends CeteraFieldType with Countable {
-  def scoreFieldName: String = fieldName + ".score"
-  override val rawExtension: String = ".name.raw"
+  val Name: NestedField
+  val Score: NestedField
+}
+
+sealed trait Mapable extends CeteraFieldType with Countable {
+  val Key: NestedField
+  val Value: NestedField
+}
+
+sealed trait NestedField extends CeteraFieldType with Countable {
+  protected val path: String
+  protected lazy val keyName: String = this.getClass.getName.toLowerCase.split("\\$").last
+  val fieldName: String = s"$path.$keyName"
 }
 
 sealed trait Rawable extends CeteraFieldType {
-  def rawFieldName: String = fieldName + rawExtension
+  lazy val rawFieldName: String = fieldName + ".raw"
 }
 
 sealed trait CeteraFieldType {
   val fieldName: String
-  val rawExtension: String = ".raw"
 }
 
 case object DomainFieldType extends Countable with Rawable {
@@ -26,26 +36,53 @@ case object DomainFieldType extends Countable with Rawable {
 
 case object CategoriesFieldType extends Scorable with Rawable {
   val fieldName: String = "animl_annotations.categories"
+  case object Name extends NestedField with Rawable {
+    protected lazy val path: String = CategoriesFieldType.fieldName
+  }
+  case object Score extends NestedField with Rawable {
+    protected lazy val path: String = CategoriesFieldType.fieldName
+  }
 }
 
-case object CustomerCategoryFieldType extends Scorable with Rawable {
+// TODO: cetera-etl rename customer_blah to domain_blah
+case object DomainCategoryFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_category"
+  case object Name extends NestedField with Rawable {
+    protected lazy val path: String = DomainCategoryFieldType.fieldName
+  }
+  case object Score extends NestedField with Rawable {
+    protected lazy val path: String = DomainCategoryFieldType.fieldName
+  }
 }
 
-case object CustomerTagsFieldType extends Scorable {
+case object DomainTagsFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_tags"
+  case object Name extends NestedField with Rawable {
+    protected lazy val path: String = DomainTagsFieldType.fieldName
+  }
+  case object Score extends NestedField with Rawable {
+    protected lazy val path: String = DomainTagsFieldType.fieldName
+  }
 }
 
-case object CustomerMetadataBubbleupPartialFieldType extends Scorable {
-  val fieldName: String = "customer_metadata_bubbleup"
-}
-
-case object CustomerMetadataFlattenedPartialFieldType extends Scorable {
+case object DomainMetadataFieldType extends Mapable with Rawable {
   val fieldName: String = "customer_metadata_flattened"
+  case object Key extends NestedField with Rawable {
+    protected lazy val path: String = DomainMetadataFieldType.fieldName
+  }
+  case object Value extends NestedField with Rawable {
+    protected lazy val path: String = DomainMetadataFieldType.fieldName
+  }
 }
 
 case object TagsFieldType extends Scorable with Rawable {
   val fieldName: String = "animl_annotations.tags"
+  case object Name extends NestedField with Rawable {
+    protected lazy val path: String = TagsFieldType.fieldName
+  }
+  case object Score extends NestedField with Rawable {
+    protected lazy val path: String = TagsFieldType.fieldName
+  }
 }
 
 case object TitleFieldType extends Boostable with Rawable {

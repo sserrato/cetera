@@ -108,19 +108,19 @@ class ElasticSearchClient(host: String,
     domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq:_*) }
 
   private def categoriesFilter(categories: Option[Set[String]], searchContext: Option[String]) = categories.map { cs =>
-    // If there is no search context, use the ODN categories, otherwise use the customer categories
+    // If there is no search context, use the ODN categories, otherwise use the custom domain categories
     if (searchContext.isDefined) {
-      FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, cs.toSeq: _*)
+      FilterBuilders.termsFilter(DomainCategoryFieldType.Name.rawFieldName, cs.toSeq: _*)
     } else {
       FilterBuilders.nestedFilter(
         CategoriesFieldType.fieldName,
-        FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cs.toSeq: _*))
+        FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cs.toSeq: _*))
     }
   }
 
   private def tagsFilter(tags: Option[Set[String]]) = tags.map { tags =>
     FilterBuilders.nestedFilter(TagsFieldType.fieldName,
-      FilterBuilders.termsFilter(TagsFieldType.rawFieldName, tags.toSeq:_*))
+      FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, tags.toSeq:_*))
   }
 
   // Assumes validation has already been done
@@ -191,10 +191,10 @@ class ElasticSearchClient(host: String,
       // Categories
       case (_, Some(cats), _) if searchContext.isEmpty =>
         SortBuilders
-          .fieldSort("animl_annotations.categories.score")
+          .fieldSort(CategoriesFieldType.Score.fieldName)
           .order(SortOrder.DESC)
           .sortMode("avg")
-          .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.rawFieldName, cats.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cats.toSeq:_*))
 
       // Categories and search context
       // TODO: Should we sort by popularity?
@@ -203,10 +203,10 @@ class ElasticSearchClient(host: String,
       // Tags
       case (_, _, Some(ts)) if searchContext.isEmpty =>
         SortBuilders
-          .fieldSort("animl_annotations.tags.score")
+          .fieldSort(TagsFieldType.Score.fieldName)
           .order(SortOrder.DESC)
           .sortMode("avg")
-          .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.rawFieldName, ts.toSeq:_*))
+          .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, ts.toSeq:_*))
 
       case (_ , _, Some(ts)) => sortFieldAsc(TitleFieldType.rawFieldName)
     }
@@ -218,41 +218,41 @@ class ElasticSearchClient(host: String,
       .addSort(sort)
   }
 
-  private def aggDomain(field: CeteraFieldType with Countable with Rawable) =
+  private def aggDomain =
     AggregationBuilders
       .terms("domains")
-      .field(field.rawFieldName)
+      .field(DomainFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // unlimited
+      .size(0) // no docs, aggs only
 
-  private def aggCategories(field: CeteraFieldType with Countable with Rawable) =
+  private def aggCategories =
     AggregationBuilders
       .nested("annotations")
-      .path(field.fieldName)
+      .path(CategoriesFieldType.fieldName)
       .subAggregation(
         AggregationBuilders
           .terms("names")
-          .field(field.rawFieldName)
+          .field(CategoriesFieldType.Name.rawFieldName)
           .size(0)
       )
 
-  private def aggTags(field: CeteraFieldType with Countable with Rawable) =
+  private def aggTags =
     AggregationBuilders
       .nested("annotations")
-      .path(field.fieldName)
+      .path(TagsFieldType.fieldName)
       .subAggregation(
         AggregationBuilders
           .terms("names")
-          .field(field.rawFieldName)
+          .field(TagsFieldType.Name.rawFieldName)
           .size(0)
       )
 
-  private def aggCustomerCategory(field: CeteraFieldType with Countable with Rawable) =
+  private def aggDomainCategory =
     AggregationBuilders
       .terms("categories")
-      .field(field.rawFieldName)
+      .field(DomainCategoryFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // unlimited
+      .size(0) // no docs, aggs only
 
   def buildCountRequest(field: CeteraFieldType with Countable with Rawable,
                         searchQuery: QueryType,
@@ -262,10 +262,10 @@ class ElasticSearchClient(host: String,
                         tags: Option[Set[String]],
                         only: Option[String]): SearchRequestBuilder = {
     val aggregation = field match {
-      case DomainFieldType => aggDomain(field)
-      case CategoriesFieldType => aggCategories(field)
-      case TagsFieldType => aggTags(field)
-      case CustomerCategoryFieldType => aggCustomerCategory(field)
+      case DomainFieldType => aggDomain
+      case CategoriesFieldType => aggCategories
+      case TagsFieldType => aggTags
+      case DomainCategoryFieldType => aggDomainCategory
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
@@ -273,22 +273,49 @@ class ElasticSearchClient(host: String,
       .setSearchType("count")
   }
 
-  def buildFacetRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
-    val facetField = facet match {
-      case None => "*"
-      case Some(f) => f
-    }
-    val sourceInclude = Array(
-      CustomerCategoryFieldType.fieldName,
-      CustomerTagsFieldType.fieldName,
-      s"${CustomerMetadataFlattenedPartialFieldType.fieldName}.$facetField")
-    val sourceExclude = Array.empty[String]
-    val size = Int.MaxValue // unlimited
+  def buildFacetRequest(cname: String): SearchRequestBuilder = {
+    val size = 0 // no docs, aggs only
 
     val query = QueryBuilders.matchQuery("domain_cname", cname)
+    val categoryAgg = AggregationBuilders.terms("categories")
+      .field(DomainCategoryFieldType.rawFieldName)
+      .size(size)
+    val tagAgg = AggregationBuilders.terms("tags")
+      .field(DomainTagsFieldType.rawFieldName)
+      .size(size)
+    val metadataAgg = AggregationBuilders.nested("metadata")
+      .path(DomainMetadataFieldType.fieldName)
+      .subAggregation(AggregationBuilders.terms("kvp")
+        .field(DomainMetadataFieldType.Key.rawFieldName)
+        .size(size))
     client.prepareSearch(Indices: _*)
       .setQuery(query)
-      .setFetchSource(sourceInclude, sourceExclude)
+      .addAggregation(categoryAgg)
+      .addAggregation(tagAgg)
+      .addAggregation(metadataAgg)
+      .setSize(size)
+  }
+
+  def buildFacetValueRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
+    val size = 0 // no docs, aggs only
+
+    val query = QueryBuilders.boolQuery()
+      .must(QueryBuilders.matchQuery("domain_cname", cname))
+      .must(facet match {
+        case None => QueryBuilders.matchAllQuery()
+        case Some(f) => QueryBuilders.nestedQuery(
+          DomainMetadataFieldType.fieldName,
+          QueryBuilders.matchQuery("key", f))
+      })
+    val metadataAgg = AggregationBuilders.nested("metadata")
+      .path(DomainMetadataFieldType.fieldName)
+      .subAggregation(AggregationBuilders.terms("kvp")
+        .field(DomainMetadataFieldType.Value.rawFieldName)
+        .size(size)
+      )
+    client.prepareSearch(Indices: _*)
+      .setQuery(query)
+      .addAggregation(metadataAgg)
       .setSize(size)
   }
 }
