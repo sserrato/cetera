@@ -28,19 +28,16 @@ case object CategoriesFieldType extends Scorable with Rawable {
   val fieldName: String = "animl_annotations.categories"
 }
 
-case object CustomerCategoryFieldType extends Scorable with Rawable {
+// TODO: cetera-etl rename customer_blah to domain_blah
+case object DomainCategoryFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_category"
 }
 
-case object CustomerTagsFieldType extends Scorable with Rawable {
+case object DomainTagsFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_tags"
 }
 
-case object CustomerMetadataBubbleupPartialFieldType extends Scorable {
-  val fieldName: String = "customer_metadata_bubbleup"
-}
-
-case object CustomerMetadataFlattenedPartialFieldType extends Scorable {
+case object DomainMetadataFlattenedPartialFieldType extends Scorable {
   val fieldName: String = "customer_metadata_flattened"
 }
 

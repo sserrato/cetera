@@ -43,17 +43,18 @@ object SearchResult {
 class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
-  private def customerCategory(j: JValue): Option[JValue] = j.dyn.customer_category.? match {
+  // TODO: cetera-etl rename customer_blah to domain_blah
+  private def domainCategory(j: JValue): Option[JValue] = j.dyn.customer_category.? match {
     case Left(e) => None
     case Right(jv) => Some(jv)
   }
 
-  private def customerTags(j: JValue): Option[JValue] = j.dyn.customer_tags.? match {
+  private def domainTags(j: JValue): Option[JValue] = j.dyn.customer_tags.? match {
     case Left(e) => None
     case Right(jv) => Some(jv)
   }
 
-  private def customerMetadata(j: JValue): Option[JValue] = j.dyn.customer_metadata_flattened.? match {
+  private def domainMetadata(j: JValue): Option[JValue] = j.dyn.customer_metadata_flattened.? match {
     case Left(e) => None
     case Right(jv) => Some(jv)
   }
@@ -102,9 +103,9 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
         Classification(
           categories(json),
           tags(json),
-          customerCategory(json),
-          customerTags(json),
-          customerMetadata(json)),
+          domainCategory(json),
+          domainTags(json),
+          domainMetadata(json)),
         Map("domain" -> JString(cname(json))) ++ score ++ featureVals,
         link(cname(json), json.dyn.socrata_id.page_id.?, json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString])
       )

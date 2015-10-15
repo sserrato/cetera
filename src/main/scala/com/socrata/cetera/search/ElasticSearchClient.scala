@@ -108,9 +108,9 @@ class ElasticSearchClient(host: String,
     domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq:_*) }
 
   private def categoriesFilter(categories: Option[Set[String]], searchContext: Option[String]) = categories.map { cs =>
-    // If there is no search context, use the ODN categories, otherwise use the customer categories
+    // If there is no search context, use the ODN categories, otherwise use the custom domain categories
     if (searchContext.isDefined) {
-      FilterBuilders.termsFilter(CustomerCategoryFieldType.rawFieldName, cs.toSeq: _*)
+      FilterBuilders.termsFilter(DomainCategoryFieldType.rawFieldName, cs.toSeq: _*)
     } else {
       FilterBuilders.nestedFilter(
         CategoriesFieldType.fieldName,
@@ -247,7 +247,7 @@ class ElasticSearchClient(host: String,
           .size(0)
       )
 
-  private def aggCustomerCategory(field: CeteraFieldType with Countable with Rawable) =
+  private def aggDomainCategory(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
       .terms("categories")
       .field(field.rawFieldName)
@@ -265,7 +265,7 @@ class ElasticSearchClient(host: String,
       case DomainFieldType => aggDomain(field)
       case CategoriesFieldType => aggCategories(field)
       case TagsFieldType => aggTags(field)
-      case CustomerCategoryFieldType => aggCustomerCategory(field)
+      case DomainCategoryFieldType => aggDomainCategory(field)
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
@@ -278,15 +278,15 @@ class ElasticSearchClient(host: String,
 
     val query = QueryBuilders.matchQuery("domain_cname", cname)
     val categoryAgg = AggregationBuilders.terms("categories")
-      .field(CustomerCategoryFieldType.fieldName + ".raw")
+      .field(DomainCategoryFieldType.fieldName + ".raw")
       .size(size)
     val tagAgg = AggregationBuilders.terms("tags")
-      .field(CustomerTagsFieldType.fieldName + ".raw")
+      .field(DomainTagsFieldType.fieldName + ".raw")
       .size(size)
     val metadataAgg = AggregationBuilders.nested("metadata")
-      .path(CustomerMetadataFlattenedPartialFieldType.fieldName)
+      .path(DomainMetadataFlattenedPartialFieldType.fieldName)
       .subAggregation(AggregationBuilders.terms("kvp")
-        .field(CustomerMetadataFlattenedPartialFieldType.fieldName + ".key.raw")
+        .field(DomainMetadataFlattenedPartialFieldType.fieldName + ".key.raw")
         .size(size))
     client.prepareSearch(Indices: _*)
       .setQuery(query)
@@ -304,13 +304,13 @@ class ElasticSearchClient(host: String,
       .must(facet match {
         case None => QueryBuilders.matchAllQuery()
         case Some(f) => QueryBuilders.nestedQuery(
-          CustomerMetadataFlattenedPartialFieldType.fieldName,
+          DomainMetadataFlattenedPartialFieldType.fieldName,
           QueryBuilders.matchQuery("key", f))
       })
     val metadataAgg = AggregationBuilders.nested("metadata")
-      .path(CustomerMetadataFlattenedPartialFieldType.fieldName)
+      .path(DomainMetadataFlattenedPartialFieldType.fieldName)
       .subAggregation(AggregationBuilders.terms("kvp")
-        .field(CustomerMetadataFlattenedPartialFieldType.fieldName + ".value.raw")
+        .field(DomainMetadataFlattenedPartialFieldType.fieldName + ".value.raw")
         .size(size)
       )
     client.prepareSearch(Indices: _*)
