@@ -40,7 +40,7 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
           val facets: Map[String,Seq[String]] = Map(
             "categories" -> hits.map(_.customerCategory.getOrElse("")).filter(_.nonEmpty).distinct.sorted,
             "tags"       -> hits.flatMap(_.customerTags.getOrElse(Seq.empty[String])).distinct.sorted,
-            "metadata"   -> hits.flatMap(_.customerMetadataFlattened.map(_.keys).getOrElse(Nil)).distinct.sorted
+            "metadata"   -> hits.flatMap(_.customerMetadataFlattened.map(_.map(_.key)).getOrElse(Nil)).distinct.sorted
           )
 
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)

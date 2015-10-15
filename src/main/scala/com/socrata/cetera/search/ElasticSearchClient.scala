@@ -274,18 +274,21 @@ class ElasticSearchClient(host: String,
   }
 
   def buildFacetRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
-    val facetField = facet match {
-      case None => "*"
-      case Some(f) => f
-    }
     val sourceInclude = Array(
       CustomerCategoryFieldType.fieldName,
       CustomerTagsFieldType.fieldName,
-      s"${CustomerMetadataFlattenedPartialFieldType.fieldName}.$facetField")
+      s"${CustomerMetadataFlattenedPartialFieldType.fieldName}.*")
     val sourceExclude = Array.empty[String]
     val size = Int.MaxValue // unlimited
 
-    val query = QueryBuilders.matchQuery("domain_cname", cname)
+    val query = QueryBuilders.boolQuery()
+      .must(QueryBuilders.matchQuery("domain_cname", cname))
+      .must(facet match {
+        case None => QueryBuilders.matchAllQuery()
+        case Some(f) => QueryBuilders.nestedQuery(
+          CustomerMetadataFlattenedPartialFieldType.fieldName,
+          QueryBuilders.matchQuery("key", f))
+      })
     client.prepareSearch(Indices: _*)
       .setQuery(query)
       .setFetchSource(sourceInclude, sourceExclude)

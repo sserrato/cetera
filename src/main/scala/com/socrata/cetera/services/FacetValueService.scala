@@ -39,9 +39,9 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
             })
 
           val facetValues: Map[String,Seq[String]] = hits
-            .flatMap(h => h.customerMetadataFlattened.getOrElse(Map.empty[String,String]).toSeq)
-            .groupBy(_._1)
-            .map(m => m._1 -> m._2.toSeq.map(kv => kv._2).distinct.sorted)
+            .flatMap(h => h.customerMetadataFlattened.getOrElse(Seq.empty[KeyValue]))
+            .groupBy(_.key)
+            .map(m => m._1 -> m._2.toSeq.map(kv => kv.value).distinct.sorted)
 
           OK ~> HeaderAclAllowOriginAll ~> Json(facetValues)
         } catch {
