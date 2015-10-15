@@ -223,7 +223,7 @@ class ElasticSearchClient(host: String,
       .terms("domains")
       .field(field.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // unlimited
+      .size(0) // no docs, aggs only
 
   private def aggCategories(field: CeteraFieldType with Countable with Rawable) =
     AggregationBuilders
@@ -252,7 +252,7 @@ class ElasticSearchClient(host: String,
       .terms("categories")
       .field(field.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // unlimited
+      .size(0) // no docs, aggs only
 
   def buildCountRequest(field: CeteraFieldType with Countable with Rawable,
                         searchQuery: QueryType,
@@ -273,13 +273,31 @@ class ElasticSearchClient(host: String,
       .setSearchType("count")
   }
 
-  def buildFacetRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
-    val sourceInclude = Array(
-      CustomerCategoryFieldType.fieldName,
-      CustomerTagsFieldType.fieldName,
-      s"${CustomerMetadataFlattenedPartialFieldType.fieldName}.*")
-    val sourceExclude = Array.empty[String]
-    val size = Int.MaxValue // unlimited
+  def buildFacetRequest(cname: String): SearchRequestBuilder = {
+    val size = 0 // no docs, aggs only
+
+    val query = QueryBuilders.matchQuery("domain_cname", cname)
+    val categoryAgg = AggregationBuilders.terms("categories")
+      .field(CustomerCategoryFieldType.fieldName + ".raw")
+      .size(size)
+    val tagAgg = AggregationBuilders.terms("tags")
+      .field(CustomerTagsFieldType.fieldName + ".raw")
+      .size(size)
+    val metadataAgg = AggregationBuilders.nested("metadata")
+      .path(CustomerMetadataFlattenedPartialFieldType.fieldName)
+      .subAggregation(AggregationBuilders.terms("kvp")
+        .field(CustomerMetadataFlattenedPartialFieldType.fieldName + ".key.raw")
+        .size(size))
+    client.prepareSearch(Indices: _*)
+      .setQuery(query)
+      .addAggregation(categoryAgg)
+      .addAggregation(tagAgg)
+      .addAggregation(metadataAgg)
+      .setSize(size)
+  }
+
+  def buildFacetValueRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
+    val size = 0 // no docs, aggs only
 
     val query = QueryBuilders.boolQuery()
       .must(QueryBuilders.matchQuery("domain_cname", cname))
@@ -289,9 +307,15 @@ class ElasticSearchClient(host: String,
           CustomerMetadataFlattenedPartialFieldType.fieldName,
           QueryBuilders.matchQuery("key", f))
       })
+    val metadataAgg = AggregationBuilders.nested("metadata")
+      .path(CustomerMetadataFlattenedPartialFieldType.fieldName)
+      .subAggregation(AggregationBuilders.terms("kvp")
+        .field(CustomerMetadataFlattenedPartialFieldType.fieldName + ".value.raw")
+        .size(size)
+      )
     client.prepareSearch(Indices: _*)
       .setQuery(query)
-      .setFetchSource(sourceInclude, sourceExclude)
+      .addAggregation(metadataAgg)
       .setSize(size)
   }
 }

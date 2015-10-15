@@ -1,6 +1,5 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.util.JsonUtil
 import com.socrata.cetera._
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
@@ -9,7 +8,11 @@ import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.{HttpRequest, HttpResponse}
+import org.elasticsearch.search.aggregations.bucket.nested.Nested
+import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConverters._
 
 class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetValueService])
@@ -23,7 +26,7 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         val request = elasticSearchClient.getOrElse(throw new NullPointerException)
-          .buildFacetRequest(cname, Some(facet))
+          .buildFacetValueRequest(cname, Some(facet))
         logger.debug("issuing request to elasticsearch: " + request.toString)
 
         try {
@@ -32,16 +35,13 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
           val logMsg = LogHelper.formatRequest(req, timings)
           logger.info(logMsg)
 
-          val hits = res.getHits.hits()
-            .map(h => JsonUtil.parseJson[FacetHit](h.sourceAsString()) match {
-              case Left(decodeError) => throw new RuntimeException(decodeError.english)
-              case Right(facetHit) => facetHit
-            })
+          val hits = res.getAggregations.get("metadata").asInstanceOf[Nested]
+            .getAggregations.get("kvp").asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq
 
-          val facetValues: Map[String,Seq[String]] = hits
-            .flatMap(h => h.customerMetadataFlattened.getOrElse(Seq.empty[KeyValue]))
-            .groupBy(_.key)
-            .map(m => m._1 -> m._2.toSeq.map(kv => kv.value).distinct.sorted)
+          val facetValues: Map[String,Seq[ValueCount]] = Map(
+            facet -> hits
+          )
 
           OK ~> HeaderAclAllowOriginAll ~> Json(facetValues)
         } catch {

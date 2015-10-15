@@ -7,6 +7,16 @@ object KeyValue {
   implicit val jCodec = AutomaticJsonCodecBuilder[KeyValue]
 }
 
+case class FacetCount(facet: String, count: Long)
+object FacetCount {
+  implicit val jCodec = AutomaticJsonCodecBuilder[FacetCount]
+}
+
+case class ValueCount(value: String, count: Long)
+object ValueCount {
+  implicit val jCodec = AutomaticJsonCodecBuilder[ValueCount]
+}
+
 @JsonKeyStrategy(Strategy.Underscore)
 case class FacetHit(customerCategory: Option[String],
                     customerTags: Option[Seq[String]],

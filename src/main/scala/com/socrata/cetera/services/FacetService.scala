@@ -1,6 +1,5 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.util.JsonUtil
 import com.socrata.cetera._
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
@@ -9,7 +8,11 @@ import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.{HttpRequest, HttpResponse}
+import org.elasticsearch.search.aggregations.bucket.nested.Nested
+import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConverters._
 
 class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
@@ -31,16 +34,19 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
           val logMsg = LogHelper.formatRequest(req, timings)
           logger.info(logMsg)
 
-          val hits = res.getHits.hits()
-            .map(h => JsonUtil.parseJson[FacetHit](h.sourceAsString()) match {
-              case Left(decodeError) => throw new RuntimeException(decodeError.english)
-              case Right(facetHit) => facetHit
-            })
+          val hits = res.getAggregations.asMap().asScala
+          val categories = hits.get("categories").get.asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
+          val tags = hits.get("tags").get.asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
+          val metadata = hits.get("metadata").get.asInstanceOf[Nested]
+            .getAggregations.get("kvp").asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
 
-          val facets: Map[String,Seq[String]] = Map(
-            "categories" -> hits.map(_.customerCategory.getOrElse("")).filter(_.nonEmpty).distinct.sorted,
-            "tags"       -> hits.flatMap(_.customerTags.getOrElse(Seq.empty[String])).distinct.sorted,
-            "metadata"   -> hits.flatMap(_.customerMetadataFlattened.map(_.map(_.key)).getOrElse(Nil)).distinct.sorted
+          val facets: Map[String,Seq[FacetCount]] = Map(
+            "categories" -> categories,
+            "tags"       -> tags,
+            "metadata"   -> metadata
           )
 
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)

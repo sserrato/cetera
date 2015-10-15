@@ -32,7 +32,7 @@ case object CustomerCategoryFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_category"
 }
 
-case object CustomerTagsFieldType extends Scorable {
+case object CustomerTagsFieldType extends Scorable with Rawable {
   val fieldName: String = "customer_tags"
 }
 
