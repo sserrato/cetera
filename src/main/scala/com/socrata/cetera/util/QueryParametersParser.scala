@@ -6,8 +6,6 @@ import com.socrata.http.server.HttpRequest
 case class ValidatedQueryParameters(
                                    searchQuery: QueryType,
                                    domains: Option[Set[String]],
-                                   domainCategories: Option[Set[String]],
-                                   domainTags: Option[Set[String]],
                                    domainMetadata: Option[Set[(String,String)]],
                                    searchContext: Option[String],
                                    categories: Option[Set[String]],
@@ -158,33 +156,12 @@ object QueryParametersParser {
         .toMap[CeteraFieldType with Boostable, Float]
     }
 
-    val domainMetadata = req.queryParameters.filterNot { kvp =>
-      kvp._1 == "q" ||
-      kvp._1 == "q_internal" ||
-      kvp._1 == "boostTitle" ||
-      kvp._1 == "boostDesc" ||
-      kvp._1 == "boostColumns" ||
-      kvp._1 == "domains" ||
-      kvp._1 == "domain_categories" ||
-      kvp._1 == "domain_tags" ||
-      kvp._1 == "search_context" ||
-      kvp._1 == "categories" ||
-      kvp._1 == "tags" ||
-      kvp._1 == "min_should_match" ||
-      kvp._1 == "slop" ||
-      kvp._1 == "show_feature_vals" ||
-      kvp._1 == "offset" ||
-      kvp._1 == "limit"
-    }.toSet
-
     restrictQueryParameters(req) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
           req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet),
-          req.queryParameters.get("domain_categories").map(_.toLowerCase.split(",").toSet),
-          req.queryParameters.get("domain_tags").map(_.toLowerCase.split(",").toSet),
-          Option(domainMetadata),
+          Option(queryStringDomainMetadata(req)),
           req.queryParameter("search_context").map(_.toLowerCase),
           req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet),
           req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet),
@@ -200,5 +177,27 @@ object QueryParametersParser {
         ))
       case Left(e) => Left(Seq(e))
     }
+  }
+
+  // scalastyle:ignore cyclomatic.complexity
+  private def queryStringDomainMetadata(req: HttpRequest): Set[(String, String)] = {
+    req.queryParameters.filterNot { kvp =>
+      kvp._1 == "q" ||
+        kvp._1 == "q_internal" ||
+        kvp._1 == "boostTitle" ||
+        kvp._1 == "boostDesc" ||
+        kvp._1 == "boostColumns" ||
+        kvp._1 == "domains" ||
+        kvp._1 == "domain_categories" ||
+        kvp._1 == "domain_tags" ||
+        kvp._1 == "search_context" ||
+        kvp._1 == "categories" ||
+        kvp._1 == "tags" ||
+        kvp._1 == "min_should_match" ||
+        kvp._1 == "slop" ||
+        kvp._1 == "show_feature_vals" ||
+        kvp._1 == "offset" ||
+        kvp._1 == "limit"
+    }.toSet
   }
 }
