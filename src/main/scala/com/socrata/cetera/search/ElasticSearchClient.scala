@@ -123,12 +123,35 @@ class ElasticSearchClient(host: String,
       FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, tags.toSeq:_*))
   }
 
+  private def domainCategoriesFilter(categories: Option[Set[String]]) = categories.map { cs =>
+    FilterBuilders.termsFilter(DomainCategoryFieldType.Name.rawFieldName, cs.toSeq: _*)
+  }
+
+  private def domainTagsFilter(tags: Option[Set[String]]) = tags.map { ts =>
+    FilterBuilders.nestedFilter(DomainTagsFieldType.fieldName,
+      FilterBuilders.termsFilter(DomainTagsFieldType.Name.rawFieldName, ts.toSeq: _*))
+  }
+
+  private def domainMetadataFilter(metadata: Option[Set[(String,String)]]) = metadata.map { ss =>
+    FilterBuilders.orFilter(
+      ss.map { kvp =>
+        FilterBuilders.nestedFilter(DomainMetadataFieldType.fieldName,
+          FilterBuilders.andFilter(
+            FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, kvp._1),
+            FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, kvp._2)
+          ))
+      }.toSeq: _*)
+  }
+
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                        domains: Option[Set[String]],
                        searchContext: Option[String],
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
+                       domainCategories: Option[Set[String]],
+                       domainTags: Option[Set[String]],
+                       domainMetadata: Option[Set[(String,String)]],
                        only: Option[String],
                        boosts: Map[CeteraFieldType with Boostable, Float],
                        minShouldMatch: Option[String],
@@ -144,7 +167,13 @@ class ElasticSearchClient(host: String,
     } else { matchQuery }
 
     val query = locally {
-      val filters = List.concat(domainFilter(domains), categoriesFilter(categories, searchContext), tagsFilter(tags))
+      val filters = List.concat(
+        domainFilter(domains),
+        categoriesFilter(categories, searchContext),
+        tagsFilter(tags),
+        domainCategoriesFilter(domainCategories),
+        domainTagsFilter(domainTags),
+        domainMetadataFilter(domainMetadata))
       if (filters.nonEmpty) { QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters:_*)) } else { q }
     }
 
@@ -173,6 +202,9 @@ class ElasticSearchClient(host: String,
   // First pass logic is very simple. advanced query >> query >> categories >> tags
   def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                          domains: Option[Set[String]],
+                         domainCategories: Option[Set[String]],
+                         domainTags: Option[Set[String]],
+                         domainMetadata: Option[Set[(String,String)]],
                          searchContext: Option[String],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
@@ -212,6 +244,7 @@ class ElasticSearchClient(host: String,
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
+      domainCategories, domainTags, domainMetadata,
       only, boosts, minShouldMatch, slop, functionScores)
       .setFrom(offset)
       .setSize(limit)
@@ -268,7 +301,7 @@ class ElasticSearchClient(host: String,
       case DomainCategoryFieldType => aggDomainCategory
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, None, None, None, only, Map.empty, None, None, List.empty)
       .addAggregation(aggregation)
       .setSearchType("count")
   }
