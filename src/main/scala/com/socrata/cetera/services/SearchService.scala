@@ -120,6 +120,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
         val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildSearchRequest(
           params.searchQuery,
           params.domains,
+          params.domainMetadata,
           params.searchContext,
           params.categories,
           params.tags,

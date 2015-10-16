@@ -30,16 +30,17 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
     domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+    domainMetadata = None,
     searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
     only = Some("dataset"),
     boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
-    None,
-    None,
-    List.empty,
-    false,
-    false,
+    minShouldMatch = None,
+    slop = None,
+    functionScores = List.empty,
+    showFeatureVals = false,
+    showScore = false,
     offset = 10,
     limit = 20
   )
@@ -194,11 +195,12 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchContext = None,
         categories = None,
         tags = None,
+        domainMetadata = None,
         only = None,
         boosts = Map.empty,
-        None,
-        None,
-        List.empty
+        minShouldMatch = None,
+        slop = None,
+        functionScores = List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -217,11 +219,12 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchContext = None,
         categories = None,
         tags = None,
+        domainMetadata = None,
         only = None,
         boosts = Map.empty,
-        None,
-        None,
-        List.empty
+        minShouldMatch = None,
+        slop = None,
+        functionScores = List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -240,11 +243,12 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchContext = None,
         categories = None,
         tags = None,
+        domainMetadata = None,
         only = None,
         boosts = params.boosts,
-        None,
-        None,
-        List.empty
+        minShouldMatch = None,
+        slop = None,
+        functionScores = List.empty
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -272,6 +276,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
+        domainMetadata = None,
         only = params.only,
         boosts = Map.empty,
         minShouldMatch = None,
@@ -301,6 +306,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
+        domainMetadata = None,
         only = params.only,
         boosts = Map.empty,
         minShouldMatch = None,

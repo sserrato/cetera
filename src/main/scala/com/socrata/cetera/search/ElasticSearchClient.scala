@@ -10,7 +10,7 @@ import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
-import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
@@ -107,20 +107,34 @@ class ElasticSearchClient(host: String,
   private def domainFilter(domains: Option[Set[String]]) =
     domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq:_*) }
 
-  private def categoriesFilter(categories: Option[Set[String]], searchContext: Option[String]) = categories.map { cs =>
-    // If there is no search context, use the ODN categories, otherwise use the custom domain categories
-    if (searchContext.isDefined) {
-      FilterBuilders.termsFilter(DomainCategoryFieldType.Name.rawFieldName, cs.toSeq: _*)
-    } else {
-      FilterBuilders.nestedFilter(
-        CategoriesFieldType.fieldName,
-        FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cs.toSeq: _*))
-    }
+  private def categoriesFilter(categories: Option[Set[String]]) = categories.map { cs =>
+    FilterBuilders.nestedFilter(
+      CategoriesFieldType.fieldName,
+      FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cs.toSeq: _*))
   }
 
   private def tagsFilter(tags: Option[Set[String]]) = tags.map { tags =>
     FilterBuilders.nestedFilter(TagsFieldType.fieldName,
       FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, tags.toSeq:_*))
+  }
+
+  private def domainCategoriesFilter(categories: Option[Set[String]]) = categories.map { cs =>
+    FilterBuilders.termsFilter(DomainCategoryFieldType.rawFieldName, cs.toSeq: _*)
+  }
+
+  private def domainTagsFilter(tags: Option[Set[String]]) = tags.map { ts =>
+    FilterBuilders.termsFilter(DomainTagsFieldType.rawFieldName, ts.toSeq: _*)
+  }
+
+  private def domainMetadataFilter(metadata: Option[Set[(String,String)]]) = metadata.map { ss =>
+    FilterBuilders.orFilter(
+      ss.map { kvp =>
+        FilterBuilders.nestedFilter(DomainMetadataFieldType.fieldName,
+          FilterBuilders.andFilter(
+            FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, kvp._1),
+            FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, kvp._2)
+          ))
+      }.toSeq: _*)
   }
 
   // Assumes validation has already been done
@@ -129,6 +143,7 @@ class ElasticSearchClient(host: String,
                        searchContext: Option[String],
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
+                       domainMetadata: Option[Set[(String,String)]],
                        only: Option[String],
                        boosts: Map[CeteraFieldType with Boostable, Float],
                        minShouldMatch: Option[String],
@@ -143,10 +158,7 @@ class ElasticSearchClient(host: String,
       addFunctionScores(query, functionScores)
     } else { matchQuery }
 
-    val query = locally {
-      val filters = List.concat(domainFilter(domains), categoriesFilter(categories, searchContext), tagsFilter(tags))
-      if (filters.nonEmpty) { QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters:_*)) } else { q }
-    }
+    val query: BaseQueryBuilder = selectSearchContext(domains, searchContext, categories, tags, domainMetadata, q)
 
     // Imperative builder --> order is important
     val finalQuery = client
@@ -167,12 +179,40 @@ class ElasticSearchClient(host: String,
     } else { finalQuery.setQuery(query) }
   }
 
+  private def selectSearchContext(domains: Option[Set[String]],
+                                  searchContext: Option[String],
+                                  categories: Option[Set[String]],
+                                  tags: Option[Set[String]],
+                                  domainMetadata: Option[Set[(String, String)]],
+                                  q: BaseQueryBuilder): BaseQueryBuilder = {
+    // If there is no search context, use the ODN categories and tags and prohibit domain metadata
+    // otherwise use the custom domain categories, tags, metadata
+    locally {
+      val odnFilters = List.concat(
+        categoriesFilter(categories),
+        tagsFilter(tags))
+      val domainFilters = List.concat(
+        domainCategoriesFilter(categories),
+        domainTagsFilter(tags),
+        domainMetadataFilter(domainMetadata))
+      val filters = List.concat(
+        domainFilter(domains),
+        if (searchContext.isDefined) domainFilters else odnFilters)
+      if (filters.nonEmpty) {
+        QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
+      } else {
+        q
+      }
+    }
+  }
+
   private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
   private def sortFieldAsc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
 
   // First pass logic is very simple. advanced query >> query >> categories >> tags
   def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                          domains: Option[Set[String]],
+                         domainMetadata: Option[Set[(String,String)]],
                          searchContext: Option[String],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
@@ -211,7 +251,7 @@ class ElasticSearchClient(host: String,
       case (_ , _, Some(ts)) => sortFieldAsc(TitleFieldType.rawFieldName)
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata,
       only, boosts, minShouldMatch, slop, functionScores)
       .setFrom(offset)
       .setSize(limit)
@@ -268,7 +308,8 @@ class ElasticSearchClient(host: String,
       case DomainCategoryFieldType => aggDomainCategory
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, only, Map.empty, None, None, List.empty)
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, None,
+      only, Map.empty, None, None, List.empty)
       .addAggregation(aggregation)
       .setSearchType("count")
   }
