@@ -137,6 +137,13 @@ class ElasticSearchClient(host: String,
       }.toSeq: _*)
   }
 
+  private def customerDomainFilter =
+    Some(FilterBuilders.notFilter(FilterBuilders.termsFilter(IsCustomerDomainFieldType.fieldName, "false")))
+
+  private def moderationStatusFilter =
+    Some(FilterBuilders.notFilter(
+      FilterBuilders.termsFilter(ModerationStatusFieldType.fieldName, "pending", "rejected")))
+
   // Assumes validation has already been done
   def buildBaseRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                        domains: Option[Set[String]],
@@ -189,6 +196,7 @@ class ElasticSearchClient(host: String,
     // otherwise use the custom domain categories, tags, metadata
     locally {
       val odnFilters = List.concat(
+        customerDomainFilter,
         categoriesFilter(categories),
         tagsFilter(tags))
       val domainFilters = List.concat(
@@ -197,6 +205,7 @@ class ElasticSearchClient(host: String,
         domainMetadataFilter(domainMetadata))
       val filters = List.concat(
         domainFilter(domains),
+        moderationStatusFilter,
         if (searchContext.isDefined) domainFilters else odnFilters)
       if (filters.nonEmpty) {
         QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))

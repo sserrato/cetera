@@ -45,140 +45,154 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     limit = 20
   )
 
-  val complexFilter = j"""{
-    "and" :
-    {
-      "filters" :
-      [
-        {
-          "terms" :
+  val shouldMatch = j"""{
+    "multi_match" :
+      {
+        "query" : "search query terms",
+        "fields" :
+          [ "fts_analyzed", "fts_raw", "domain_cname" ],
+        "type" : "phrase"
+      }
+  }"""
+
+  val boolQuery = j"""{
+    "bool" :
+      {
+        "must" :
           {
-            "socrata_id.domain_cname.raw" :
-            [
-              "www.example.com",
-              "test.example.com",
-              "socrata.com"
-            ]
+            "multi_match" :
+              {
+                "query" : "search query terms",
+                "fields" :
+                  [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                "type" : "cross_fields"
+              }
+          },
+        "should" :
+          ${shouldMatch}
+      }
+  }"""
+
+  val boostedBoolQuery = j"""{
+    "bool" :
+      {
+        "must" :
+          {
+            "multi_match" :
+              {
+                "query" : "search query terms",
+                "fields" :
+                  [
+                    "fts_analyzed",
+                    "fts_raw",
+                    "domain_cname",
+                    "indexed_metadata.name^2.2",
+                    "indexed_metadata.description^1.1"
+                  ],
+                "type" : "cross_fields"
+              }
+          },
+        "should" :
+          ${shouldMatch}
+      }
+  }"""
+
+  val moderationFilter = j"""{
+    "not" :
+      {
+        "filter" :
+          {
+            "terms" :
+              {
+                "moderation_status" :
+                  [ "pending", "rejected" ]
+              }
           }
-        },
-        {
-          "nested" :
+      }
+  }"""
+
+  val customerDomainFilter = j"""{
+    "not" :
+      {
+        "filter" :
           {
-            "filter" :
-            {
-              "terms" :
+            "terms" : {
+                        "is_customer_domain" : [ "false" ]
+                      }
+          }
+      }
+  }"""
+
+  val defaultFilter = j"""{
+    "and" :
+      {
+        "filters" :
+          [
+            ${moderationFilter},
+            ${customerDomainFilter}
+          ]
+      }
+  }"""
+
+  val domainFilter = j"""{
+    "terms" :
+      {
+        "socrata_id.domain_cname.raw" :
+          [
+            "www.example.com",
+            "test.example.com",
+            "socrata.com"
+          ]
+      }
+  }"""
+
+  val animlCategoriesFilter = j"""{
+    "nested" :
+      {
+        "filter" :
+          {
+            "terms" :
               {
                 "animl_annotations.categories.name.raw" :
-                [
-                  "Social Services",
-                  "Environment",
-                  "Housing & Development"
-                ]
+                  [
+                    "Social Services",
+                    "Environment",
+                    "Housing & Development"
+                  ]
               }
-            },
-            "path" : "animl_annotations.categories"
-          }
-        },
-        {
-          "nested" :
-          {
-            "filter" :
-            {
-              "terms" : { "animl_annotations.tags.name.raw" : [ "taxi", "art", "clowns" ] }
-            },
-            "path" : "animl_annotations.tags"
-          }
-        }
-      ]
-    }
-  }"""
-
-  val sortByCategories = j"""[{
-    "animl_annotations.categories.score" :
-    {
-      "order" : "desc",
-      "mode" : "avg",
-      "nested_filter" :
-      {
-        "terms" :
-        {
-          "animl_annotations.categories.name.raw" :
-          [
-            "Social Services",
-            "Environment",
-            "Housing & Development"
-          ]
-        }
+          },
+        "path" : "animl_annotations.categories"
       }
-    }
-  }]"""
-
-  val matchAllQuery = j"""{
-    "match_all" : {}
   }"""
 
-  val multiMatchQuery = j"""{
-                           "bool" :
-                             {
-                               "must" :
-                                 {
-                                   "multi_match" :
-                                     {
-                                       "query" : "search query terms",
-                                       "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
-                                       "type" : "cross_fields"
-                                     }
-                                 },
-                               "should" :
-                                 {
-                                   "multi_match" :
-                                     {
-                                       "query" : "search query terms",
-                                       "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
-                                       "type" : "phrase"
-                                     }
-                                 }
-                             }
-  }"""
-
-  val boostedMultiMatchQuery = j"""{
-   "bool" :
-   {
-     "must" :
-       {
-          "multi_match" : {
-          "query" : ${params.searchQuery.asInstanceOf[SimpleQuery].query},
-          "fields" : ["fts_analyzed", "fts_raw", "domain_cname", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"],
-           "type" : "cross_fields"
-    }
-    },
-    "should" :
-         {
-           "multi_match" :
-             {
-               "query" : "search query terms",
-               "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
-               "type" : "phrase"
-             }
-         }
-     }
-  }"""
-
-  val filteredQuery = j"""{
-    "filtered": {
-      "query": ${matchAllQuery},
-      "filter": ${complexFilter}
+  val animlTagsFilter = j"""{
+    "nested" :
+    {
+      "filter" :
+        {
+          "terms" :
+            {
+              "animl_annotations.tags.name.raw" :
+                [ "taxi", "art", "clowns" ]
+            }
+        },
+      "path" : "animl_annotations.tags"
     }
   }"""
 
-  // So brittle!!!
-  val complexQuery = j"""{
-    "filtered": {
-      "query": ${multiMatchQuery},
-      "filter": ${complexFilter}
-    }
+  val complexFilter = j"""{
+    "and" :
+      {
+        "filters" :
+          [
+            ${domainFilter},
+            ${moderationFilter},
+            ${customerDomainFilter},
+            ${animlCategoriesFilter},
+            ${animlTagsFilter}
+          ]
+      }
   }"""
-
 
   ///////////////////
   // buildBaseRequest
@@ -186,7 +200,15 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   "buildBaseRequest" should {
     "construct a default match all query" in {
       val expected = j"""{
-        "query" : ${matchAllQuery}
+        "query" :
+          {
+            "filtered" :
+              {
+                "query" : { "match_all" : {} },
+                "filter" :
+                  ${defaultFilter}
+              }
+          }
       }"""
 
       val request = client.buildBaseRequest(
@@ -210,7 +232,16 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "construct a match query with terms" in {
       val expected = j"""{
-        "query" : ${multiMatchQuery}
+        "query" :
+          {
+            "filtered" :
+              {
+                "query" :
+                  ${boolQuery},
+                "filter" :
+                  ${defaultFilter}
+              }
+          }
       }"""
 
       val request = client.buildBaseRequest(
@@ -234,7 +265,16 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "construct a multi match query with boosted fields" in {
       val expected = j"""{
-        "query" : ${boostedMultiMatchQuery}
+        "query" :
+          {
+            "filtered" :
+              {
+                "query" :
+                  ${boostedBoolQuery},
+                "filter" :
+                  ${defaultFilter}
+              }
+          }
       }"""
 
       val request = client.buildBaseRequest(
@@ -264,10 +304,19 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   "buildSearchRequest" should {
     "add from, size, sort and only to a complex base request" in {
       val expected = j"""{
-        "from": ${params.offset},
-        "size": ${params.limit},
-        "query": ${complexQuery},
-        "sort": [ { "_score" : {} } ]
+        "from" : ${params.offset},
+        "size" : ${params.limit},
+        "query" :
+          {
+            "filtered" :
+              {
+                "query" :
+                  ${boolQuery},
+                "filter" :
+                  ${complexFilter}
+              }
+          },
+        "sort" : [ { "_score" : {} } ]
       }"""
 
       val request = client.buildSearchRequest(
@@ -294,10 +343,39 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "sort by categories score when query term is missing but cat filter is present" in {
       val expected = j"""{
-        "from": ${params.offset},
-        "size": ${params.limit},
-        "query": ${filteredQuery},
-        "sort": ${sortByCategories}
+        "from" : ${params.offset},
+        "size" : ${params.limit},
+        "query" :
+          {
+            "filtered" :
+              {
+                "query" : { "match_all" : {} },
+                "filter" :
+                  ${complexFilter}
+              }
+          },
+        "sort" :
+          [
+            {
+              "animl_annotations.categories.score" :
+                {
+                  "order" : "desc",
+                  "mode" : "avg",
+                  "nested_filter" :
+                    {
+                      "terms" :
+                        {
+                          "animl_annotations.categories.name.raw" :
+                            [
+                              "Social Services",
+                              "Environment",
+                              "Housing & Development"
+                            ]
+                        }
+                    }
+                }
+            }
+          ]
       }"""
 
       val request = client.buildSearchRequest(
@@ -330,18 +408,27 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
   "buildCountRequest" should {
     "construct a default search query with normal aggregation for domains" in {
       val expected = j"""{
-        "query" : ${matchAllQuery},
-        "aggregations" : {
-          "domains" :
+        "query" :
           {
-            "terms" :
-            {
-              "field" : "socrata_id.domain_cname.raw",
-              "size" : 0,
-              "order" : { "_count" : "desc" }
-            }
+            "filtered" :
+              {
+                "query" : { "match_all" : {} },
+                "filter" :
+                  ${defaultFilter}
+              }
+          },
+        "aggregations" :
+          {
+            "domains" :
+              {
+                "terms" :
+                  {
+                    "field" : "socrata_id.domain_cname.raw",
+                    "size" : 0,
+                    "order" : { "_count" : "desc" }
+                  }
+              }
           }
-        }
       }"""
 
       val request = client.buildCountRequest(
@@ -362,14 +449,34 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
 
     "construct a filtered match query with nested aggregation for annotations" in {
       val expected = j"""{
-        "query" : ${complexQuery},
-        "aggregations" : {
-          "annotations" :
+        "query" :
           {
-            "nested" : { "path" : "animl_annotations.categories" },
-            "aggregations" : { "names" : { "terms" : { "field" : "animl_annotations.categories.name.raw", "size" : 0 } } }
+            "filtered" :
+              {
+                "query" :
+                  ${boolQuery},
+                "filter" :
+                  ${complexFilter}
+              }
+          },
+        "aggregations" :
+          {
+            "annotations" :
+              {
+                "nested" : { "path" : "animl_annotations.categories" },
+                "aggregations" :
+                  {
+                    "names" :
+                      {
+                        "terms" :
+                          {
+                            "field" : "animl_annotations.categories.name.raw",
+                            "size" : 0
+                          }
+                      }
+                  }
+              }
           }
-        }
       }"""
 
       val request = client.buildCountRequest(

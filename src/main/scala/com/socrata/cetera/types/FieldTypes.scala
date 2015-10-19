@@ -34,6 +34,14 @@ case object DomainFieldType extends Countable with Rawable {
   val fieldName: String = "socrata_id.domain_cname"
 }
 
+case object IsCustomerDomainFieldType extends CeteraFieldType {
+  val fieldName: String = "is_customer_domain"
+}
+
+case object ModerationStatusFieldType extends CeteraFieldType {
+  val fieldName: String = "moderation_status"
+}
+
 case object CategoriesFieldType extends Scorable with Rawable {
   val fieldName: String = "animl_annotations.categories"
   case object Name extends NestedField with Rawable {

@@ -62,8 +62,8 @@ Now you are ready to docker.
 ## Endpoints!
 
 We support a few endpoints:
-* `/version` returns the version
 
+* `/version` returns the version
 * `/catalog` returns search results for query passed in parameter `q`
 * `/catalog/domains` returns a count query grouped by domain
 * `/catalog/categories` returns a count query grouped by category
