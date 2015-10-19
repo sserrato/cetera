@@ -29,6 +29,7 @@ case class LimitError(override val message: String) extends ParseError
 object QueryParametersParser {
   val defaultPageOffset: Int = 0
   val defaultPageLength: Int = 100
+  val filterDelimiter: String = ","
 
   /////////////////////////////////////////////////////
   // code from rjmac likely to be added to socrata-http
@@ -115,12 +116,12 @@ object QueryParametersParser {
   // Whether to return score in metadata
   private def showScore(query: QueryType, req: HttpRequest) = query match {
     case NoQuery => false
-    case _       => req.queryParameters.contains("show_score")
+    case _       => req.queryParameters.contains(Params.showScore)
   }
 
   // Check for function score functions
   private def scriptScoreFunctions(req: HttpRequest, query: QueryType): List[ScriptScoreFunction] =
-    req.queryParameters.get("function_score").map(
+    req.queryParameters.get(Params.functionScore).map(
       _.split(',').toList.flatMap {
         param => ScriptScoreFunction.fromParam(query, param)
       }).getOrElse(List.empty[ScriptScoreFunction])
@@ -139,13 +140,13 @@ object QueryParametersParser {
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
-    val query = pickQuery(req.queryParameters.get("q"), req.queryParameters.get("q_internal"))
+    val query = pickQuery(req.queryParameters.get(Params.querySimple), req.queryParameters.get(Params.queryAdvanced))
     val functionScores = scriptScoreFunctions(req, query)
 
     val boosts = {
-      val boostTitle   = req.queryParam[NonNegativeFloat]("boostTitle").map(validated(_).value)
-      val boostDesc    = req.queryParam[NonNegativeFloat]("boostDesc").map(validated(_).value)
-      val boostColumns = req.queryParam[NonNegativeFloat]("boostColumns").map(validated(_).value)
+      val boostTitle   = req.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+      val boostDesc    = req.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+      val boostColumns = req.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
 
       Map(TitleFieldType -> boostTitle,
           DescriptionFieldType -> boostDesc,
@@ -160,44 +161,58 @@ object QueryParametersParser {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          req.queryParameters.get("domains").map(_.toLowerCase.split(",").toSet),
+          req.queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(req)),
-          req.queryParameter("search_context").map(_.toLowerCase),
-          req.queryParameters.get("categories").map(_.toLowerCase.split(",").toSet),
-          req.queryParameters.get("tags").map(_.toLowerCase.split(",").toSet),
+          req.queryParameter(Params.context).map(_.toLowerCase),
+          req.queryParameters.get(Params.filterCategories).map(_.toLowerCase.split(filterDelimiter).toSet),
+          req.queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
           o,
           boosts,
-          req.queryParameters.get("min_should_match").flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
-          req.queryParam[Int]("slop").map(validated), // Check for slop
+          req.queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          req.queryParam[Int](Params.slop).map(validated), // Check for slop
           functionScores,
-          functionScores.nonEmpty && req.queryParameters.contains("show_feature_vals"),
+          functionScores.nonEmpty && req.queryParameters.contains(Params.showFeatureValues),
           showScore(query, req),
-          validated(req.queryParamOrElse("offset", NonNegativeInt(defaultPageOffset))).value,
-          validated(req.queryParamOrElse("limit", NonNegativeInt(defaultPageLength))).value
+          validated(req.queryParamOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
+          validated(req.queryParamOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
         ))
       case Left(e) => Left(Seq(e))
     }
   }
 
-  // scalastyle:ignore cyclomatic.complexity
-  private def queryStringDomainMetadata(req: HttpRequest): Set[(String, String)] = {
-    req.queryParameters.filterNot { kvp =>
-      kvp._1 == "q" ||
-        kvp._1 == "q_internal" ||
-        kvp._1 == "boostTitle" ||
-        kvp._1 == "boostDesc" ||
-        kvp._1 == "boostColumns" ||
-        kvp._1 == "domains" ||
-        kvp._1 == "domain_categories" ||
-        kvp._1 == "domain_tags" ||
-        kvp._1 == "search_context" ||
-        kvp._1 == "categories" ||
-        kvp._1 == "tags" ||
-        kvp._1 == "min_should_match" ||
-        kvp._1 == "slop" ||
-        kvp._1 == "show_feature_vals" ||
-        kvp._1 == "offset" ||
-        kvp._1 == "limit"
-    }.toSet
+  private def queryStringDomainMetadata(req: HttpRequest): Set[(String, String)] =
+    Params.remaining(req.queryParameters).toSet
+}
+
+protected object Params {
+  val context = "search_context"
+  val filterDomains = "domains"
+  val filterCategories = "categories"
+  val filterTags = "tags"
+  val filterType = "only"
+
+  val queryAdvanced = "q_internal"
+  val querySimple = "q"
+
+  val boostColumns = "boostColumns"
+  val boostDescription = "boostDesc"
+  val boostTitle = "boostTitle"
+
+  val minMatch = "min_should_match"
+  val slop = "slop"
+  val showFeatureValues = "show_feature_vals"
+  val showScore = "show_score"
+  val functionScore = "function_score"
+
+  val scanLength = "limit"
+  val scanOffset = "offset"
+
+  // HEY! when adding/removing parameters update this list.
+  private val keys = List(context, filterDomains, filterCategories, filterTags, filterType,
+    queryAdvanced, querySimple, boostColumns, boostDescription, boostTitle,
+    minMatch, slop, showFeatureValues, showScore, functionScore, scanLength, scanOffset)
+
+  def remaining(qs: Map[String, String]): Map[String, String] = {
+    qs.filterKeys(key => !keys.contains(key))
   }
 }
