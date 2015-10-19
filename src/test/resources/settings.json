@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "analyzer": {
+          "snowball_en": {
+            "type": "snowball",
+            "language": "English"
+          }
+        }
+      },
+      "number_of_replicas": "0",
+      "number_of_shards": "1"
+    }
+  }
+}
