@@ -131,10 +131,11 @@ object QueryParametersParser {
     req.queryParameters.get("only") match {
       case None => Right(None)
       case Some("datasets") => Right(Some("dataset"))
-      case Some("files") => Right(Some("file"))
       case Some("external") => Right(Some("href"))
+      case Some("files") => Right(Some("file"))
+      case Some("links") => Right(Some("href"))
       case Some("maps") => Right(Some("map"))
-      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, files, external, maps}, got $invalid"))
+      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, external (deprecated in favor of links), files, links, maps}, got $invalid"))
     }
 
   // Convert these params to lower case because of Elasticsearch filters
