@@ -21,8 +21,9 @@ import scala.collection.JavaConverters._
 class ElasticSearchClient(host: String,
                           port: Int,
                           clusterName: String,
-                          useCustomRanker: Boolean = false) extends Closeable {
-  val log = LoggerFactory.getLogger(getClass)
+                          defaultTitleBoost: Option[Float],
+                          defaultMinShouldMatch: Option[String]) extends Closeable {
+  val logger = LoggerFactory.getLogger(getClass)
 
   val settings = ImmutableSettings.settingsBuilder()
                                   .put("cluster.name", clusterName)
@@ -156,9 +157,16 @@ class ElasticSearchClient(host: String,
                        minShouldMatch: Option[String],
                        slop: Option[Int],
                        functionScores: List[ScriptScoreFunction]): SearchRequestBuilder = {
-    // use an if for the NoQuery and factor everything else out
-    // OR leave this as is because we're working
-    val matchQuery: BaseQueryBuilder = generateQuery(searchQuery, boosts, minShouldMatch, slop)
+    val matchQuery: BaseQueryBuilder = generateQuery(
+      searchQuery,
+      // Look for default title boost; if a title boost is specified as a query parameter, it
+      // will override the default
+      defaultTitleBoost.map(boost => Map(TitleFieldType-> boost) ++ boosts).getOrElse(boosts),
+      // If we're doing a within-domain catalog search then we want to optimize for precision
+      // so by default, we use the defaultMinShouldMatch setting; but we'll always honor the parameter
+      // value passed in with the query
+      minShouldMatch.orElse(if (searchContext.isDefined) defaultMinShouldMatch else None),
+      slop)
 
     val q = if (functionScores.nonEmpty) {
       val query = QueryBuilders.functionScoreQuery(matchQuery)
@@ -172,18 +180,7 @@ class ElasticSearchClient(host: String,
       .prepareSearch(Indices: _*)
       .setTypes(only.toList: _*)
 
-    if (useCustomRanker) {
-      val custom = QueryBuilders.functionScoreQuery(query).boostMode("replace")
-      val script = ScoreFunctionBuilders.scriptFunction(
-        "cetera-ranker",
-        "native",
-        Map("boostLastUpdatedAtValue"-> 1.5,
-            "boostPopularityValue" -> 1.0).asInstanceOf[Map[String,Object]].asJava
-      )
-      custom.add(script)
-      log.info(custom.toString)
-      finalQuery.setQuery(custom)
-    } else { finalQuery.setQuery(query) }
+    finalQuery.setQuery(query)
   }
 
   private def selectSearchContext(domains: Option[Set[String]],

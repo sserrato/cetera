@@ -3,7 +3,6 @@ FROM socrata/java8
 ENV CETERA_ROOT /srv/cetera/
 ENV CETERA_ARTIFACT cetera-assembly.jar
 ENV CETERA_CONFIG /etc/cetera.conf
-ENV USE_CUSTOM_RANKER false
 
 RUN mkdir -p $CETERA_ROOT
 

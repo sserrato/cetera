@@ -52,12 +52,12 @@ object SearchServer extends App {
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
                               config.elasticSearch.elasticSearchPort,
                               config.elasticSearch.elasticSearchClusterName,
-                              config.elasticSearch.useCustomRanker))
+                              config.elasticSearch.titleBoost,
+                              config.elasticSearch.minShouldMatch)
+    )
   } {
     logger.info("ElasticSearchClient initialized on nodes " +
-                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString +
-                " using ranker " +
-                {if(config.elasticSearch.useCustomRanker) "custom" else "default"})
+                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
 
     logger.info("Initializing VersionService")
     val versionService = VersionService

@@ -9,7 +9,7 @@ import org.scalatest.{ShouldMatchers, WordSpec}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
 
-class LocalESClient() extends ElasticSearchClient("local", 5704, "useless") {
+class LocalESClient() extends ElasticSearchClient("local", 5704, "useless", None, None) {
   val node = nodeBuilder().local(true).node()
   override val client = node.client()
   override def close(): Unit = { node.close(); client.close() }
