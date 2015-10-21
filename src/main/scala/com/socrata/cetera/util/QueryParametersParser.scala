@@ -1,24 +1,26 @@
 package com.socrata.cetera.util
 
-import com.socrata.cetera.types._
 import com.socrata.http.server.HttpRequest
 
+import com.socrata.cetera.types._
+
 case class ValidatedQueryParameters(
-                                   searchQuery: QueryType,
-                                   domains: Option[Set[String]],
-                                   domainMetadata: Option[Set[(String,String)]],
-                                   searchContext: Option[String],
-                                   categories: Option[Set[String]],
-                                   tags: Option[Set[String]],
-                                   only: Option[String],
-                                   boosts: Map[CeteraFieldType with Boostable, Float],
-                                   minShouldMatch: Option[String],
-                                   slop: Option[Int],
-                                   functionScores: List[ScriptScoreFunction],
-                                   showFeatureVals: Boolean,
-                                   showScore: Boolean,
-                                   offset: Int,
-                                   limit: Int)
+  searchQuery: QueryType,
+  domains: Option[Set[String]],
+  domainMetadata: Option[Set[(String, String)]],
+  searchContext: Option[String],
+  categories: Option[Set[String]],
+  tags: Option[Set[String]],
+  only: Option[String],
+  boosts: Map[CeteraFieldType with Boostable, Float],
+  minShouldMatch: Option[String],
+  slop: Option[Int],
+  functionScores: List[ScriptScoreFunction],
+  showFeatureVals: Boolean,
+  showScore: Boolean,
+  offset: Int,
+  limit: Int
+)
 
 sealed trait ParseError { def message: String }
 
@@ -63,18 +65,18 @@ object QueryParametersParser {
     implicit object IntParam extends ParamConverter[Int] {
       override def convertFrom(s: String): Either[ParamConversionFailure, Int] = {
         try { Right(s.toInt) }
-        catch { case e : Exception => Left(InvalidValue(s)) }
+        catch { case e: Exception => Left(InvalidValue(s)) }
       }
     }
 
     implicit object FloatParam extends ParamConverter[Float] {
       override def convertFrom(s: String): Either[ParamConversionFailure, Float] = {
         try { Right(s.toFloat) }
-        catch { case e : Exception => Left(InvalidValue(s)) }
+        catch { case e: Exception => Left(InvalidValue(s)) }
       }
     }
 
-    def filtered[A : ParamConverter, B](f: A => Option[B]): ParamConverter[B] = {
+    def filtered[A: ParamConverter, B](f: A => Option[B]): ParamConverter[B] = {
       new ParamConverter[B] {
         def convertFrom(s: String): Either[ParamConversionFailure, B] = {
           implicitly[ParamConverter[A]].convertFrom(s) match {
@@ -91,7 +93,6 @@ object QueryParametersParser {
   }
   //
   /////////////////////////////////////////////////////
-
 
   // for offset and limit
   case class NonNegativeInt(value: Int)
@@ -110,13 +111,13 @@ object QueryParametersParser {
     (simple, advanced) match {
       case (_, Some(aq)) => AdvancedQuery(aq)
       case (Some(sq), _) => SimpleQuery(sq)
-      case _             => NoQuery
+      case _ => NoQuery
     }
 
   // Whether to return score in metadata
   private def showScore(query: QueryType, req: HttpRequest) = query match {
     case NoQuery => false
-    case _       => req.queryParameters.contains(Params.showScore)
+    case _ => req.queryParameters.contains(Params.showScore)
   }
 
   // Check for function score functions
@@ -124,17 +125,21 @@ object QueryParametersParser {
     req.queryParameters.get(Params.functionScore).map(
       _.split(',').toList.flatMap {
         param => ScriptScoreFunction.fromParam(query, param)
-      }).getOrElse(List.empty[ScriptScoreFunction])
+      }
+    ).getOrElse(List.empty[ScriptScoreFunction])
 
   // This can stay case-sensitive because it is so specific
-  private def restrictQueryParameters(req: HttpRequest): Either[OnlyError,Option[String]] =
+  private def restrictQueryParameters(req: HttpRequest): Either[OnlyError, Option[String]] =
     req.queryParameters.get("only") match {
       case None => Right(None)
       case Some("datasets") => Right(Some("dataset"))
-      case Some("files") => Right(Some("file"))
       case Some("external") => Right(Some("href"))
+      case Some("files") => Right(Some("file"))
+      case Some("links") => Right(Some("href"))
       case Some("maps") => Right(Some("map"))
-      case Some(invalid) => Left(OnlyError(s"'only' must be one of {datasets, files, external, maps}, got $invalid"))
+      case Some(invalid) => Left(
+        OnlyError(s"'only' must be one of {datasets, external (deprecated by links), files, links, maps} got $invalid")
+      )
     }
 
   // Convert these params to lower case because of Elasticsearch filters
@@ -144,15 +149,17 @@ object QueryParametersParser {
     val functionScores = scriptScoreFunctions(req, query)
 
     val boosts = {
-      val boostTitle   = req.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
-      val boostDesc    = req.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+      val boostTitle = req.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+      val boostDesc = req.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
       val boostColumns = req.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
 
-      Map(TitleFieldType -> boostTitle,
-          DescriptionFieldType -> boostDesc,
-          ColumnNameFieldType -> boostColumns,
-          ColumnDescriptionFieldType -> boostColumns,
-          ColumnFieldNameFieldType -> boostColumns)
+      Map(
+        TitleFieldType -> boostTitle,
+        DescriptionFieldType -> boostDesc,
+        ColumnNameFieldType -> boostColumns,
+        ColumnDescriptionFieldType -> boostColumns,
+        ColumnFieldNameFieldType -> boostColumns
+      )
         .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
         .toMap[CeteraFieldType with Boostable, Float]
     }
