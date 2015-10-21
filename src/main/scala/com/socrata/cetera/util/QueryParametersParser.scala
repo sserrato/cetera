@@ -11,7 +11,7 @@ case class ValidatedQueryParameters(
   searchContext: Option[String],
   categories: Option[Set[String]],
   tags: Option[Set[String]],
-  only: Option[String],
+  only: Option[Seq[String]],
   boosts: Map[CeteraFieldType with Boostable, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
@@ -129,18 +129,23 @@ object QueryParametersParser {
     ).getOrElse(List.empty[ScriptScoreFunction])
 
   // This can stay case-sensitive because it is so specific
-  private def restrictQueryParameters(req: HttpRequest): Either[OnlyError, Option[String]] =
+  private def restrictQueryParameters(req: HttpRequest): Either[OnlyError, Option[Seq[String]]] = {
+    val simpleTypes = Seq("datasets", "datalenses", "calendars", "files", "filters", "forms", "hrefs")
+    val renamedTypes = Map(
+      "charts" -> Seq("charts", "datalens_charts"),
+      "external" -> Seq("hrefs"),
+      "links" -> Seq("hrefs"),
+      "maps" -> Seq("geo_maps", "tabular_maps", "datalens_maps"))
+    val allowedTypes = simpleTypes.mkString(",") + ", " + renamedTypes.keys.mkString(",")
     req.queryParameters.get("only") match {
       case None => Right(None)
-      case Some("datasets") => Right(Some("dataset"))
-      case Some("external") => Right(Some("href"))
-      case Some("files") => Right(Some("file"))
-      case Some("links") => Right(Some("href"))
-      case Some("maps") => Right(Some("map"))
+      case Some(s) if simpleTypes.contains(s) => Right(Some(Seq(s)))
+      case Some(s) if renamedTypes.contains(s) => Right(renamedTypes.get(s))
       case Some(invalid) => Left(
-        OnlyError(s"'only' must be one of {datasets, external (deprecated by links), files, links, maps} got $invalid")
+        OnlyError(s"'only' must be one of $allowedTypes; got $invalid")
       )
     }
+  }
 
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals

@@ -62,6 +62,8 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
           params.only
         )
 
+        logger.info("ElasticSearch query: " + request.internalBuilder().toString.replaceAll("""[\n\s]+""", " "))
+
         try {
           val res = request.execute().actionGet()
           val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))

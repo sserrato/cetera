@@ -34,7 +34,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
-    only = Some("dataset"),
+    only = Some(Seq("datasets")),
     boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
     minShouldMatch = None,
     slop = None,
@@ -338,7 +338,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array[String](params.only.get))
+      request.request.types should be(params.only.get.toArray)
     }
 
     "sort by categories score when query term is missing but cat filter is present" in {
@@ -397,7 +397,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array[String](params.only.get))
+      request.request.types should be(params.only.get.toArray)
     }
   }
 
