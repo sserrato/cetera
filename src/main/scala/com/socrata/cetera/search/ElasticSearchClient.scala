@@ -152,7 +152,7 @@ class ElasticSearchClient(host: String,
                        categories: Option[Set[String]],
                        tags: Option[Set[String]],
                        domainMetadata: Option[Set[(String,String)]],
-                       only: Option[String],
+                       only: Option[Seq[String]],
                        boosts: Map[CeteraFieldType with Boostable, Float],
                        minShouldMatch: Option[String],
                        slop: Option[Int],
@@ -176,11 +176,9 @@ class ElasticSearchClient(host: String,
     val query: BaseQueryBuilder = selectSearchContext(domains, searchContext, categories, tags, domainMetadata, q)
 
     // Imperative builder --> order is important
-    val finalQuery = client
-      .prepareSearch(Indices: _*)
-      .setTypes(only.toList: _*)
-
-    finalQuery.setQuery(query)
+    client.prepareSearch(Indices: _*)
+      .setTypes(only.getOrElse(Nil): _*)
+      .setQuery(query)
   }
 
   private def selectSearchContext(domains: Option[Set[String]],
@@ -222,7 +220,7 @@ class ElasticSearchClient(host: String,
                          searchContext: Option[String],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
-                         only: Option[String],
+                         only: Option[Seq[String]],
                          boosts: Map[CeteraFieldType with Boostable, Float],
                          minShouldMatch: Option[String],
                          slop: Option[Int],
@@ -306,7 +304,7 @@ class ElasticSearchClient(host: String,
                         searchContext: Option[String],
                         categories: Option[Set[String]],
                         tags: Option[Set[String]],
-                        only: Option[String]): SearchRequestBuilder = {
+                        only: Option[Seq[String]]): SearchRequestBuilder = {
     val aggregation = field match {
       case DomainFieldType => aggDomain
       case CategoriesFieldType => aggCategories
