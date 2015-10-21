@@ -53,24 +53,12 @@ case object CategoriesFieldType extends Scorable with Rawable {
 }
 
 // TODO: cetera-etl rename customer_blah to domain_blah
-case object DomainCategoryFieldType extends Scorable with Rawable {
+case object DomainCategoryFieldType extends Countable with Rawable {
   val fieldName: String = "customer_category"
-  case object Name extends NestedField with Rawable {
-    protected lazy val path: String = DomainCategoryFieldType.fieldName
-  }
-  case object Score extends NestedField with Rawable {
-    protected lazy val path: String = DomainCategoryFieldType.fieldName
-  }
 }
 
-case object DomainTagsFieldType extends Scorable with Rawable {
+case object DomainTagsFieldType extends Countable with Rawable {
   val fieldName: String = "customer_tags"
-  case object Name extends NestedField with Rawable {
-    protected lazy val path: String = DomainTagsFieldType.fieldName
-  }
-  case object Score extends NestedField with Rawable {
-    protected lazy val path: String = DomainTagsFieldType.fieldName
-  }
 }
 
 case object DomainMetadataFieldType extends Mapable with Rawable {
@@ -111,4 +99,8 @@ case object ColumnDescriptionFieldType extends Boostable {
 
 case object ColumnFieldNameFieldType extends Boostable {
   val fieldName: String = "indexed_metadata.columns_field_name"
+}
+
+case object PageViewsTotalFieldType extends CeteraFieldType {
+  val fieldName: String = "page_views.page_views_total"
 }

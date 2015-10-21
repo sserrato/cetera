@@ -2,6 +2,7 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
@@ -130,17 +131,31 @@ object QueryParametersParser {
 
   // This can stay case-sensitive because it is so specific
   private def restrictQueryParameters(req: HttpRequest): Either[OnlyError, Option[Seq[String]]] = {
-    val simpleTypes = Seq("datasets", "datalenses", "calendars", "files", "filters", "forms", "hrefs")
-    val renamedTypes = Map(
-      "charts" -> Seq("charts", "datalens_charts"),
-      "external" -> Seq("hrefs"),
-      "links" -> Seq("hrefs"),
-      "maps" -> Seq("geo_maps", "tabular_maps", "datalens_maps"))
-    val allowedTypes = simpleTypes.mkString(",") + ", " + renamedTypes.keys.mkString(",")
+    val simpleTypes = Seq(TypeCalendars, TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms, TypeHrefs)
+    val renameTypes = Map(
+      "calendar" -> Seq(TypeCalendars),
+      "chart" -> Seq(TypeCharts, TypeDatalensCharts), // overload chart(s) to include both types
+      TypeCharts -> Seq(TypeCharts, TypeDatalensCharts),
+      "data_lens" -> Seq(TypeDatalenses),
+      "data_lenses" -> Seq(TypeDatalenses),
+      "datalens" -> Seq(TypeDatalenses),
+      "dataset" -> Seq(TypeDatasets),
+      "external" -> Seq(TypeHrefs),
+      "file" -> Seq(TypeFiles),
+      "filter" -> Seq(TypeFilters),
+      "form" -> Seq(TypeForms),
+      "href" -> Seq(TypeHrefs),
+      "lens" -> Seq(TypeDatalenses),
+      "lenses" -> Seq(TypeDatalenses),
+      "link" -> Seq(TypeHrefs),
+      "links" -> Seq(TypeHrefs),
+      "map" -> Seq(TypeDatalensMaps, TypeGeoMaps, TypeTabularMaps), // overload map(s) to inclulde all three types
+      "maps" -> Seq(TypeDatalensMaps, TypeGeoMaps, TypeTabularMaps))
+    val allowedTypes = simpleTypes.mkString(",") + ", " + renameTypes.keys.mkString(",")
     req.queryParameters.get("only") match {
       case None => Right(None)
       case Some(s) if simpleTypes.contains(s) => Right(Some(Seq(s)))
-      case Some(s) if renamedTypes.contains(s) => Right(renamedTypes.get(s))
+      case Some(s) if renameTypes.contains(s) => Right(renameTypes.get(s))
       case Some(invalid) => Left(
         OnlyError(s"'only' must be one of $allowedTypes; got $invalid")
       )

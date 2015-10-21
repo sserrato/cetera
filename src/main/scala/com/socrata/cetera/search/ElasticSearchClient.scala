@@ -212,8 +212,9 @@ class ElasticSearchClient(host: String,
 
   private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
   private def sortFieldAsc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
+  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
 
-  // First pass logic is very simple. advanced query >> query >> categories >> tags
+  // First pass logic is very simple. advanced query >> query >> categories >> tags >> default
   def buildSearchRequest(searchQuery: QueryType, // scalastyle:ignore parameter.number
                          domains: Option[Set[String]],
                          domainMetadata: Option[Set[(String,String)]],
@@ -229,10 +230,10 @@ class ElasticSearchClient(host: String,
                          limit: Int,
                          advancedQuery: Option[String] = None ): SearchRequestBuilder = {
     val sort = (searchQuery, categories, tags) match {
-      case (NoQuery, None, None) => sortFieldAsc(TitleFieldType.rawFieldName)
-      case (AdvancedQuery(_) | SimpleQuery(_), _, _) => sortScoreDesc // Query
+      // Query
+      case (AdvancedQuery(_) | SimpleQuery(_), _, _) => sortScoreDesc
 
-      // Categories
+      // ODN Categories
       case (_, Some(cats), _) if searchContext.isEmpty =>
         SortBuilders
           .fieldSort(CategoriesFieldType.Score.fieldName)
@@ -240,11 +241,7 @@ class ElasticSearchClient(host: String,
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cats.toSeq:_*))
 
-      // Categories and search context
-      // TODO: Should we sort by popularity?
-      case (_, Some(cats), _) if searchContext.isDefined => sortFieldAsc(TitleFieldType.rawFieldName)
-
-      // Tags
+      // ODN Tags
       case (_, _, Some(ts)) if searchContext.isEmpty =>
         SortBuilders
           .fieldSort(TagsFieldType.Score.fieldName)
@@ -252,7 +249,8 @@ class ElasticSearchClient(host: String,
           .sortMode("avg")
           .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, ts.toSeq:_*))
 
-      case (_ , _, Some(ts)) => sortFieldAsc(TitleFieldType.rawFieldName)
+      // Default
+      case (_, _, _) => sortFieldDesc(PageViewsTotalFieldType.fieldName)
     }
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata,
