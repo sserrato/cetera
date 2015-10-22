@@ -133,8 +133,6 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           params.limit
         )
 
-        logger.info("ElasticSearch query: " + request.internalBuilder().toString.replaceAll("""[\n\s]+""", " "))
-
         val response = Try(request.execute().actionGet())
 
         response match {

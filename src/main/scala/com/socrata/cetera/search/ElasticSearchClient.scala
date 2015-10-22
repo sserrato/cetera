@@ -175,6 +175,12 @@ class ElasticSearchClient(host: String,
 
     val query: BaseQueryBuilder = selectSearchContext(domains, searchContext, categories, tags, domainMetadata, q)
 
+    logger.info(
+      s"""ElasticSearch query
+        |  indices: ${Indices.mkString(",")},
+        |  types: ${only.getOrElse(Nil).mkString(",")},
+        |  body: ${query.toString.replaceAll("""[\n\s]+""", " ")}""".stripMargin)
+
     // Imperative builder --> order is important
     client.prepareSearch(Indices: _*)
       .setTypes(only.getOrElse(Nil): _*)
