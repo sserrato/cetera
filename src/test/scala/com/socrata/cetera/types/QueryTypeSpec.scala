@@ -18,8 +18,9 @@ class QueryTypeSpec extends WordSpec with ShouldMatchers {
 
     "parse a SimpleQuery with script score function string and return expected script score fn" in {
       val expected = ScriptScoreFunction(
-        """weight * (doc["page_views.page_views_total"].value - mean) / std""",
-        convertParamsToJavaDoubles(List(("mean", 1.0), ("std", 2.0), ("weight", 3.0))))
+        """1 + doc["page_views.page_views_total_log"].value""",
+        convertParamsToJavaDoubles(List(("mean", 1.0), ("std", 2.0), ("weight", 3.0)))
+      )
 
       ScriptScoreFunction.fromParam(SimpleQuery("foo"), "views(1.0 2.0 3.0)") shouldBe Some(expected)
     }
