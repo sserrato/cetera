@@ -25,8 +25,7 @@ object ScriptScoreFunction {
 
   def getScriptFunction(name: String): String =
     name match {
-      case "popularity" => basicFnBody("""doc["popularity"].value""")
-      case "update_freq" => basicFnBody("""doc["update_freq"].value""")
+      case "views" => basicFnBody("""doc["page_views.page_views_total"].value""")
       case "score" => basicFnBody("_score")
       case _ => throw new Exception(s"Unrecognized ScriptScoreFunction $name")
     }

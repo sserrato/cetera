@@ -46,8 +46,8 @@ class ElasticSearchClient(host: String,
       query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression", fn.params.asJava))
     }
 
-    query.scoreMode("sum")
-      .boostMode("replace")
+    // Take a product of scores and replace original score with product
+    query.scoreMode("multiply").boostMode("replace")
   }
 
   private def multiMatch(q: String, mmType: MultiMatchQueryBuilder.Type) = QueryBuilders.multiMatchQuery(q).
