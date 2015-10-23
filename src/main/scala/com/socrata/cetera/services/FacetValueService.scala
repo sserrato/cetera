@@ -31,7 +31,9 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
           OK ~> HeaderAclAllowOriginAll ~> Json(facetValues)
         } catch {
           case e: Exception =>
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", e)
+            val esError = ElasticsearchError(e)
+            logger.error("Database error: ${esError.getMessage}")
+            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
         }
     }
   }
