@@ -53,7 +53,8 @@ object SearchServer extends App {
                               config.elasticSearch.elasticSearchPort,
                               config.elasticSearch.elasticSearchClusterName,
                               config.elasticSearch.titleBoost,
-                              config.elasticSearch.minShouldMatch)
+                              config.elasticSearch.minShouldMatch,
+                              Set.empty)
     )
   } {
     logger.info("ElasticSearchClient initialized on nodes " +

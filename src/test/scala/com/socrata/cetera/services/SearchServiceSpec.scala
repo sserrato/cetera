@@ -67,7 +67,7 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     "extract and format resources from SearchResponse" in {
       val resource = j"""{ "I'm" : "OK", "you're" : "so-so" }"""
 
-      val searchResults = service.format(showFeatureVals = false, showScore = false, searchResponse)
+      val searchResults = service.format(showScore = false, searchResponse)
 
       searchResults.resultSetSize should be (None) // not yet added
       searchResults.timings should be (None) // not yet added

@@ -16,33 +16,13 @@ object MinShouldMatch {
     }
 }
 
-case class ScriptScoreFunction(script: String, params: Map[String, AnyRef])
+case class ScriptScoreFunction(script: String)
 
 object ScriptScoreFunction {
-  val rankingFunctionRe = """([a-zA-z_]+)\((-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\)""".r
-
-  def basicFnBody(field: String): String = s"""weight * ($field - mean) / std"""
-
   def getScriptFunction(name: String): String =
     name match {
       case "views" => """1 + doc["page_views.page_views_total_log"].value"""
-      case "score" => basicFnBody("_score")
+      case "score" => "_score"
       case _ => throw new Exception(s"Unrecognized ScriptScoreFunction $name")
-    }
-
-  def fromParam(qt: QueryType, p: String): Option[ScriptScoreFunction] =
-    qt match {
-      case SimpleQuery(_) =>
-        p match {
-          case rankingFunctionRe(name, mean, std, weight) =>
-            Some(ScriptScoreFunction(
-                   getScriptFunction(name),
-                   Map(
-                     "mean" -> (mean.toDouble: java.lang.Double),
-                     "std" -> (std.toDouble: java.lang.Double),
-                     "weight" -> (weight.toDouble: java.lang.Double))))
-          case _ => None
-        }
-      case _ => None
     }
 }
