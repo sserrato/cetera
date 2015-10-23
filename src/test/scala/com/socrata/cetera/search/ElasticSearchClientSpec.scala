@@ -15,7 +15,7 @@ import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 // JSON does not guarantee order.
 
 class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
-  val client = new TestESClient()  // Remember to close() me!!
+  val client = new TestESClient("esclientspec")  // Remember to close() me!!
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!

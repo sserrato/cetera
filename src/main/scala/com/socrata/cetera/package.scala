@@ -35,4 +35,7 @@ package object cetera {
   val TypeHrefs = "hrefs"
   val TypePulses = "pulses"
   val TypeTabularMaps = "tabular_maps"
+
+  val Datatypes = List(TypeCalendars, TypeCharts, TypeDatalensCharts, TypeDatalenses, TypeDatalensMaps,
+    TypeDatasets, TypeFiles, TypeFilters, TypeForms, TypeGeoMaps, TypeHrefs, TypePulses, TypeTabularMaps)
 }

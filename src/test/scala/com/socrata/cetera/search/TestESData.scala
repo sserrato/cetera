@@ -1,18 +1,16 @@
 package com.socrata.cetera.search
 
-import java.io.InputStream
-
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.util.JsonUtil
 import com.socrata.cetera._
 import org.elasticsearch.common.joda.time.DateTime
-import org.elasticsearch.index.query.QueryBuilders
 import org.scalatest.exceptions.TestCanceledException
 
 import scala.io.Source
 
 trait TestESData {
-  def client: ElasticSearchClient
+  val client: ElasticSearchClient
+  val testSuiteName: String = getClass.getSimpleName.toLowerCase
 
   private val esDocTemplate: String =
     """{
@@ -200,7 +198,7 @@ trait TestESData {
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
   val updateFreqs = Seq(1, 2, 3, 4)
 
-  private def settings(datatype: String): String = {
+  private def indexSettings: String = {
     val s = Source.fromInputStream(getClass.getResourceAsStream("/settings.json")).getLines().mkString("\n")
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
@@ -209,7 +207,7 @@ trait TestESData {
     sj.dyn.settings.!.toString()
   }
 
-  private def mappings(datatype: String): String = {
+  private def datatypeMappings(datatype: String): String = {
     val s = Source.fromInputStream(getClass.getResourceAsStream("/base.json")).getLines().mkString("\n")
       .replaceAll("datatype", datatype)
     val sj = JsonUtil.parseJson[JValue](s) match {
@@ -220,41 +218,32 @@ trait TestESData {
   }
 
   def bootstrapSettings(): Unit = {
-    Indices.foreach { datatype =>
-      val index = s"112358_$datatype"
-      client.client.admin().indices().prepareCreate(index)
-        .setSettings(settings(datatype))
-        .execute.actionGet
-      client.client.admin().indices().preparePutMapping(index)
-        .setType(datatype).setSource(mappings(datatype))
+    client.client.admin().indices().prepareCreate(testSuiteName)
+      .setSettings(indexSettings)
+      .execute.actionGet
+    Datatypes.foreach { datatype =>
+      client.client.admin().indices().preparePutMapping(testSuiteName)
+        .setType(datatype).setSource(datatypeMappings(datatype))
         .setIgnoreConflicts(true)
         .execute.actionGet
       client.client.admin().indices().prepareAliases()
-        .addAlias(index, datatype)
+        .addAlias(testSuiteName, datatype)
         .execute.actionGet
     }
-
-//    val settings = client.client.admin().indices().prepareGetSettings()
-//      .execute.actionGet
-//    println(settings)
   }
 
   def bootstrapData(): Unit = {
     bootstrapSettings()
-    Indices.foreach { index =>
-      client.client.prepareIndex(index, index)
-        .setSource(buildEsDocByIndex(Indices.indexOf(index)))
+    Datatypes.foreach { datatype =>
+      client.client.prepareIndex(testSuiteName, datatype)
+        .setSource(buildEsDocByIndex(Indices.indexOf(datatype)))
         .setRefresh(true)
         .execute.actionGet
     }
-
-//    val docs = client.client.prepareSearch()
-//      .setQuery(QueryBuilders.matchAllQuery())
-//      .execute.actionGet
-//    println(docs)
   }
 
   def removeBootstrapData(): Unit = {
-    // TODO: delete test specific data
+    client.client.admin().indices().prepareDelete(testSuiteName)
+      .execute.actionGet
   }
 }
