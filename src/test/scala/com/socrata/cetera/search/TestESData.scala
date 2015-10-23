@@ -3,6 +3,7 @@ package com.socrata.cetera.search
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.util.JsonUtil
 import com.socrata.cetera._
+import com.socrata.cetera.types._
 import org.elasticsearch.common.joda.time.DateTime
 import org.scalatest.exceptions.TestCanceledException
 
@@ -221,22 +222,22 @@ trait TestESData {
     client.client.admin().indices().prepareCreate(testSuiteName)
       .setSettings(indexSettings)
       .execute.actionGet
-    Datatypes.foreach { datatype =>
+    Datatypes.all.foreach { datatype =>
       client.client.admin().indices().preparePutMapping(testSuiteName)
-        .setType(datatype).setSource(datatypeMappings(datatype))
+        .setType(datatype.plural).setSource(datatypeMappings(datatype.plural))
         .setIgnoreConflicts(true)
         .execute.actionGet
       client.client.admin().indices().prepareAliases()
-        .addAlias(testSuiteName, datatype)
+        .addAlias(testSuiteName, datatype.plural)
         .execute.actionGet
     }
   }
 
   def bootstrapData(): Unit = {
     bootstrapSettings()
-    Datatypes.foreach { datatype =>
-      client.client.prepareIndex(testSuiteName, datatype)
-        .setSource(buildEsDocByIndex(Indices.indexOf(datatype)))
+    Datatypes.all.foreach { datatype =>
+      client.client.prepareIndex(testSuiteName, datatype.plural)
+        .setSource(buildEsDocByIndex(Datatypes.all.indexOf(datatype)))
         .setRefresh(true)
         .execute.actionGet
     }

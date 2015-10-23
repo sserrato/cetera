@@ -1,6 +1,7 @@
 package com.socrata.cetera.search
 
 import com.socrata.cetera._
+import com.socrata.cetera.types._
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import scala.collection.JavaConverters._
@@ -44,11 +45,11 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
         iom.key -> iom.value.sourceAsMap().asScala
       }
     }
-    mappings.size should be(Datatypes.length)
+    mappings.size should be(Datatypes.all.length)
   }
 
   test("test docs are bootstrapped") {
     val res = client.client.prepareSearch().execute.actionGet
-    res.getHits.getTotalHits should be(Datatypes.length)
+    res.getHits.getTotalHits should be(Datatypes.all.length)
   }
 }
