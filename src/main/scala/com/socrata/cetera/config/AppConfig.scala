@@ -38,4 +38,5 @@ class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config
   val elasticSearchClusterName = getString("es-cluster-name")
   val titleBoost = optionally[Float](config.getDouble(path("title-boost")).toFloat)
   val minShouldMatch = optionally[String](getString("min-should-match"))
+  val functionScoreScripts = getStringList("function-score-scripts")
 }

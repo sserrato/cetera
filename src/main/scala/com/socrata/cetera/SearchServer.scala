@@ -7,6 +7,7 @@ import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.services._
+import com.socrata.cetera.types.ScriptScoreFunction
 import com.socrata.http.client.InetLivenessChecker
 import com.socrata.http.server._
 import com.socrata.thirdparty.typesafeconfig.Propertizer
@@ -54,8 +55,8 @@ object SearchServer extends App {
                               config.elasticSearch.elasticSearchClusterName,
                               config.elasticSearch.titleBoost,
                               config.elasticSearch.minShouldMatch,
-                              Set.empty)
-    )
+                              config.elasticSearch.functionScoreScripts.flatMap(fnName =>
+                                ScriptScoreFunction.getScriptFunction(fnName)).toSet))
   } {
     logger.info("ElasticSearchClient initialized on nodes " +
                   elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)

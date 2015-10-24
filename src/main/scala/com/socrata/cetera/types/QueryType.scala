@@ -19,10 +19,10 @@ object MinShouldMatch {
 case class ScriptScoreFunction(script: String)
 
 object ScriptScoreFunction {
-  def getScriptFunction(name: String): String =
+  def getScriptFunction(name: String): Option[ScriptScoreFunction] =
     name match {
-      case "views" => """1 + doc["page_views.page_views_total_log"].value"""
-      case "score" => "_score"
-      case _ => throw new Exception(s"Unrecognized ScriptScoreFunction $name")
+      case "views" => Option(ScriptScoreFunction("""1 + doc["page_views.page_views_total_log"].value"""))
+      case "score" => Option(ScriptScoreFunction("_score"))
+      case _ => None // log this?
     }
 }
