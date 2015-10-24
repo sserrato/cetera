@@ -157,8 +157,8 @@ class ElasticSearchClient(
     ))
 
   // Assumes validation has already been done
-  def buildBaseRequest(
-    searchQuery: QueryType, // scalastyle:ignore parameter.number
+  def buildBaseRequest( // scalastyle:ignore parameter.number
+    searchQuery: QueryType,
     domains: Option[Set[String]],
     searchContext: Option[String],
     categories: Option[Set[String]],
@@ -240,8 +240,8 @@ class ElasticSearchClient(
   private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
 
   // First pass logic is very simple. advanced query >> query >> categories >> tags >> default
-  def buildSearchRequest(
-    searchQuery: QueryType, // scalastyle:ignore parameter.number
+  def buildSearchRequest( // scalastyle:ignore parameter.number
+    searchQuery: QueryType,
     domains: Option[Set[String]],
     domainMetadata: Option[Set[(String, String)]],
     searchContext: Option[String],
@@ -279,7 +279,8 @@ class ElasticSearchClient(
       case (_, _, _) => sortFieldDesc(PageViewsTotalFieldType.fieldName)
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata, only, boosts, minShouldMatch, slop)
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
+                     domainMetadata, only, boosts, minShouldMatch, slop)
       .setFrom(offset)
       .setSize(limit)
       .addSort(sort)
