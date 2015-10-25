@@ -9,7 +9,7 @@ import org.scalatest.{ShouldMatchers, WordSpec}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
 
-class LocalESClient() extends ElasticSearchClient("local", 5704, "useless", None, None) {
+class LocalESClient() extends ElasticSearchClient("local", 5704, "useless", None, None, Set.empty) {
   val node = nodeBuilder().local(true).node()
   override val client = node.client()
   override def close(): Unit = { node.close(); client.close() }
@@ -38,8 +38,6 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
     boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
     minShouldMatch = None,
     slop = None,
-    functionScores = List.empty,
-    showFeatureVals = false,
     showScore = false,
     offset = 10,
     limit = 20
@@ -221,8 +219,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         only = None,
         boosts = Map.empty,
         minShouldMatch = None,
-        slop = None,
-        functionScores = List.empty
+        slop = None
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -254,8 +251,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         only = None,
         boosts = Map.empty,
         minShouldMatch = None,
-        slop = None,
-        functionScores = List.empty
+        slop = None
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -287,8 +283,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         only = None,
         boosts = params.boosts,
         minShouldMatch = None,
-        slop = None,
-        functionScores = List.empty
+        slop = None
       )
       val actual = JsonReader.fromString(request.toString)
 
@@ -330,7 +325,6 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         boosts = Map.empty,
         minShouldMatch = None,
         slop = None,
-        functionScores = List.empty,
         offset = params.offset,
         limit = params.limit
       )
@@ -389,7 +383,6 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
         boosts = Map.empty,
         minShouldMatch = None,
         slop = None,
-        functionScores = List.empty,
         offset = params.offset,
         limit = params.limit
       )

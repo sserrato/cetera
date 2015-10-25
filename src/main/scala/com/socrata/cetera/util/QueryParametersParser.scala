@@ -16,8 +16,6 @@ case class ValidatedQueryParameters(
   boosts: Map[CeteraFieldType with Boostable, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
-  functionScores: List[ScriptScoreFunction],
-  showFeatureVals: Boolean,
   showScore: Boolean,
   offset: Int,
   limit: Int
@@ -121,14 +119,6 @@ object QueryParametersParser {
     case _ => req.queryParameters.contains(Params.showScore)
   }
 
-  // Check for function score functions
-  private def scriptScoreFunctions(req: HttpRequest, query: QueryType): List[ScriptScoreFunction] =
-    req.queryParameters.get(Params.functionScore).map(
-      _.split(',').toList.flatMap {
-        param => ScriptScoreFunction.fromParam(query, param)
-      }
-    ).getOrElse(List.empty[ScriptScoreFunction])
-
   // This can stay case-sensitive because it is so specific
   private def restrictQueryParameters(req: HttpRequest): Either[OnlyError, Option[Seq[String]]] = {
     val simpleTypes = Seq(TypeCalendars, TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms, TypeHrefs)
@@ -166,7 +156,6 @@ object QueryParametersParser {
   // Yes, the params parser now concerns itself with ES internals
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val query = pickQuery(req.queryParameters.get(Params.querySimple), req.queryParameters.get(Params.queryAdvanced))
-    val functionScores = scriptScoreFunctions(req, query)
 
     val boosts = {
       val boostTitle = req.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
@@ -191,14 +180,12 @@ object QueryParametersParser {
           req.queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(req)),
           req.queryParameter(Params.context).map(_.toLowerCase),
-          req.queryParameters.get(Params.filterCategories).map(_.toLowerCase.split(filterDelimiter).toSet),
+          req.queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
           req.queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
           o,
           boosts,
           req.queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
           req.queryParam[Int](Params.slop).map(validated), // Check for slop
-          functionScores,
-          functionScores.nonEmpty && req.queryParameters.contains(Params.showFeatureValues),
           showScore(query, req),
           validated(req.queryParamOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
           validated(req.queryParamOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value

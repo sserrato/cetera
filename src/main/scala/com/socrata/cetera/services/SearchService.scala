@@ -84,19 +84,12 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
       case _         => JString( s"""https://$cname/d/${datasetId.string}""")
     }
 
-  def format(showFeatureVals: Boolean,
-             showScore: Boolean,
+  def format(showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
-
-      val featureVals = if (showFeatureVals) {
-        Seq("features" -> JObject(List(updateFreq(json), popularity(json)).flatten.toMap))
-      } else {
-        Seq.empty
-      }
 
       SearchResult(
         json.dyn.resource.!,
@@ -106,7 +99,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           domainCategory(json),
           domainTags(json),
           domainMetadata(json)),
-        Map("domain" -> JString(cname(json))) ++ score ++ featureVals,
+        Map("domain" -> JString(cname(json))) ++ score,
         link(cname(json), json.dyn.socrata_id.page_id.?, json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString])
       )
     })
@@ -128,7 +121,6 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           params.boosts,
           params.minShouldMatch,
           params.slop,
-          params.functionScores,
           params.offset,
           params.limit
         )
@@ -139,7 +131,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           case Success(res) =>
             val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
             val count = res.getHits.getTotalHits
-            val formattedResults = format(params.showFeatureVals, params.showScore, res)
+            val formattedResults = format(params.showScore, res)
               .copy(resultSetSize = Some(count), timings = Some(timings))
 
             val logMsg = LogHelper.formatRequest(req, timings)
