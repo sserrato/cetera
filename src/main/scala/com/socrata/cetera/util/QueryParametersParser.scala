@@ -180,7 +180,7 @@ object QueryParametersParser {
           req.queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(req)),
           req.queryParameter(Params.context).map(_.toLowerCase),
-          req.queryParameters.get(Params.filterCategories).map(_.toLowerCase.split(filterDelimiter).toSet),
+          req.queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
           req.queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
           o,
           boosts,
