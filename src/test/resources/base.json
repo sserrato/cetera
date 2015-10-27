@@ -1,0 +1,151 @@
+{
+  "mappings" : {
+    "datatype" : {
+      "properties" : {
+        "fts_analyzed" : {
+          "type": "string",
+          "index": "analyzed",
+          "analyzer": "snowball_en"
+        },
+        "fts_raw" : {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "is_customer_domain" : {
+          "type" : "boolean",
+          "index": "not_analyzed"
+        },
+        "moderation_status" : {
+          "type" : "string",
+          "index": "not_analyzed"
+        },
+        "popularity" : {
+          "type" : "float"
+        },
+        "update_freq" : {
+          "type" : "float"
+        },
+        "indexed_metadata" : {
+          "properties" : {
+            "description" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "name" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            }
+          },
+          "type" : "object"
+        },
+        "resource" : {
+          "enabled" : false,
+          "index" : "no",
+          "type" : "object"
+        },
+        "socrata_id" : {
+          "properties" : {
+            "dataset_id" : {
+              "type" : "string"
+            },
+            "domain_cname" : {
+              "type" : "string",
+              "analyzer" : "simple",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "domain_id" : {
+              "type" : "long"
+            },
+            "organization" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "site_title" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            }
+          },
+          "type" : "object"
+        },
+        "animl_annotations" : {
+          "properties" : {
+            "categories" : {
+              "type" : "nested",
+              "properties" : {
+                "name" : {
+                  "type" : "string",
+                  "fields" : {
+                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                  }
+                },
+                "score" : {"type" : "float", "store" : "no", "index" : "not_analyzed"}
+              }
+            },
+            "tags" : {
+              "type" : "nested",
+              "properties" : {
+                "name" : {
+                  "type" : "string",
+                  "fields" : {
+                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                  }
+                },
+                "score" : {"type" : "float", "store" : "no", "index" : "not_analyzed"}
+              }
+            }
+          }
+        },
+        "customer_tags" : {
+          "type" : "string",
+          "fields": {
+            "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+          }
+        },
+        "customer_category" : {
+          "type" : "string",
+          "fields" : {
+            "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+          }
+        },
+        "customer_metadata_flattened" : {
+          "type": "nested",
+          "properties" : {
+            "key" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "value" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

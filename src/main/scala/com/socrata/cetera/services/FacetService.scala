@@ -25,35 +25,38 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
-        val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
-        logger.debug("issuing request to elasticsearch: " + request.toString)
-
         try {
-          val res = request.execute().actionGet()
-          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
-          val logMsg = LogHelper.formatRequest(req, timings)
-          logger.info(logMsg)
-
-          val hits = res.getAggregations.asMap().asScala
-          val categories = hits.get("categories").get.asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
-          val tags = hits.get("tags").get.asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
-          val metadata = hits.get("metadata").get.asInstanceOf[Nested]
-            .getAggregations.get("kvp").asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
-
-          val facets: Map[String,Seq[FacetCount]] = Map(
-            "categories" -> categories,
-            "tags"       -> tags,
-            "metadata"   -> metadata
-          )
-
+          val (facets, timings) = doAggregate(cname, startMs)
+          logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)
         } catch {
           case e: Exception =>
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", e)
+            val esError = ElasticsearchError(e)
+            logger.error("Database error: ${esError.getMessage}")
+            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
         }
     }
+  }
+
+  def doAggregate(cname: String, startMs: Long): (Map[String,Seq[FacetCount]], InternalTimings) = {
+    val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
+    logger.debug("issuing request to elasticsearch: " + request.toString)
+    val res = request.execute().actionGet()
+    val aggs = res.getAggregations.asMap().asScala
+    val categories = aggs("categories").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
+    val tags = aggs("tags").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
+    val metadata = aggs("metadata").asInstanceOf[Nested]
+      .getAggregations.get("kvp").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
+
+    val facets: Map[String,Seq[FacetCount]] = Map(
+      "categories" -> categories,
+      "tags"       -> tags,
+      "metadata"   -> metadata
+    )
+    val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
+    (facets, timings)
   }
 }

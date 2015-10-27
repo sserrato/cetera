@@ -2,19 +2,10 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
-import org.elasticsearch.action.search.SearchType.COUNT
-import org.elasticsearch.node.NodeBuilder.nodeBuilder
-import org.scalatest.{ShouldMatchers, WordSpec}
-
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
-
-class LocalESClient() extends ElasticSearchClient("local", 5704, "useless", None, None, Set.empty) {
-  val node = nodeBuilder().local(true).node()
-  override val client = node.client()
-  override def close(): Unit = { node.close(); client.close() }
-}
-
+import org.elasticsearch.action.search.SearchType.COUNT
+import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 ////////////////////////////////////////////////////////
 // Brittleness deliberate. Query building not finalized.
@@ -23,9 +14,12 @@ class LocalESClient() extends ElasticSearchClient("local", 5704, "useless", None
 //
 // JSON does not guarantee order.
 
-class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
+class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
+  val client = new TestESClient("esclientspec")  // Remember to close() me!!
 
-  val client = new LocalESClient()  // Remember to close() me!!
+  override protected def afterAll(): Unit = {
+    client.close() // Important!!
+  }
 
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
@@ -488,6 +482,4 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers {
       request.request.searchType should be (COUNT)
     }
   }
-
-  client.close() // Important!!
 }

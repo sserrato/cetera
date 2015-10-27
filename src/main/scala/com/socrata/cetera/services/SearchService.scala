@@ -140,8 +140,10 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
             val payload = Json(formattedResults, pretty=true)
             OK ~> HeaderAclAllowOriginAll ~> payload
 
-          case Failure(ex) =>
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error: ${ex.getMessage}")
+          case Failure(e) =>
+            val esError = ElasticsearchError(e)
+            logger.error("Database error: ${esError.getMessage}")
+            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
         }
 
       case Left(errors) =>

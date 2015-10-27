@@ -1,8 +1,9 @@
 package com.socrata.cetera.search
 
 import java.io.Closeable
-import scala.collection.JavaConverters._
 
+import com.socrata.cetera._
+import com.socrata.cetera.types._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
@@ -14,9 +15,6 @@ import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
-
-import com.socrata.cetera._
-import com.socrata.cetera.types._
 
 class ElasticSearchClient(
   host: String,
@@ -343,10 +341,15 @@ class ElasticSearchClient(
       .setSearchType("count")
   }
 
+  private def domainQuery(cname: String): QueryBuilder = cname.trim match {
+    case s: String if s.nonEmpty => QueryBuilders.matchQuery("domain_cname", s)
+    case _ => QueryBuilders.matchAllQuery()
+  }
+
   def buildFacetRequest(cname: String): SearchRequestBuilder = {
     val size = 0 // no docs, aggs only
 
-    val query = QueryBuilders.matchQuery("domain_cname", cname)
+    val query = domainQuery(cname)
     val categoryAgg = AggregationBuilders.terms("categories")
       .field(DomainCategoryFieldType.rawFieldName)
       .size(size)
@@ -370,7 +373,7 @@ class ElasticSearchClient(
     val size = 0 // no docs, aggs only
 
     val query = QueryBuilders.boolQuery()
-      .must(QueryBuilders.matchQuery("domain_cname", cname))
+      .must(domainQuery(cname))
       .must(facet match {
         case None => QueryBuilders.matchAllQuery()
         case Some(f) => QueryBuilders.nestedQuery(

@@ -25,29 +25,30 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
-        val request = elasticSearchClient.getOrElse(throw new NullPointerException)
-          .buildFacetValueRequest(cname, Some(facet))
-        logger.debug("issuing request to elasticsearch: " + request.toString)
-
         try {
-          val res = request.execute().actionGet()
-          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
-          val logMsg = LogHelper.formatRequest(req, timings)
-          logger.info(logMsg)
-
-          val hits = res.getAggregations.get("metadata").asInstanceOf[Nested]
-            .getAggregations.get("kvp").asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq
-
-          val facetValues: Map[String,Seq[ValueCount]] = Map(
-            facet -> hits
-          )
-
+          val (facetValues, timings) = doListValues(cname, Option(facet), startMs)
+          logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facetValues)
         } catch {
           case e: Exception =>
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", e)
+            val esError = ElasticsearchError(e)
+            logger.error("Database error: ${esError.getMessage}")
+            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
         }
     }
+  }
+
+  def doListValues(cname: String,
+                   facet: Option[String],
+                   startMs: Long): (Map[String,Seq[ValueCount]],InternalTimings) = {
+    val request = elasticSearchClient.getOrElse(throw new NullPointerException)
+      .buildFacetValueRequest(cname, facet)
+    logger.debug("issuing request to elasticsearch: " + request.toString)
+    val res = request.execute().actionGet()
+    val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
+    val hits = res.getAggregations.get("metadata").asInstanceOf[Nested]
+      .getAggregations.get("kvp").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq
+    (Map(facet.getOrElse("*") -> hits), timings)
   }
 }
