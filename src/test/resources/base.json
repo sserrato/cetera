@@ -25,6 +25,28 @@
         "update_freq" : {
           "type" : "float"
         },
+        "page_views": {
+          "properties": {
+            "page_views_last_month": {
+              "type": "long"
+            },
+            "page_views_last_month_log": {
+              "type": "double"
+            },
+            "page_views_last_week": {
+              "type": "long"
+            },
+            "page_views_last_week_log": {
+              "type": "double"
+            },
+            "page_views_total": {
+              "type": "long"
+            },
+            "page_views_total_log": {
+              "type": "double"
+            }
+          }
+        },
         "indexed_metadata" : {
           "properties" : {
             "description" : {

@@ -53,6 +53,7 @@ object SearchServer extends App {
       new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
                               config.elasticSearch.elasticSearchPort,
                               config.elasticSearch.elasticSearchClusterName,
+                              config.elasticSearch.typeBoosts,
                               config.elasticSearch.titleBoost,
                               config.elasticSearch.minShouldMatch,
                               config.elasticSearch.functionScoreScripts.flatMap(fnName =>

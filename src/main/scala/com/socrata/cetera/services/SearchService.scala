@@ -1,7 +1,5 @@
 package com.socrata.cetera.services
 
-import javax.servlet.http.HttpServletResponse
-
 import com.rojoma.json.v3.ast._
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
@@ -14,11 +12,9 @@ import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpRequest, HttpService}
+import com.socrata.http.server.{HttpResponse, HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
-
-import scala.util.{Failure, Success, Try}
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Classification(categories: Seq[JValue],
@@ -105,12 +101,15 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     })
   }
 
-  def search(req: HttpRequest): HttpServletResponse => Unit = {
+  def doSearch(queryParameters: Map[String,String]): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
+    QueryParametersParser(queryParameters) match {
+      case Left(errors) =>
+        val msg = errors.map(_.message).mkString(", ")
+        throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-    QueryParametersParser(req) match {
       case Right(params) =>
-        val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildSearchRequest(
+        val res = elasticSearchClient.getOrElse(throw new NullPointerException).buildSearchRequest(
           params.searchQuery,
           params.domains,
           params.domainMetadata,
@@ -123,32 +122,30 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           params.slop,
           params.offset,
           params.limit
-        )
+        ).execute.actionGet
 
-        val response = Try(request.execute().actionGet())
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+        val count = res.getHits.getTotalHits
+        val formattedResults: SearchResults[SearchResult] = format(params.showScore, res)
+          .copy(resultSetSize = Some(count), timings = Some(timings))
 
-        response match {
-          case Success(res) =>
-            val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
-            val count = res.getHits.getTotalHits
-            val formattedResults = format(params.showScore, res)
-              .copy(resultSetSize = Some(count), timings = Some(timings))
+        (formattedResults, timings)
+    }
+  }
 
-            val logMsg = LogHelper.formatRequest(req, timings)
-            logger.info(logMsg)
-
-            val payload = Json(formattedResults, pretty=true)
-            OK ~> HeaderAclAllowOriginAll ~> payload
-
-          case Failure(e) =>
-            val esError = ElasticsearchError(e)
-            logger.error("Database error: ${esError.getMessage}")
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
-        }
-
-      case Left(errors) =>
-        val msg = errors.map(_.message).mkString(", ")
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
+  def search(req: HttpRequest): HttpResponse = {
+    try {
+      val (formattedResults, timings) = doSearch(req.queryParameters)
+          logger.info(LogHelper.formatRequest(req, timings))
+          OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
+    } catch {
+      case pe: IllegalArgumentException =>
+        logger.info(pe.getMessage)
+        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(pe.getMessage)
+      case e: Exception =>
+        val esError = ElasticsearchError(e)
+        logger.error("Database error: ${esError.getMessage}")
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
     }
   }
 

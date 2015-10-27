@@ -33,10 +33,14 @@ class ServerConfig(config: Config, root: String) extends ConfigClass(config, roo
 }
 
 class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config,root) {
+  protected def getBoostMap(config: Config, key: String): Float =
+    config.getNumber(key).floatValue
+
   val elasticSearchServer = getString("es-server")
   val elasticSearchPort = getInt("es-port")
   val elasticSearchClusterName = getString("es-cluster-name")
   val titleBoost = optionally[Float](config.getDouble(path("title-boost")).toFloat)
   val minShouldMatch = optionally[String](getString("min-should-match"))
   val functionScoreScripts = getStringList("function-score-scripts")
+  val typeBoosts = getObjectOf[Float]("type-boosts", getBoostMap _)
 }

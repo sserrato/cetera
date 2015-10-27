@@ -6,7 +6,8 @@ import java.nio.file.Files
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.node.NodeBuilder._
 
-class TestESClient(val clusterName: String) extends ElasticSearchClient("local", 0, "useless", None, None, Set.empty) {
+class TestESClient(val clusterName: String, val datatypeBoosts: Map[String, Float] = Map.empty)
+  extends ElasticSearchClient("local", 0, "useless", datatypeBoosts, None, None, Set.empty) {
   val tempDataDir = Files.createTempDirectory("elasticsearch_data_").toFile
   val testSettings = ImmutableSettings.settingsBuilder()
     .put("cluster.name", clusterName)

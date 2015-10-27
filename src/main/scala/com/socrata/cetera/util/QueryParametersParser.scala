@@ -42,9 +42,9 @@ object QueryParametersParser {
   }
 
   // monkeys have been here
-  implicit class TypedQueryParams(req: HttpRequest) {
+  implicit class TypedQueryParams(queryParameters: Map[String,String]) {
     def queryParam[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
-      req.queryParameters
+      queryParameters
         .get(name)
         .map(implicitly[ParamConverter[T]].convertFrom)
     }
@@ -112,30 +112,28 @@ object QueryParametersParser {
       case _ => NoQuery
     }
 
-  // Whether to return score in metadata
-  private def showScore(query: QueryType, req: HttpRequest) = query match {
-    case NoQuery => false
-    case _ => req.queryParameters.contains(Params.showScore)
-  }
-
+  val allowedTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
   // This can stay case-sensitive because it is so specific
-  def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] = {
-    val allowedTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
-    only.flatMap(s => DatatypeSimple(s)) match {
-      case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $only"))
-      case Some(d) => Right(Some(d.names))
+  def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
+    only.map { s =>
+      DatatypeSimple(s) match {
+        case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $only"))
+        case Some(d) => Right(Some(d.names))
     }
-  }
+  }.getOrElse(Right(None))
+
+  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
+    apply(req.queryParameters)
 
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals
-  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] = {
-    val query = pickQuery(req.queryParameters.get(Params.querySimple), req.queryParameters.get(Params.queryAdvanced))
+  def apply(queryParameters: Map[String,String]): Either[Seq[ParseError], ValidatedQueryParameters] = {
+    val query = pickQuery(queryParameters.get(Params.querySimple), queryParameters.get(Params.queryAdvanced))
 
     val boosts = {
-      val boostTitle = req.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
-      val boostDesc = req.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
-      val boostColumns = req.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
+      val boostTitle = queryParameters.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+      val boostDesc = queryParameters.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+      val boostColumns = queryParameters.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
 
       Map(
         TitleFieldType -> boostTitle,
@@ -148,32 +146,32 @@ object QueryParametersParser {
         .toMap[CeteraFieldType with Boostable, Float]
     }
 
-    restrictParamFilterType(req.queryParameters.get(Params.filterType)) match {
+    restrictParamFilterType(queryParameters.get(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          req.queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
-          Option(queryStringDomainMetadata(req)),
-          req.queryParameter(Params.context).map(_.toLowerCase),
-          req.queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
-          req.queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
+          queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
+          Option(queryStringDomainMetadata(queryParameters)),
+          queryParameters.get(Params.context).map(_.toLowerCase),
+          queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
+          queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
           o,
           boosts,
-          req.queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
-          req.queryParam[Int](Params.slop).map(validated), // Check for slop
-          showScore(query, req),
-          validated(req.queryParamOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
-          validated(req.queryParamOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
+          queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          queryParameters.queryParam[Int](Params.slop).map(validated), // Check for slop
+          queryParameters.contains(Params.showScore), // just a flag
+          validated(queryParameters.queryParamOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
+          validated(queryParameters.queryParamOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
         ))
       case Left(e) => Left(Seq(e))
     }
   }
 
-  private def queryStringDomainMetadata(req: HttpRequest): Set[(String, String)] =
-    Params.remaining(req.queryParameters).toSet
+  private def queryStringDomainMetadata(queryParameters: Map[String,String]): Set[(String, String)] =
+    Params.remaining(queryParameters).toSet
 }
 
-protected object Params {
+object Params {
   val context = "search_context"
   val filterDomains = "domains"
   val filterCategories = "categories"

@@ -64,6 +64,9 @@ trait TestESData {
       |   %s
       | ],
       | "moderation_status": %s,
+      | "page_views": {
+      |   "page_views_total": %s
+      | },
       | "customer_category": %s,
       | "customer_tags": [
       |   %s
@@ -104,6 +107,7 @@ trait TestESData {
                          indexedMetadataColumnsNames: Seq[String],
                          customerMetadataFlattened: Map[String,String],
                          moderationStatus: String,
+                         pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
                          updateFreq: Long): String =
@@ -134,6 +138,7 @@ trait TestESData {
       quoteQualify(indexedMetadataColumnsNames),
       quoteQualifyMap(customerMetadataFlattened),
       quoteQualify(moderationStatus),
+      pageViewsTotal,
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
       updateFreq.toString)
@@ -163,6 +168,7 @@ trait TestESData {
       defaultImColumnNames,
       domainMetadata(i % domainMetadata.length),
       moderationStatuses(i % moderationStatuses.length),
+      pageViewsTotal(i % pageViewsTotal.length),
       domainCategories(i % domainCategories.length),
       domainTags(i % domainTags.length),
       updateFreqs(i % updateFreqs.length))
@@ -190,11 +196,12 @@ trait TestESData {
   val resourceIds = socrataIdDatasetIds
   val resourceNames = Seq("One", "Two", "Three", "Four")
   val popularities = Seq(0.1F, 0.42F, 1F, 42F)
-  val isCustomerDomains = Seq(true, false)
+  val isCustomerDomains = Seq(true, true, false)
   val imNames = resourceNames
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1"), Map("two" -> "2"), Map.empty[String,String])
   val moderationStatuses = Seq("rejected", "approved", "pending", "irrelevant")
+  val pageViewsTotal = Seq.range(1, Datatypes.all.length).map(_.toString)
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "Delta")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
   val updateFreqs = Seq(1, 2, 3, 4)

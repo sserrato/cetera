@@ -20,6 +20,7 @@ class ElasticSearchClient(
   host: String,
   port: Int,
   clusterName: String,
+  defaultTypeBoosts: Map[String, Float],
   defaultTitleBoost: Option[Float],
   defaultMinShouldMatch: Option[String],
   scriptScoreFunctions: Set[ScriptScoreFunction]
@@ -50,6 +51,12 @@ class ElasticSearchClient(
     query.scoreMode("multiply").boostMode("replace")
   }
 
+  private def boostTypes = {
+    defaultTypeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
+      q.should(QueryBuilders.termQuery(TypeFieldType.fieldName, datatype).boost(boost))
+    }
+  }
+
   private def multiMatch(q: String, mmType: MultiMatchQueryBuilder.Type) = QueryBuilders.multiMatchQuery(q).
     field("fts_analyzed").
     field("fts_raw").
@@ -75,6 +82,7 @@ class ElasticSearchClient(
   ): BaseQueryBuilder = {
     searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
+
       case SimpleQuery(sq) =>
         val matchTerms = multiMatch(sq, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
@@ -89,7 +97,14 @@ class ElasticSearchClient(
         slop.foreach(addSlopParam(matchPhrase, _))
 
         // Combines the two queries above into a single Boolean query
-        QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
+        val q = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
+
+        // If we have typeBoosts, add them as should match clause
+        if (defaultTypeBoosts.nonEmpty) {
+          q.should(boostTypes)
+        } else {
+          q
+        }
 
       case AdvancedQuery(aq) =>
         val query = QueryBuilders.queryStringQuery(aq).
