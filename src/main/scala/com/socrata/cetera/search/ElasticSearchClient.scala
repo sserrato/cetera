@@ -53,7 +53,7 @@ class ElasticSearchClient(
 
   private def boostTypes = {
     defaultTypeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-      q.should(QueryBuilders.termQuery(TypeFieldType.fieldName, datatype).boost(boost))
+      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype).boost(boost))
     }
   }
 
@@ -121,6 +121,12 @@ class ElasticSearchClient(
         query
     }
   }
+
+  private def datatypeFilter(datatypes: Option[Seq[String]]) =
+    datatypes.map { ts =>
+      val validatedDatatypes = ts.map(t => DatatypeSimple(t).map(_.singular)).flatten
+      FilterBuilders.termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
+    }
 
   private def domainFilter(domains: Option[Set[String]]) =
     domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq: _*) }
@@ -199,52 +205,50 @@ class ElasticSearchClient(
       addFunctionScores(query)
     } else { matchQuery }
 
-    val query: BaseQueryBuilder = selectSearchContext(domains, searchContext, categories, tags, domainMetadata, q)
+    val query: BaseQueryBuilder = selectSearchContext(only, domains, searchContext, categories, tags, domainMetadata, q)
 
     logger.info(
       s"""ElasticSearch query
         |  indices: ${Indices.mkString(",")},
-        |  types: ${only.getOrElse(Nil).mkString(",")},
+        |  datatypes: ${only.getOrElse(Nil).mkString(",")},
         |  body: ${query.toString.replaceAll("""[\n\s]+""", " ")}""".stripMargin
     )
 
     // Imperative builder --> order is important
     client.prepareSearch(Indices: _*)
-      .setTypes(only.getOrElse(Nil): _*)
       .setQuery(query)
   }
 
   private def selectSearchContext(
-    domains: Option[Set[String]],
-    searchContext: Option[String],
-    categories: Option[Set[String]],
-    tags: Option[Set[String]],
-    domainMetadata: Option[Set[(String, String)]],
-    q: BaseQueryBuilder
-  ): BaseQueryBuilder = {
+                                 datatypes: Option[Seq[String]],
+                                 domains: Option[Set[String]],
+                                 searchContext: Option[String],
+                                 categories: Option[Set[String]],
+                                 tags: Option[Set[String]],
+                                 domainMetadata: Option[Set[(String, String)]],
+                                 q: BaseQueryBuilder): BaseQueryBuilder = {
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
-    locally {
-      val odnFilters = List.concat(
-        customerDomainFilter,
-        categoriesFilter(categories),
-        tagsFilter(tags)
-      )
-      val domainFilters = List.concat(
-        domainCategoriesFilter(categories),
-        domainTagsFilter(tags),
-        domainMetadataFilter(domainMetadata)
-      )
-      val filters = List.concat(
-        domainFilter(domains),
-        moderationStatusFilter,
-        if (searchContext.isDefined) domainFilters else odnFilters
-      )
-      if (filters.nonEmpty) {
-        QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
-      } else {
-        q
-      }
+    val odnFilters = List.concat(
+      customerDomainFilter,
+      categoriesFilter(categories),
+      tagsFilter(tags)
+    )
+    val domainFilters = List.concat(
+      domainCategoriesFilter(categories),
+      domainTagsFilter(tags),
+      domainMetadataFilter(domainMetadata)
+    )
+    val filters = List.concat(
+      datatypeFilter(datatypes),
+      domainFilter(domains),
+      moderationStatusFilter,
+      if (searchContext.isDefined) domainFilters else odnFilters
+    )
+    if (filters.nonEmpty) {
+      QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
+    } else {
+      q
     }
   }
 

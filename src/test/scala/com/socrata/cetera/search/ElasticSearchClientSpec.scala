@@ -126,6 +126,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       }
   }"""
 
+  val datatypeDatasetsFilter = j"""{ "terms" : { "datatype" : [ "dataset" ] } }"""
+
   val domainFilter = j"""{
     "terms" :
       {
@@ -177,6 +179,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       {
         "filters" :
           [
+            ${datatypeDatasetsFilter},
             ${domainFilter},
             ${moderationFilter},
             ${customerDomainFilter},
@@ -326,7 +329,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be(params.only.get.toArray)
+      request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
     }
 
     "sort by categories score when query term is missing but cat filter is present" in {
@@ -384,7 +387,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be(params.only.get.toArray)
+      request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
     }
   }
 
