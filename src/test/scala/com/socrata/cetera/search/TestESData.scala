@@ -45,6 +45,7 @@ trait TestESData {
       |     %s
       |   ]
       | },
+      | "datatype": %s,
       | "popularity": %s,
       | "is_customer_domain": %s,
       | "indexed_metadata": {
@@ -92,12 +93,12 @@ trait TestESData {
                          resourceDescription: String,
                          resourceNbeFxf: String,
                          resourceUpdatedAt: String,
-                         resourceType: String,
                          resourceId: String,
                          resourceColumns: Seq[String],
                          resourceName: String,
                          animlAnnotationsCategories: Map[String,Float],
                          animlAnnotationsTags: Map[String,Float],
+                         datatype: String,
                          popularity: Float,
                          isCustomerDomain: Boolean,
                          indexedMetadataName: String,
@@ -123,12 +124,13 @@ trait TestESData {
       quoteQualify(resourceDescription),
       quoteQualify(resourceNbeFxf),
       quoteQualify(resourceUpdatedAt),
-      quoteQualify(resourceType),
+      quoteQualify(datatype),
       quoteQualify(resourceId),
       quoteQualify(resourceColumns),
       quoteQualify(resourceName),
       quoteQualifyScore(animlAnnotationsCategories),
       quoteQualifyScore(animlAnnotationsTags),
+      quoteQualify(datatype),
       popularity.toString,
       isCustomerDomain.toString,
       quoteQualify(indexedMetadataName),
@@ -153,12 +155,12 @@ trait TestESData {
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
       defaultResourceUpdatedAt,
-      Indices(i % Indices.length),
       resourceIds(i % resourceIds.length),
       defaultResourceColumns,
       resourceNames(i % resourceNames.length),
       defaultAaCategories,
       defaultAaTags,
+      Datatypes.materialized(i % Datatypes.materialized.length).singular,
       popularities(i % popularities.length),
       isCustomerDomains(i % isCustomerDomains.length),
       imNames(i % imNames.length),
@@ -201,7 +203,7 @@ trait TestESData {
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1"), Map("two" -> "2"), Map.empty[String,String])
   val moderationStatuses = Seq("rejected", "approved", "pending", "irrelevant")
-  val pageViewsTotal = Seq.range(1, Datatypes.all.length).map(_.toString)
+  val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "Delta")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
   val updateFreqs = Seq(1, 2, 3, 4)
@@ -215,9 +217,8 @@ trait TestESData {
     sj.dyn.settings.!.toString()
   }
 
-  private def datatypeMappings(datatype: String): String = {
+  private def datatypeMappings: String = {
     val s = Source.fromInputStream(getClass.getResourceAsStream("/base.json")).getLines().mkString("\n")
-      .replaceAll("datatype", datatype)
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
       case Right(j) => j
@@ -229,11 +230,11 @@ trait TestESData {
     client.client.admin().indices().prepareCreate(testSuiteName)
       .setSettings(indexSettings)
       .execute.actionGet
-    Datatypes.all.foreach { datatype =>
-      client.client.admin().indices().preparePutMapping(testSuiteName)
-        .setType(datatype.plural).setSource(datatypeMappings(datatype.plural))
-        .setIgnoreConflicts(true)
-        .execute.actionGet
+    client.client.admin().indices().preparePutMapping(testSuiteName)
+      .setType(DatatypeFieldType.fieldName).setSource(datatypeMappings)
+      .setIgnoreConflicts(true)
+      .execute.actionGet
+    Datatypes.materialized.foreach { datatype =>
       client.client.admin().indices().prepareAliases()
         .addAlias(testSuiteName, datatype.plural)
         .execute.actionGet
@@ -242,9 +243,9 @@ trait TestESData {
 
   def bootstrapData(): Unit = {
     bootstrapSettings()
-    Datatypes.all.foreach { datatype =>
-      client.client.prepareIndex(testSuiteName, datatype.plural)
-        .setSource(buildEsDocByIndex(Datatypes.all.indexOf(datatype)))
+    Datatypes.materialized.zipWithIndex.foreach { case (datatype: Materialized, i: Int) =>
+      client.client.prepareIndex(testSuiteName, DatatypeFieldType.fieldName)
+        .setSource(buildEsDocByIndex(i))
         .setRefresh(true)
         .execute.actionGet
     }

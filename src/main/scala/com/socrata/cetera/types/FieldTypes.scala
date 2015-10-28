@@ -105,6 +105,6 @@ case object PageViewsTotalFieldType extends CeteraFieldType {
   val fieldName: String = "page_views.page_views_total"
 }
 
-case object TypeFieldType extends Boostable {
-  val fieldName: String = "_type"
+case object DatatypeFieldType extends Boostable {
+  val fieldName: String = "datatype"
 }

@@ -7,7 +7,7 @@ import com.socrata.cetera.util.Params
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName, Map(TypeDatalenses.plural -> 10F))
+  val client: ElasticSearchClient = new TestESClient(testSuiteName, Map(TypeDatalenses.singular -> 10F))
   val service: SearchService = new SearchService(Some(client))
 
   override protected def beforeAll(): Unit = {
@@ -24,8 +24,8 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
       Params.querySimple -> "fourth",
       Params.showScore -> "true"
     ))
-    val oneDatalens = results.results.find(_.resource.dyn.`type`.! == JString(TypeDatalenses.plural)).head
-    val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(TypeDatalenses.plural)).head
+    val oneDatalens = results.results.find(_.resource.dyn.`type`.! == JString(TypeDatalenses.singular)).head
+    val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(TypeDatalenses.singular)).head
 
     val datalensScore: Float = oneDatalens.metadata("score") match {
       case n: JNumber => n.toFloat

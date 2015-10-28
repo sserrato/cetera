@@ -117,7 +117,7 @@ object QueryParametersParser {
   def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
     only.map { s =>
       DatatypeSimple(s) match {
-        case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $only"))
+        case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $s"))
         case Some(d) => Right(Some(d.names))
     }
   }.getOrElse(Right(None))
