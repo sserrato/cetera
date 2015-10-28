@@ -24,6 +24,14 @@ class Router(
     Route("/catalog", catalogResource),
     Route("/catalog/v1", catalogResource),
 
+    // document counts for queries grouped by category
+    Route("/catalog/categories", countResource(CategoriesFieldType)),
+    Route("/catalog/v1/categories", countResource(CategoriesFieldType)),
+
+    // document counts for queries grouped by tag
+    Route("/catalog/tags", countResource(TagsFieldType)),
+    Route("/catalog/v1/tags", countResource(TagsFieldType)),
+
     // document counts for queries grouped by domain
     Route("/catalog/domains", countResource(DomainFieldType)),
     Route("/catalog/v1/domains", countResource(DomainFieldType)),
@@ -34,15 +42,7 @@ class Router(
 
     // facet values by domain
     Route("/catalog/domains/{String}/facets/{String}", facetValueResource),
-    Route("/catalog/v1/domains/{String}/facets/{String}", facetValueResource),
-
-    // document counts for queries grouped by category
-    Route("/catalog/categories", countResource(CategoriesFieldType)),
-    Route("/catalog/v1/categories", countResource(CategoriesFieldType)),
-
-    // document counts for queries grouped by tag
-    Route("/catalog/tags", countResource(TagsFieldType)),
-    Route("/catalog/v1/tags", countResource(TagsFieldType))
+    Route("/catalog/v1/domains/{String}/facets/{String}", facetValueResource)
   )
 
   def route(req: HttpRequest): HttpResponse =
