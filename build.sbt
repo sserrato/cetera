@@ -9,16 +9,24 @@ resolvers ++= Seq(
   Resolver.url("socrata ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns)
 )
 
-libraryDependencies ++= Seq(
+val rojomaDependencies = Seq(
+  "com.rojoma" %% "rojoma-json-v3" % "3.3.0",
+  "com.rojoma" %% "simple-arm-v2" % "2.1.0"
+)
+
+val socrataDependencies = Seq(
   "com.socrata" %% "socrata-http-jetty" % "3.0.0",
   "com.socrata" %% "socrata-http-client" % "3.0.0",
-  "com.socrata" %% "socrata-thirdparty-utils" % "2.6.2",
-  "com.rojoma" %% "rojoma-json-v3" % "3.3.0",
-  "com.rojoma" %% "simple-arm-v2" % "2.1.0",
-  "org.scalacheck" %% "scalacheck" % "1.11.4" % "test" withSources() withJavadoc(),
-  "com.typesafe" % "config" % "1.0.2",
+  "com.socrata" %% "socrata-thirdparty-utils" % "2.6.2"
+).map { _.excludeAll(ExclusionRule(organization = "com.rojoma")) }
+
+val loggingDependencies = Seq(
   "log4j" % "log4j" % "1.2.17",
-  "org.slf4j" % "slf4j-log4j12" % "1.7.10",
+  "org.slf4j" % "slf4j-log4j12" % "1.7.10"
+)
+
+libraryDependencies ++= rojomaDependencies ++ socrataDependencies ++ loggingDependencies ++ Seq(
+  "com.typesafe" % "config" % "1.0.2",
   "org.elasticsearch" % "elasticsearch" % "1.7.2"
 )
 
