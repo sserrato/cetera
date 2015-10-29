@@ -82,8 +82,8 @@ object SearchServer extends App {
     val router = new Router(
       versionService.Service,
       searchService.Service,
-      facetService.aggregate,
-      facetValueService.listValues,
+      facetService.Service,
+      facetValueService.Service,
       countService.Service
     )
 

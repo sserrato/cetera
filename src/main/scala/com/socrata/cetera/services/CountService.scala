@@ -31,9 +31,7 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
 
   // Unhandled exception on missing key
   def format(counts: Seq[JValue]): SearchResults[Count] =
-    SearchResults(
-      counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }
-    )
+    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
   def doAggregate(field: CeteraFieldType with Countable with Rawable,
                   queryParameters: Map[String,String]): (SearchResults[Count], InternalTimings) = {

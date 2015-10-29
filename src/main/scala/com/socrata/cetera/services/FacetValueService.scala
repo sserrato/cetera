@@ -7,7 +7,8 @@ import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
-import com.socrata.http.server.{HttpRequest, HttpResponse}
+import com.socrata.http.server.routing.SimpleResource
+import com.socrata.http.server._
 import org.elasticsearch.search.aggregations.bucket.nested.Nested
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
@@ -18,6 +19,10 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetValueService])
 
   // $COVERAGE-OFF$ jetty wiring
+  case class Service(cname: String, facet: String) extends SimpleResource {
+    override def get: HttpService = listValues(cname, facet)
+  }
+
   def listValues(cname: String, facet: String)(req: HttpRequest): HttpResponse = {
     QueryParametersParser(req) match {
       case Left(errors) =>
