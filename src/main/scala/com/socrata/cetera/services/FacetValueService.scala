@@ -17,16 +17,15 @@ import scala.collection.JavaConverters._
 class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetValueService])
 
+  // $COVERAGE-OFF$ jetty wiring
   def listValues(cname: String, facet: String)(req: HttpRequest): HttpResponse = {
-    val startMs = Timings.now()
-
     QueryParametersParser(req) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facetValues, timings) = doListValues(cname, Option(facet), startMs)
+          val (facetValues, timings) = doListValues(cname, Option(facet))
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facetValues)
         } catch {
@@ -37,10 +36,11 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
         }
     }
   }
+  // $COVERAGE-ON$
 
-  def doListValues(cname: String,
-                   facet: Option[String],
-                   startMs: Long): (Map[String,Seq[ValueCount]],InternalTimings) = {
+  def doListValues(cname: String, facet: Option[String]): (Map[String,Seq[ValueCount]],InternalTimings) = {
+    val startMs = Timings.now()
+
     val request = elasticSearchClient.getOrElse(throw new NullPointerException)
       .buildFacetValueRequest(cname, facet)
     logger.debug("issuing request to elasticsearch: " + request.toString)
@@ -49,6 +49,7 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
     val hits = res.getAggregations.get("metadata").asInstanceOf[Nested]
       .getAggregations.get("kvp").asInstanceOf[Terms]
       .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq
+
     (Map(facet.getOrElse("*") -> hits), timings)
   }
 }

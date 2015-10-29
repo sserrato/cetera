@@ -11,6 +11,7 @@ object VersionService {
   lazy val logger = LoggerFactory.getLogger(classOf[VersionService])
   lazy val version = buildinfo.BuildInfo
 
+  // $COVERAGE-OFF$ jetty wiring
   object Service extends SimpleResource {
     override val get: HttpService = { (req: HttpRequest) =>
       logger.info(req.servletRequest.getRemoteHost + " is requesting the version number")
@@ -18,4 +19,5 @@ object VersionService {
       OK ~> Content("application/json", version.toJson)
     }
   }
+  // $COVERAGE-ON$
 }

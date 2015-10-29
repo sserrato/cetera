@@ -17,16 +17,15 @@ import scala.collection.JavaConverters._
 class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
+  // $COVERAGE-OFF$ jetty wiring
   def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
-    val startMs = Timings.now()
-
     QueryParametersParser(req) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings) = doAggregate(cname, startMs)
+          val (facets, timings) = doAggregate(cname)
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)
         } catch {
@@ -37,8 +36,11 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
         }
     }
   }
+  // $COVERAGE-ON$
 
-  def doAggregate(cname: String, startMs: Long): (Map[String,Seq[FacetCount]], InternalTimings) = {
+  def doAggregate(cname: String): (Map[String,Seq[FacetCount]], InternalTimings) = {
+    val startMs = Timings.now()
+
     val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
     logger.debug("issuing request to elasticsearch: " + request.toString)
     val res = request.execute().actionGet()

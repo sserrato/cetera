@@ -8,6 +8,7 @@ import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleRouteContext._
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
+// $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names
 class Router(
     versionResource: => HttpService,
@@ -51,3 +52,4 @@ class Router(
       case None => NotFound ~> HeaderAclAllowOriginAll ~> jsonError("not found")
     }
 }
+// $COVERAGE-ON$

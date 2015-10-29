@@ -27,7 +27,7 @@ case class ElasticsearchError(originalMessage: String, stackTrace: Array[StackTr
 }
 
 object ElasticsearchError {
-  def apply(e: Throwable): ElasticsearchError = {
-    ElasticsearchError(e.getMessage, e.getStackTrace)
-  }
+  def apply(e: Throwable): ElasticsearchError = Option(e).map { o =>
+    ElasticsearchError(o.getMessage, o.getStackTrace)
+  }.getOrElse(ElasticsearchError("", Array.empty))
 }

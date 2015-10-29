@@ -133,6 +133,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     }
   }
 
+  // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
     try {
       val (formattedResults, timings) = doSearch(req.queryParameters)
@@ -152,4 +153,5 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
   object Service extends SimpleResource {
     override def get: HttpService = search
   }
+  // $COVERAGE-ON$
 }

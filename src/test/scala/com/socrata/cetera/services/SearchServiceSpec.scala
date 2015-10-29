@@ -11,11 +11,11 @@ import org.elasticsearch.search.facet.{Facet, InternalFacets}
 import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
-import org.scalatest.{ShouldMatchers, WordSpec}
+import org.scalatest.{FunSuiteLike, Matchers}
 
 import scala.collection.JavaConverters._
 
-class SearchServiceSpec extends WordSpec with ShouldMatchers {
+class SearchServiceSpec extends FunSuiteLike with Matchers {
   val service = new SearchService(None)
 
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
@@ -63,40 +63,52 @@ class SearchServiceSpec extends WordSpec with ShouldMatchers {
     new SearchResponse(internalSearchResponse, "", 15, 15, 4, Array[ShardSearchFailure]())
   }
 
-  "SearchService" should {
-    "extract and format resources from SearchResponse" in {
-      val resource = j"""{ "I'm" : "OK", "you're" : "so-so" }"""
+  test("extract and format resources from SearchResponse") {
+    val resource = j"""{ "I'm" : "OK", "you're" : "so-so" }"""
 
-      val searchResults = service.format(showScore = false, searchResponse)
+    val searchResults = service.format(showScore = false, searchResponse)
 
-      searchResults.resultSetSize should be (None) // not yet added
-      searchResults.timings should be (None) // not yet added
+    searchResults.resultSetSize should be (None) // not yet added
+    searchResults.timings should be (None) // not yet added
 
-      val results = searchResults.results
-      results should be ('nonEmpty)
-      results.size should be (2)
+    val results = searchResults.results
+    results should be ('nonEmpty)
+    results.size should be (2)
 
-      val datasetResponse = results(0)
-      datasetResponse.resource should be (j"""${resource}""")
-      datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
+    val datasetResponse = results(0)
+    datasetResponse.resource should be (j"""${resource}""")
+    datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
-      datasetResponse.metadata.get("domain") match {
-        case Some(domain) => domain should be (JString("socrata.com"))
-        case None => fail("metadata.domain field missing")
-      }
-
-      datasetResponse.link should be (JString("https://socrata.com/d/four-four"))
-
-      val pageResponse = results(1)
-      pageResponse.resource should be (j"""${resource}""")
-      pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
-
-      pageResponse.metadata.get("domain") match {
-        case Some(domain) => domain should be (JString("second-socrata.com"))
-        case None => fail("metadata.domain field missing")
-      }
-
-      pageResponse.link should be (JString("https://second-socrata.com/view/fore-fore"))
+    datasetResponse.metadata.get("domain") match {
+      case Some(domain) => domain should be (JString("socrata.com"))
+      case None => fail("metadata.domain field missing")
     }
+
+    datasetResponse.link should be (JString("https://socrata.com/d/four-four"))
+
+    val pageResponse = results(1)
+    pageResponse.resource should be (j"""${resource}""")
+    pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
+
+    pageResponse.metadata.get("domain") match {
+      case Some(domain) => domain should be (JString("second-socrata.com"))
+      case None => fail("metadata.domain field missing")
+    }
+
+    pageResponse.link should be (JString("https://second-socrata.com/view/fore-fore"))
   }
+
+  ignore("es client - min should match") {}
+  ignore("es client - slop") {}
+  ignore("es client - function score") {}
+  ignore("es client - advanced query") {}
+  ignore("es client - score boosts") {}
+  ignore("es client - domain metadata filter") {}
+  ignore("es client - script score functions") {}
+  ignore("es client - query with no filters, maybe?") {}
+  ignore("es client - sort field asc/desc") {}
+  ignore("popularity") {}
+  ignore("update frequency") {}
+  ignore("domain cname unexpected json value") {}
+  ignore("query parameter parser - errors") {}
 }

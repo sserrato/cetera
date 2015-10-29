@@ -4,6 +4,7 @@ import com.socrata.thirdparty.curator.{CuratorConfig, DiscoveryConfig}
 import com.socrata.thirdparty.typesafeconfig.ConfigClass
 import com.typesafe.config.Config
 
+// $COVERAGE-OFF$ config wiring
 /**
  * Contains configuration values from the application config file
  * @param config Configuration object
@@ -42,5 +43,6 @@ class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config
   val titleBoost = optionally[Float](config.getDouble(path("title-boost")).toFloat)
   val minShouldMatch = optionally[String](getString("min-should-match"))
   val functionScoreScripts = getStringList("function-score-scripts")
-  val typeBoosts = getObjectOf[Float]("type-boosts", getBoostMap _)
+  val typeBoosts = getObjectOf[Float]("type-boosts", getBoostMap)
 }
+// $COVERAGE-ON$

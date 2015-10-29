@@ -16,6 +16,7 @@ import org.apache.log4j.PropertyConfigurator
 import org.elasticsearch.client.transport.TransportClient
 import org.slf4j.LoggerFactory
 
+// $COVERAGE-OFF$ jetty wiring
 object SearchServer extends App {
   val config = new CeteraConfig(ConfigFactory.load())
   PropertyConfigurator.configure(Propertizer("log4j", config.log4j))
@@ -103,3 +104,4 @@ object SearchServer extends App {
 
   logger.info("All done!")
 }
+// $COVERAGE-ON$

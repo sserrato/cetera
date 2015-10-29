@@ -1,7 +1,6 @@
 package com.socrata.cetera.services
 
 import com.socrata.cetera.search.{TestESClient, TestESData}
-import com.socrata.cetera.util.Timings
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
@@ -18,7 +17,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
   }
 
   test("retrieve all domain facets") {
-    val (facets, timings) = service.doAggregate("", Timings.now())
+    val (facets, timings) = service.doAggregate("")
 
     timings.searchMillis should be('defined)
 
