@@ -1,3 +1,5 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/40da0e5a1758402cbae610a091659375)](https://www.codacy.com/app/johnkrah/cetera)
+
 Cetera -- the golden-throated search service.
 
 Basically a wrapper around elasticsearch to enable keyword search to return dataset metadata for use by the front end in displaying search results.
