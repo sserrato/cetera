@@ -18,7 +18,8 @@ sealed trait Mapable extends CeteraFieldType with Countable {
 
 sealed trait NestedField extends CeteraFieldType with Countable {
   protected val path: String
-  protected lazy val keyName: String = this.getClass.getName.toLowerCase.split("\\$").last
+  protected lazy val keyName: String =
+    this.getClass.getName.toLowerCase.split("\\$").lastOption.getOrElse(throw new NoSuchElementException)
   val fieldName: String = s"$path.$keyName"
 }
 

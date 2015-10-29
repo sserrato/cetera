@@ -70,7 +70,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
   // TODO: When production mapping changes domain_cname back to array, and add back .last.asInstanceOf[JArray]
   private def cname(j: JValue): String = j.dyn.socrata_id.domain_cname.! match {
     case JString(string) => string
-    case JArray(elems) => elems.last.asInstanceOf[JString].string
+    case JArray(elems) => elems.lastOption.getOrElse(throw new NoSuchElementException).asInstanceOf[JString].string
     case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
   }
 
