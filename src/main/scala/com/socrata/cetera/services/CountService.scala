@@ -83,7 +83,7 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(pe.getMessage)
       case e: Exception =>
         val esError = ElasticsearchError(e)
-        logger.error("Database error: ${esError.getMessage}")
+        logger.error(s"Database error: ${esError.getMessage}")
         InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
     }
   }

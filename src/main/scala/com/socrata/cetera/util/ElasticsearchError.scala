@@ -21,7 +21,7 @@ case class ElasticsearchError(originalMessage: String, stackTrace: Array[StackTr
 
   private def splitOption(string: String, regex: String, limit: Int): Seq[Option[String]] = {
     val is = Seq.range(0, limit)
-    val ss = string.split(regex, limit)
+    val ss = Option(string).map(_.split(regex, limit)).getOrElse(Array.empty)
     is.map { i => if (ss.isDefinedAt(i)) Option(ss(i)) else None }
   }
 }

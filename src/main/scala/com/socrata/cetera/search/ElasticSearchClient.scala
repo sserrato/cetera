@@ -207,17 +207,20 @@ class ElasticSearchClient(
 
     val query: BaseQueryBuilder = selectSearchContext(only, domains, searchContext, categories, tags, domainMetadata, q)
 
-    logger.info(
-      s"""ElasticSearch query
-        |  indices: ${Indices.mkString(",")},
-        |  datatypes: ${only.getOrElse(Nil).mkString(",")},
-        |  body: ${query.toString.replaceAll("""[\n\s]+""", " ")}""".stripMargin
-    )
-
     // Imperative builder --> order is important
-    client.prepareSearch(Indices: _*)
+    val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
+    logESRequest(search)
+    search
   }
+
+  private def logESRequest(search: SearchRequestBuilder): Unit =
+    logger.info(
+      s"""Elasticsearch request
+         | indices: ${Indices.mkString(",")},
+         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+       """.stripMargin
+    )
 
   private def selectSearchContext(
                                  datatypes: Option[Seq[String]],
@@ -380,12 +383,15 @@ class ElasticSearchClient(
       .subAggregation(AggregationBuilders.terms("kvp")
         .field(DomainMetadataFieldType.Key.rawFieldName)
         .size(size))
-    client.prepareSearch(Indices: _*)
+
+    val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
       .addAggregation(categoryAgg)
       .addAggregation(tagAgg)
       .addAggregation(metadataAgg)
       .setSize(size)
+    logESRequest(search)
+    search
   }
 
   def buildFacetValueRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
@@ -405,9 +411,12 @@ class ElasticSearchClient(
       .subAggregation(AggregationBuilders.terms("kvp")
         .field(DomainMetadataFieldType.Value.rawFieldName)
         .size(size))
-    client.prepareSearch(Indices: _*)
+
+    val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
       .addAggregation(metadataAgg)
       .setSize(size)
+    logESRequest(search)
+    search
   }
 }

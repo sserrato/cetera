@@ -36,7 +36,7 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
         } catch {
           case e: Exception =>
             val esError = ElasticsearchError(e)
-            logger.error("Database error: ${esError.getMessage}")
+            logger.error(s"Database error: ${esError.getMessage}")
             InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
         }
     }
@@ -48,7 +48,6 @@ class FacetValueService(elasticSearchClient: Option[ElasticSearchClient]) {
 
     val request = elasticSearchClient.getOrElse(throw new NullPointerException)
       .buildFacetValueRequest(cname, facet)
-    logger.debug("issuing request to elasticsearch: " + request.toString)
     val res = request.execute().actionGet()
     val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
     val hits = res.getAggregations.get("metadata").asInstanceOf[Nested]
