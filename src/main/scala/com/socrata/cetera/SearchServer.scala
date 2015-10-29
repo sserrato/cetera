@@ -72,9 +72,6 @@ object SearchServer extends App {
     logger.info("Initializing FacetService with Elasticsearch TransportClient")
     val facetService = new FacetService(Some(elasticSearch))
 
-    logger.info("Initializing FacetValueService with Elasticsearch TransportClient")
-    val facetValueService = new FacetValueService(Some(elasticSearch))
-
     logger.info("Initializing CountService with Elasticsearch TransportClient")
     val countService = new CountService(Some(elasticSearch))
 
@@ -83,7 +80,6 @@ object SearchServer extends App {
       versionService.Service,
       searchService.Service,
       facetService.Service,
-      facetValueService.Service,
       countService.Service
     )
 

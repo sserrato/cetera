@@ -14,7 +14,6 @@ class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
     facetResource: String => HttpService,
-    facetValueResource: (String, String) => HttpService,
     countResource: CeteraFieldType with Countable with Rawable => HttpService) {
 
   val routes = Routes(
@@ -32,10 +31,6 @@ class Router(
     // facets by domain
     Route("/catalog/domains/{String}/facets", facetResource),
     Route("/catalog/v1/domains/{String}/facets", facetResource),
-
-    // facet values by domain
-    Route("/catalog/domains/{String}/facets/{String}", facetValueResource),
-    Route("/catalog/v1/domains/{String}/facets/{String}", facetValueResource),
 
     // document counts for queries grouped by category
     Route("/catalog/categories", countResource(CategoriesFieldType)),

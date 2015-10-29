@@ -43,25 +43,30 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
   }
   // $COVERAGE-ON$
 
-  def doAggregate(cname: String): (Map[String,Seq[FacetCount]], InternalTimings) = {
+  def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
     val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
-    val categories = aggs("categories").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
-    val tags = aggs("tags").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
-    val metadata = aggs("metadata").asInstanceOf[Nested]
-      .getAggregations.get("kvp").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => FacetCount(b.getKey, b.getDocCount)).toSeq
 
-    val facets: Map[String,Seq[FacetCount]] = Map(
-      "categories" -> categories,
-      "tags"       -> tags,
-      "metadata"   -> metadata
-    )
+    val categoriesValues = aggs("categories").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+    val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
+
+    val tagsValues = aggs("tags").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+    val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
+
+    val metadataFacets = aggs("metadata").asInstanceOf[Nested]
+      .getAggregations.get("keys").asInstanceOf[Terms]
+      .getBuckets.asScala.map { b =>
+        val values = b.getAggregations.get("values").asInstanceOf[Terms]
+          .getBuckets.asScala.map { v => ValueCount(v.getKey, b.getDocCount) }.toSeq
+        FacetCount(b.getKey, b.getDocCount, values)
+      }.toSeq
+
+    val facets: Seq[FacetCount] = Seq.concat(categoriesFacets, tagsFacets, metadataFacets)
     val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
     (facets, timings)
   }

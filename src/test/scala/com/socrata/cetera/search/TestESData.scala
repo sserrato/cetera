@@ -204,7 +204,7 @@ trait TestESData {
   val domainMetadata = Seq(Map("one" -> "1"), Map("two" -> "2"), Map.empty[String,String])
   val moderationStatuses = Seq("rejected", "approved", "pending", "irrelevant")
   val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
-  val domainCategories = Seq("Alpha", "Beta", "Gamma", "Delta")
+  val domainCategories = Seq("Alpha", "Beta", "Gamma", "")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
   val updateFreqs = Seq(1, 2, 3, 4)
 
