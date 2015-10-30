@@ -9,6 +9,7 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+import org.elasticsearch.search.aggregations.bucket.filter.Filter
 import org.elasticsearch.search.aggregations.bucket.nested.Nested
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
@@ -49,6 +50,8 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
     val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
+      .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
+      .getAggregations.asMap().asScala
 
     val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
       .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)

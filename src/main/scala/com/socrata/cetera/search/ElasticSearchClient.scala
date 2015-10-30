@@ -371,7 +371,6 @@ class ElasticSearchClient(
   def buildFacetRequest(cname: String): SearchRequestBuilder = {
     val size = 0 // no docs, aggs only
 
-    val query = domainQuery(cname)
     val datatypeAgg = AggregationBuilders.terms("datatypes")
       .field(DatatypeFieldType.fieldName)
       .size(size)
@@ -391,12 +390,19 @@ class ElasticSearchClient(
           .size(size)
       ))
 
+    val filter = Option(cname) match {
+      case Some(s) if s.nonEmpty => domainFilter(Some(Set(cname))).getOrElse(throw new NoSuchElementException)
+      case _ => FilterBuilders.matchAllFilter()
+    }
+    val filteredAggs = AggregationBuilders.filter("domain_filter")
+      .filter(filter)
+      .subAggregation(datatypeAgg)
+      .subAggregation(categoryAgg)
+      .subAggregation(tagAgg)
+      .subAggregation(metadataAgg)
+
     val search = client.prepareSearch(Indices: _*)
-      .setQuery(query)
-      .addAggregation(datatypeAgg)
-      .addAggregation(categoryAgg)
-      .addAggregation(tagAgg)
-      .addAggregation(metadataAgg)
+      .addAggregation(filteredAggs)
       .setSize(size)
     logESRequest(search)
     search
