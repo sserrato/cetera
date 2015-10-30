@@ -372,6 +372,9 @@ class ElasticSearchClient(
     val size = 0 // no docs, aggs only
 
     val query = domainQuery(cname)
+    val datatypeAgg = AggregationBuilders.terms("datatypes")
+      .field(DatatypeFieldType.fieldName)
+      .size(size)
     val categoryAgg = AggregationBuilders.terms("categories")
       .field(DomainCategoryFieldType.rawFieldName)
       .size(size)
@@ -390,6 +393,7 @@ class ElasticSearchClient(
 
     val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
+      .addAggregation(datatypeAgg)
       .addAggregation(categoryAgg)
       .addAggregation(tagAgg)
       .addAggregation(metadataAgg)

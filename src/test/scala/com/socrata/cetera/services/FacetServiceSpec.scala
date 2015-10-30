@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import com.socrata.cetera.search.{TestESClient, TestESData}
+import com.socrata.cetera.types.Datatypes
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
@@ -21,8 +22,12 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
 
     timings.searchMillis should be('defined)
 
+    val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
+    Datatypes.materialized.foreach { dt =>
+      datatypes.find(_.value == dt.singular) should be('defined)
+    }
+
     val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
-    println(categories)
     categories.find(_.value == "") shouldNot be('defined)
     domainCategories.distinct.filter(_.nonEmpty).foreach { cat =>
       categories.find(_.value == cat) should be('defined)
@@ -35,7 +40,9 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
     }
 
     domainMetadata.flatMap(_.keys).distinct.foreach { key =>
-      facets.find(_.facet == key) should be('defined)
+      val facet = facets.find(_.facet == key)
+      facet should be('defined)
+      facet.get.count should be(facet.get.values.map(_.count).sum)
     }
   }
 }

@@ -140,9 +140,9 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {
-      case pe: IllegalArgumentException =>
-        logger.info(pe.getMessage)
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(pe.getMessage)
+      case e: IllegalArgumentException =>
+        logger.info(e.getMessage)
+        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case e: Exception =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

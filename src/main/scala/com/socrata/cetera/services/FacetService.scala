@@ -50,6 +50,10 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
 
+    val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
+      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+    val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
+
     val categoriesValues = aggs("categories").asInstanceOf[Terms]
       .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
     val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
@@ -62,11 +66,11 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
       .getAggregations.get("keys").asInstanceOf[Terms]
       .getBuckets.asScala.map { b =>
         val values = b.getAggregations.get("values").asInstanceOf[Terms]
-          .getBuckets.asScala.map { v => ValueCount(v.getKey, b.getDocCount) }.toSeq
+          .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }.toSeq
         FacetCount(b.getKey, b.getDocCount, values)
       }.toSeq
 
-    val facets: Seq[FacetCount] = Seq.concat(categoriesFacets, tagsFacets, metadataFacets)
+    val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
     val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
     (facets, timings)
   }
