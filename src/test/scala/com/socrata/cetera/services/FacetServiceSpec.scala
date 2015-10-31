@@ -1,7 +1,7 @@
 package com.socrata.cetera.services
 
 import com.socrata.cetera.search.{TestESClient, TestESData}
-import com.socrata.cetera.util.Timings
+import com.socrata.cetera.types.Datatypes
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
@@ -18,23 +18,31 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
   }
 
   test("retrieve all domain facets") {
-    val (facets, timings) = service.doAggregate("", Timings.now())
+    val (facets, timings) = service.doAggregate("")
 
     timings.searchMillis should be('defined)
 
-    val categories = facets.getOrElse("categories", fail())
-    domainCategories.distinct.foreach { cat =>
-      categories.find(fc => fc.facet == cat) should be('defined)
+    val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
+    Datatypes.materialized.foreach { dt =>
+      datatypes.find(_.value == dt.singular) should be('defined)
     }
 
-    val tags = facets.getOrElse("tags", fail())
-    domainTags.flatten.distinct.foreach { tag =>
-      tags.find(fc => fc.facet == tag) should be('defined)
+    val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
+    categories.find(_.value == "") shouldNot be('defined)
+    domainCategories.distinct.filter(_.nonEmpty).foreach { cat =>
+      categories.find(_.value == cat) should be('defined)
     }
 
-    val metadata = facets.getOrElse("metadata", fail())
+    val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
+    tags.find(_.value == "") shouldNot be('defined)
+    domainTags.flatten.distinct.filter(_.nonEmpty).foreach { tag =>
+      tags.find(_.value == tag) should be('defined)
+    }
+
     domainMetadata.flatMap(_.keys).distinct.foreach { key =>
-      metadata.find(fc => fc.facet == key) should be('defined)
+      val facet = facets.find(_.facet == key)
+      facet should be('defined)
+      facet.get.count should be(facet.get.values.map(_.count).sum)
     }
   }
 }

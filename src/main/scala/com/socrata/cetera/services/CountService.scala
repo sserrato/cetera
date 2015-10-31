@@ -1,7 +1,5 @@
 package com.socrata.cetera.services
 
-import javax.servlet.http.HttpServletResponse
-
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
@@ -14,7 +12,7 @@ import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpRequest, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
@@ -32,27 +30,20 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
   }
 
   // Unhandled exception on missing key
-  def format(counts: Seq[JValue]): SearchResults[Count] =  {
-    SearchResults(
-      counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }
-    )
-  }
+  def format(counts: Seq[JValue]): SearchResults[Count] =
+    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
-  def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpServletResponse => Unit = {
+  def doAggregate(field: CeteraFieldType with Countable with Rawable,
+                  queryParameters: Map[String,String]): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
-    implicit val cEncode = field match {
-      case DomainFieldType => Count.encode("domain")
-      case CategoriesFieldType => Count.encode("category")
-      case TagsFieldType => Count.encode("tag")
-    }
-
-    QueryParametersParser(req) match {
+    QueryParametersParser(queryParameters) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
+        throw new IllegalArgumentException(s"Invalid query parameters: $msg")
+
       case Right(params) =>
-        val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildCountRequest(
+        val res = elasticSearchClient.getOrElse(throw new NullPointerException).buildCountRequest(
           field,
           params.searchQuery,
           params.domains,
@@ -60,36 +51,45 @@ class CountService(elasticSearchClient: Option[ElasticSearchClient]) {
           params.categories,
           params.tags,
           params.only
-        )
-
-        try {
-          val res = request.execute().actionGet()
-          val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
-
-          val json = JsonReader.fromString(res.toString)
-          val counts = extract(json) match {
-            case Right(extracted) => extracted
-            case Left(error) =>
-              logger.error(error.english)
-              throw new Exception("error!  ERROR!! DOES NOT COMPUTE")
-          }
-          val formattedResults = format(counts).copy(timings = Some(timings))
-
-          val logMsg = LogHelper.formatRequest(req, timings)
-          logger.info(logMsg)
-
-          val payload = Json(formattedResults, pretty = true)
-          OK ~> HeaderAclAllowOriginAll ~> payload
-        } catch {
-          case e: Exception =>
-            val esError = ElasticsearchError(e)
-            logger.error("Database error: ${esError.getMessage}")
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
+        ).execute.actionGet
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+        val json = JsonReader.fromString(res.toString)
+        val counts = extract(json) match {
+          case Right(extracted) => extracted
+          case Left(error) =>
+            logger.error(error.english)
+            throw new Exception("error!  ERROR!! DOES NOT COMPUTE")
         }
+        val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
+        (formattedResults, timings)
+    }
+  }
+
+  // $COVERAGE-OFF$ jetty wiring
+  def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
+    implicit val cEncode = field match {
+      case DomainFieldType => Count.encode("domain")
+      case CategoriesFieldType => Count.encode("category")
+      case TagsFieldType => Count.encode("tag")
+    }
+
+    try {
+      val (formattedResults, timings) = doAggregate(field, req.queryParameters)
+      logger.info(LogHelper.formatRequest(req, timings))
+      OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
+    } catch {
+      case e: IllegalArgumentException =>
+        logger.info(e.getMessage)
+        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: Exception =>
+        val esError = ElasticsearchError(e)
+        logger.error(s"Database error: ${esError.getMessage}")
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
     }
   }
 
   case class Service(field: CeteraFieldType with Countable with Rawable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
+  // $COVERAGE-ON$
 }

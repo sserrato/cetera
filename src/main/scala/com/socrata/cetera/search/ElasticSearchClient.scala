@@ -207,17 +207,20 @@ class ElasticSearchClient(
 
     val query: BaseQueryBuilder = selectSearchContext(only, domains, searchContext, categories, tags, domainMetadata, q)
 
-    logger.info(
-      s"""ElasticSearch query
-        |  indices: ${Indices.mkString(",")},
-        |  datatypes: ${only.getOrElse(Nil).mkString(",")},
-        |  body: ${query.toString.replaceAll("""[\n\s]+""", " ")}""".stripMargin
-    )
-
     // Imperative builder --> order is important
-    client.prepareSearch(Indices: _*)
+    val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
+    logESRequest(search)
+    search
   }
+
+  private def logESRequest(search: SearchRequestBuilder): Unit =
+    logger.info(
+      s"""Elasticsearch request
+         | indices: ${Indices.mkString(",")},
+         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+       """.stripMargin
+    )
 
   private def selectSearchContext(
                                  datatypes: Option[Seq[String]],
@@ -368,7 +371,9 @@ class ElasticSearchClient(
   def buildFacetRequest(cname: String): SearchRequestBuilder = {
     val size = 0 // no docs, aggs only
 
-    val query = domainQuery(cname)
+    val datatypeAgg = AggregationBuilders.terms("datatypes")
+      .field(DatatypeFieldType.fieldName)
+      .size(size)
     val categoryAgg = AggregationBuilders.terms("categories")
       .field(DomainCategoryFieldType.rawFieldName)
       .size(size)
@@ -377,37 +382,29 @@ class ElasticSearchClient(
       .size(size)
     val metadataAgg = AggregationBuilders.nested("metadata")
       .path(DomainMetadataFieldType.fieldName)
-      .subAggregation(AggregationBuilders.terms("kvp")
+      .subAggregation(AggregationBuilders.terms("keys")
         .field(DomainMetadataFieldType.Key.rawFieldName)
-        .size(size))
-    client.prepareSearch(Indices: _*)
-      .setQuery(query)
-      .addAggregation(categoryAgg)
-      .addAggregation(tagAgg)
-      .addAggregation(metadataAgg)
-      .setSize(size)
-  }
+        .size(size)
+        .subAggregation(AggregationBuilders.terms("values")
+          .field(DomainMetadataFieldType.Value.rawFieldName)
+          .size(size)
+      ))
 
-  def buildFacetValueRequest(cname: String, facet: Option[String] = None): SearchRequestBuilder = {
-    val size = 0 // no docs, aggs only
+    val filter = Option(cname) match {
+      case Some(s) if s.nonEmpty => domainFilter(Some(Set(cname))).getOrElse(throw new NoSuchElementException)
+      case _ => FilterBuilders.matchAllFilter()
+    }
+    val filteredAggs = AggregationBuilders.filter("domain_filter")
+      .filter(filter)
+      .subAggregation(datatypeAgg)
+      .subAggregation(categoryAgg)
+      .subAggregation(tagAgg)
+      .subAggregation(metadataAgg)
 
-    val query = QueryBuilders.boolQuery()
-      .must(domainQuery(cname))
-      .must(facet match {
-        case None => QueryBuilders.matchAllQuery()
-        case Some(f) => QueryBuilders.nestedQuery(
-          DomainMetadataFieldType.fieldName,
-          QueryBuilders.matchQuery("key", f)
-        )
-      })
-    val metadataAgg = AggregationBuilders.nested("metadata")
-      .path(DomainMetadataFieldType.fieldName)
-      .subAggregation(AggregationBuilders.terms("kvp")
-        .field(DomainMetadataFieldType.Value.rawFieldName)
-        .size(size))
-    client.prepareSearch(Indices: _*)
-      .setQuery(query)
-      .addAggregation(metadataAgg)
+    val search = client.prepareSearch(Indices: _*)
+      .addAggregation(filteredAggs)
       .setSize(size)
+    logESRequest(search)
+    search
   }
 }

@@ -3,7 +3,6 @@ package com.socrata.cetera.util
 import com.socrata.http.server.HttpRequest
 
 object LogHelper {
-
   // WARN: changing this will likely break Sumo (regex-based log parser)
   def formatRequest(request: HttpRequest, timings: InternalTimings): String = {
     List[String](

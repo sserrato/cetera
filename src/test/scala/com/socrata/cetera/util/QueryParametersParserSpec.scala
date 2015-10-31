@@ -17,7 +17,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  test("'only' query paramter prohibits multiple selections") {
+  test("'only' query parameter prohibits multiple selections") {
     qpp.restrictParamFilterType(Option("datasets,datalenses")) match {
       case Left(e: OnlyError) => ()
       case _ => fail("an OnlyError should be returned")

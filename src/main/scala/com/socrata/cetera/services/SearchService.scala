@@ -70,7 +70,7 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
   // TODO: When production mapping changes domain_cname back to array, and add back .last.asInstanceOf[JArray]
   private def cname(j: JValue): String = j.dyn.socrata_id.domain_cname.! match {
     case JString(string) => string
-    case JArray(elems) => elems.last.asInstanceOf[JString].string
+    case JArray(elems) => elems.lastOption.getOrElse(throw new NoSuchElementException).asInstanceOf[JString].string
     case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
   }
 
@@ -133,18 +133,19 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     }
   }
 
+  // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
     try {
       val (formattedResults, timings) = doSearch(req.queryParameters)
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {
-      case pe: IllegalArgumentException =>
-        logger.info(pe.getMessage)
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(pe.getMessage)
+      case e: IllegalArgumentException =>
+        logger.info(e.getMessage)
+        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case e: Exception =>
         val esError = ElasticsearchError(e)
-        logger.error("Database error: ${esError.getMessage}")
+        logger.error(s"Database error: ${esError.getMessage}")
         InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
     }
   }
@@ -152,4 +153,5 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
   object Service extends SimpleResource {
     override def get: HttpService = search
   }
+  // $COVERAGE-ON$
 }

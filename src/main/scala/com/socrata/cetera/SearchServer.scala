@@ -16,6 +16,7 @@ import org.apache.log4j.PropertyConfigurator
 import org.elasticsearch.client.transport.TransportClient
 import org.slf4j.LoggerFactory
 
+// $COVERAGE-OFF$ jetty wiring
 object SearchServer extends App {
   val config = new CeteraConfig(ConfigFactory.load())
   PropertyConfigurator.configure(Propertizer("log4j", config.log4j))
@@ -71,9 +72,6 @@ object SearchServer extends App {
     logger.info("Initializing FacetService with Elasticsearch TransportClient")
     val facetService = new FacetService(Some(elasticSearch))
 
-    logger.info("Initializing FacetValueService with Elasticsearch TransportClient")
-    val facetValueService = new FacetValueService(Some(elasticSearch))
-
     logger.info("Initializing CountService with Elasticsearch TransportClient")
     val countService = new CountService(Some(elasticSearch))
 
@@ -81,8 +79,7 @@ object SearchServer extends App {
     val router = new Router(
       versionService.Service,
       searchService.Service,
-      facetService.aggregate,
-      facetValueService.listValues,
+      facetService.Service,
       countService.Service
     )
 
@@ -103,3 +100,4 @@ object SearchServer extends App {
 
   logger.info("All done!")
 }
+// $COVERAGE-ON$

@@ -8,12 +8,12 @@ import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleRouteContext._
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
+// $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names
 class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
     facetResource: String => HttpService,
-    facetValueResource: (String, String) => HttpService,
     countResource: CeteraFieldType with Countable with Rawable => HttpService) {
 
   val routes = Routes(
@@ -32,10 +32,6 @@ class Router(
     Route("/catalog/domains/{String}/facets", facetResource),
     Route("/catalog/v1/domains/{String}/facets", facetResource),
 
-    // facet values by domain
-    Route("/catalog/domains/{String}/facets/{String}", facetValueResource),
-    Route("/catalog/v1/domains/{String}/facets/{String}", facetValueResource),
-
     // document counts for queries grouped by category
     Route("/catalog/categories", countResource(CategoriesFieldType)),
     Route("/catalog/v1/categories", countResource(CategoriesFieldType)),
@@ -51,3 +47,4 @@ class Router(
       case None => NotFound ~> HeaderAclAllowOriginAll ~> jsonError("not found")
     }
 }
+// $COVERAGE-ON$
