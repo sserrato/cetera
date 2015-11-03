@@ -234,9 +234,9 @@ trait TestESData {
       .setType(DatatypeFieldType.fieldName).setSource(datatypeMappings)
       .setIgnoreConflicts(true)
       .execute.actionGet
-    Datatypes.materialized.foreach { datatype =>
+    Indices.foreach { alias =>
       client.client.admin().indices().prepareAliases()
-        .addAlias(testSuiteName, datatype.plural)
+        .addAlias(testSuiteName, alias)
         .execute.actionGet
     }
   }

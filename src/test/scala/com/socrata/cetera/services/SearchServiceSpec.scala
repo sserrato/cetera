@@ -21,7 +21,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
   val searchResponse = {
-    val shardTarget = new SearchShardTarget("1", IndexDatasets, 1)
+    val shardTarget = new SearchShardTarget("1", IndexCatalog, 1)
     val score = 0.12345f
 
     val resource = "\"resource\":{\"I'm\":\"OK\",\"you're\":\"so-so\"}"
