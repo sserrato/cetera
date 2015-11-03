@@ -23,7 +23,7 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
       .execute.actionGet
     val indexAliases = res.getAliases.asScala.map(ooc => ooc.key -> ooc.value.asScala.map(_.alias))
     indexAliases.size should be(1) // number of indices
-    indexAliases.flatMap(as => as._2).size should be(13) // number of aliases
+    indexAliases.flatMap(as => as._2).size should be(1) // number of aliases
     Indices.foreach { index =>
       indexAliases.find { case (_,as) => as.contains(index) } should be('defined)
     }
