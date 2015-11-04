@@ -19,6 +19,10 @@
           "type" : "string",
           "index": "not_analyzed"
         },
+        "viewtype" : {
+          "type" : "string",
+          "index": "not_analyzed"
+        },
         "moderation_status" : {
           "type" : "string",
           "index": "not_analyzed"

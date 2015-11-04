@@ -3,6 +3,7 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera._
+import com.socrata.cetera.types.DatatypeSimple
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -31,8 +32,13 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     val pageSocrataId =
       "\"socrata_id\":{\"domain_cname\":[\"first-socrata.com\", \"second-socrata.com\"],\"dataset_id\":\"four-four\",\"page_id\":\"fore-fore\"}"
 
-    val datasetSource = new BytesArray("{" + List(resource, datasetSocrataId).mkString(",") + "}")
-    val pageSource = new BytesArray("{" + List(resource, pageSocrataId).mkString(",") + "}")
+    val datasetDatatype = "\"datatype\":\"dataset\""
+    val datasetViewtype = "\"viewtype\":\"\""
+    val pageDatatype = "\"datatype\":\"datalens\""
+    val pageViewtype = "\"viewtype\":\"\""
+
+    val datasetSource = new BytesArray("{" + List(resource, datasetDatatype, datasetViewtype, datasetSocrataId).mkString(",") + "}")
+    val pageSource = new BytesArray("{" + List(resource, pageDatatype, pageViewtype, pageSocrataId).mkString(",") + "}")
 
     val datasetHit = new InternalSearchHit(1, "46_3yu6-fka7", new StringText("dataset"), emptySearchHitMap)
     datasetHit.shardTarget(shardTarget)
@@ -84,8 +90,6 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
       case None => fail("metadata.domain field missing")
     }
 
-    datasetResponse.link should be (JString("https://socrata.com/d/four-four"))
-
     val pageResponse = results(1)
     pageResponse.resource should be (j"""${resource}""")
     pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
@@ -94,8 +98,33 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
       case Some(domain) => domain should be (JString("second-socrata.com"))
       case None => fail("metadata.domain field missing")
     }
+  }
 
-    pageResponse.link should be (JString("https://second-socrata.com/view/fore-fore"))
+  test("build base urls") {
+    val cname = "tempuri.org"
+    val dt = "datatype"
+    val vt = "viewtype"
+    val datasetId = JString("1234-abcd")
+    val x = "expectedUrl"
+    val xdefault = "/d/"
+    Seq(
+      Map(dt -> "calendar"),
+      Map(dt -> "chart"),
+      Map(dt -> "datalens", x -> "/view/"),
+      Map(dt -> "chart", vt -> "datalens", x -> "/view/"),
+      Map(dt -> "map", vt -> "datalens", x -> "/view/"),
+      Map(dt -> "dataset"),
+      Map(dt -> "file"),
+      Map(dt -> "filter"),
+      Map(dt -> "form"),
+      Map(dt -> "map", vt -> "geo"),
+      Map(dt -> "map", vt -> "tabular"),
+      Map(dt -> "href"),
+      Map(dt -> "story", x -> "/stories/s/")
+    ).foreach { t =>
+      val url = SearchService.link(cname, DatatypeSimple(t.get(dt)), t.get(vt), datasetId)
+      url.string should include(t.getOrElse(x, xdefault))
+    }
   }
 
   ignore("es client - min should match") {}
