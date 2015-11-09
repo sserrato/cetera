@@ -3,7 +3,7 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera._
-import com.socrata.cetera.types.DatatypeSimple
+import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -134,6 +134,17 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
       urls.getOrElse("permalink", fail()).string should include(t.getOrElse(xp, xpDefault))
       urls.getOrElse("link", fail()).string should include(t.getOrElse(xs, xsDefault))
     }
+  }
+
+  // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
+  test("pretty seo url allows non-english unicode") {
+    val cname = "tempuri.org"
+    val datasetId = JString("1234-asdf")
+    val datasetCategory = "بيانات عن الجدات"
+    val datasetName = "愛"
+    val urls = SearchService.links(cname, Option(TypeDatasets), None, datasetId, datasetCategory, datasetName)
+    urls.getOrElse("link", fail()).string should include("بيانات-عن-الجدات")
+    urls.getOrElse("link", fail()).string should include("愛")
   }
 
   ignore("es client - min should match") {}

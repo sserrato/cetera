@@ -167,7 +167,7 @@ object SearchService {
              datasetId: JString,
              datasetCategory: String,
              datasetName: String): Map[String,JString] = {
-    def hyphenize(s: String): String = s.replaceAll("[^a-zA-Z0-9_\\-]+", "-")
+    def hyphenize(s: String): String = s.replaceAll("[^\\p{L}\\p{N}_\\-]+", "-")
     val perma = (datatype, viewtype) match {
       case (Some(TypeStories), _)             => s"stories/s"
       case (Some(TypeDatalenses), _)          => s"view"
