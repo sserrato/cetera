@@ -25,7 +25,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     val shardTarget = new SearchShardTarget("1", IndexCatalog, 1)
     val score = 0.12345f
 
-    val resource = "\"resource\":{\"I'm\":\"OK\",\"you're\":\"so-so\"}"
+    val resource = "\"resource\":{\"name\": \"Just A Test\", \"I'm\":\"OK\",\"you're\":\"so-so\"}"
 
     val datasetSocrataId =
       "\"socrata_id\":{\"domain_cname\":[\"socrata.com\"],\"dataset_id\":\"four-four\"}"
@@ -70,7 +70,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
   }
 
   test("extract and format resources from SearchResponse") {
-    val resource = j"""{ "I'm" : "OK", "you're" : "so-so" }"""
+    val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
     val searchResults = service.format(showScore = false, searchResponse)
 
@@ -100,19 +100,27 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  test("build base urls") {
+  test("build base urls and pretty seo urls") {
     val cname = "tempuri.org"
+    val category = "Public Safety"
+    val datasetName = "Seattle Police Department 911 Incident Response"
+    val datasetId = JString("1234-abcd")
+
     val dt = "datatype"
     val vt = "viewtype"
-    val datasetId = JString("1234-abcd")
-    val x = "expectedUrl"
-    val xdefault = "/d/"
+
+    val xp = "expectedPermalink"
+    val xpDefault = "/d/"
+
+    val xs = "expectedSeolink"
+    val xsDefault = "/Public-Safety/Seattle-Police-Department-911-Incident-Response/"
+
     Seq(
       Map(dt -> "calendar"),
       Map(dt -> "chart"),
-      Map(dt -> "datalens", x -> "/view/"),
-      Map(dt -> "chart", vt -> "datalens", x -> "/view/"),
-      Map(dt -> "map", vt -> "datalens", x -> "/view/"),
+      Map(dt -> "datalens", xp -> "/view/"),
+      Map(dt -> "chart", vt -> "datalens", xp -> "/view/"),
+      Map(dt -> "map", vt -> "datalens", xp -> "/view/"),
       Map(dt -> "dataset"),
       Map(dt -> "file"),
       Map(dt -> "filter"),
@@ -120,10 +128,11 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
       Map(dt -> "map", vt -> "geo"),
       Map(dt -> "map", vt -> "tabular"),
       Map(dt -> "href"),
-      Map(dt -> "story", x -> "/stories/s/")
+      Map(dt -> "story", xp -> "/stories/s/", xs -> "/stories/s/")
     ).foreach { t =>
-      val url = SearchService.link(cname, DatatypeSimple(t.get(dt)), t.get(vt), datasetId)
-      url.string should include(t.getOrElse(x, xdefault))
+      val urls = SearchService.links(cname, DatatypeSimple(t.get(dt)), t.get(vt), datasetId, category, datasetName)
+      urls.getOrElse("permalink", fail()).string should include(t.getOrElse(xp, xpDefault))
+      urls.getOrElse("link", fail()).string should include(t.getOrElse(xs, xsDefault))
     }
   }
 

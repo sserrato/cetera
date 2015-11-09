@@ -31,6 +31,7 @@ object Classification {
 case class SearchResult(resource: JValue,
                         classification: Classification,
                         metadata: Map[String, JValue],
+                        permalink: JString,
                         link: JString)
 
 object SearchResult {
@@ -81,6 +82,13 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
+      val links = SearchService.links(
+        cname(json),
+        DatatypeSimple(json.dyn.datatype.!.toString()),
+        Option(json.dyn.viewtype.!.toString()),
+        json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString],
+        domainCategory(json).map(_.toString()).getOrElse(""),
+        json.dyn.resource.name.!.toString())
 
       SearchResult(
         json.dyn.resource.!,
@@ -91,11 +99,8 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           domainTags(json),
           domainMetadata(json)),
         Map("domain" -> JString(cname(json))) ++ score,
-        SearchService.link(
-          cname(json),
-          DatatypeSimple(json.dyn.datatype.!.toString()),
-          Option(json.dyn.viewtype.!.toString()),
-          json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString])
+        links.getOrElse("permalink", JString("")),
+        links.getOrElse("link", JString(""))
       )
     })
   }
@@ -156,16 +161,29 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
 }
 
 object SearchService {
-  def link(cname: String,
-           datatype: Option[DatatypeSimple],
-           viewtype: Option[String],
-           datasetId: JString): JString = {
-    val path = (datatype, viewtype) match {
-      case (Some(TypeStories), _)    => s"stories/s"
-      case (Some(TypeDatalenses), _) => s"view"
-      case (_, Some(TypeDatalenses.singular))     => s"view"
-      case _                         => s"d"
+  def links(cname: String,
+             datatype: Option[DatatypeSimple],
+             viewtype: Option[String],
+             datasetId: JString,
+             datasetCategory: String,
+             datasetName: String): Map[String,JString] = {
+    def hyphenize(s: String): String = s.replaceAll("[^a-zA-Z0-9_\\-]+", "-")
+    val perma = (datatype, viewtype) match {
+      case (Some(TypeStories), _)             => s"stories/s"
+      case (Some(TypeDatalenses), _)          => s"view"
+      case (_, Some(TypeDatalenses.singular)) => s"view"
+      case _                                  => s"d"
     }
-    JString(s"https://$cname/$path/${datasetId.string}")
+    val pretty = datatype match {
+      // TODO: maybe someday stories will allow pretty seo links
+      // stories don't have a viewtype today, but who knows...
+      case Some(TypeStories) => perma
+      case _ => s"${hyphenize(datasetCategory)}/${hyphenize(datasetName)}"
+    }
+
+    Map(
+      "permalink" ->JString(s"https://$cname/$perma/${datasetId.string}"),
+      "link" -> JString(s"https://$cname/$pretty/${datasetId.string}")
+    )
   }
 }
