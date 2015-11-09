@@ -102,9 +102,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
   test("build base urls and pretty seo urls") {
     val cname = "tempuri.org"
-    val category = "Public Safety"
-    val datasetName = "Seattle Police Department 911 Incident Response"
-    val datasetId = JString("1234-abcd")
+    val category = Some("Public Safety")
+    val name = "Seattle Police Department 911 Incident Response"
+    val id = JString("1234-abcd")
 
     val dt = "datatype"
     val vt = "viewtype"
@@ -130,19 +130,29 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
       Map(dt -> "href"),
       Map(dt -> "story", xp -> "/stories/s/", xs -> "/stories/s/")
     ).foreach { t =>
-      val urls = SearchService.links(cname, DatatypeSimple(t.get(dt)), t.get(vt), datasetId, category, datasetName)
+      val urls = SearchService.links(cname, DatatypeSimple(t.get(dt)), t.get(vt), id, category, name)
       urls.getOrElse("permalink", fail()).string should include(t.getOrElse(xp, xpDefault))
       urls.getOrElse("link", fail()).string should include(t.getOrElse(xs, xsDefault))
     }
   }
 
-  // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
-  test("pretty seo url allows non-english unicode") {
+  test("pretty seo url - missing category defaults to 'dataset'") {
     val cname = "tempuri.org"
-    val datasetId = JString("1234-asdf")
-    val datasetCategory = "بيانات عن الجدات"
-    val datasetName = "愛"
-    val urls = SearchService.links(cname, Option(TypeDatasets), None, datasetId, datasetCategory, datasetName)
+    val id = JString("1234-asdf")
+    val category = None
+    val name = "this is a name"
+    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
+    urls.getOrElse("link", fail()).string should include("/dataset/this-is-a-name/1234-asdf")
+  }
+
+  // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
+  // scalastyle:off non.ascii.character.disallowed
+  test("pretty seo url - allows non-english unicode") {
+    val cname = "tempuri.org"
+    val id = JString("1234-asdf")
+    val category = Some("بيانات عن الجدات")
+    val name = "愛"
+    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
     urls.getOrElse("link", fail()).string should include("بيانات-عن-الجدات")
     urls.getOrElse("link", fail()).string should include("愛")
   }
