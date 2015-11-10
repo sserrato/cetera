@@ -19,6 +19,10 @@
           "type" : "string",
           "index": "not_analyzed"
         },
+        "viewtype" : {
+          "type" : "string",
+          "index": "not_analyzed"
+        },
         "moderation_status" : {
           "type" : "string",
           "index": "not_analyzed"
@@ -53,6 +57,27 @@
         },
         "indexed_metadata" : {
           "properties" : {
+            "columns_description" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "columns_name" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "columns_field_name" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
             "description" : {
               "type" : "string",
               "fields" : {
@@ -73,7 +98,61 @@
         "resource" : {
           "enabled" : false,
           "index" : "no",
-          "type" : "object"
+          "type" : "nested",
+          "properties" : {
+            "page_views" : {
+              "properties": {
+                "page_views_last_week": {
+                  "type": "long"
+                },
+                "page_views_last_month": {
+                  "type": "long"
+                },
+                "page_views_total": {
+                  "type": "long"
+                }
+              }
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "nbe_fxf" : {
+              "type" : "string"
+            },
+            "id" : {
+              "type" : "string"
+            },
+            "updatedAt" : {
+              "type" : "string"
+            },
+            "type" : {
+              "type" : "string"
+            },
+            "name" : {
+              "type" : "string"
+            },
+            "columns_description" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "columns_name" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            },
+            "columns_field_name" : {
+              "type" : "string",
+              "fields" : {
+                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+              }
+            }
+          }
         },
         "socrata_id" : {
           "properties" : {

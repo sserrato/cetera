@@ -7,6 +7,7 @@ import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Strategy}
 import com.socrata.cetera._
 import com.socrata.cetera.search.ElasticSearchClient
+import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
@@ -30,6 +31,7 @@ object Classification {
 case class SearchResult(resource: JValue,
                         classification: Classification,
                         metadata: Map[String, JValue],
+                        permalink: JString,
                         link: JString)
 
 object SearchResult {
@@ -74,18 +76,19 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
   }
 
-  private def link(cname: String, pageId: Either[DecodeError.Simple,JValue], datasetId: JString): JString =
-    pageId match {
-      case Right(jv) => JString( s"""https://$cname/view/${jv.asInstanceOf[JString].string}""")
-      case _         => JString( s"""https://$cname/d/${datasetId.string}""")
-    }
-
   def format(showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
+      val links = SearchService.links(
+        cname(json),
+        DatatypeSimple(json.dyn.datatype.!.toString()),
+        Option(json.dyn.viewtype.!.toString()),
+        json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString],
+        domainCategory(json).map(_.toString()),
+        json.dyn.resource.name.!.toString())
 
       SearchResult(
         json.dyn.resource.!,
@@ -96,7 +99,8 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
           domainTags(json),
           domainMetadata(json)),
         Map("domain" -> JString(cname(json))) ++ score,
-        link(cname(json), json.dyn.socrata_id.page_id.?, json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString])
+        links.getOrElse("permalink", JString("")),
+        links.getOrElse("link", JString(""))
       )
     })
   }
@@ -154,4 +158,37 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     override def get: HttpService = search
   }
   // $COVERAGE-ON$
+}
+
+object SearchService {
+  def links(cname: String,
+             datatype: Option[DatatypeSimple],
+             viewtype: Option[String],
+             datasetId: JString,
+             datasetCategory: Option[String],
+             datasetName: String): Map[String,JString] = {
+    val perma = (datatype, viewtype) match {
+      case (Some(TypeStories), _)             => s"stories/s"
+      case (Some(TypeDatalenses), _)          => s"view"
+      case (_, Some(TypeDatalenses.singular)) => s"view"
+      case _                                  => s"d"
+    }
+
+    val urlSegmentLengthLimit = 50
+    def hyphenize(text: String): String = Option(text) match {
+      case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_\\-]+", "-").take(urlSegmentLengthLimit)
+      case _ => "-"
+    }
+    val pretty = datatype match {
+      // TODO: maybe someday stories will allow pretty seo links
+      // stories don't have a viewtype today, but who knows...
+      case Some(TypeStories) => perma
+      case _ => s"${hyphenize(datasetCategory.getOrElse(TypeDatasets.singular))}/${hyphenize(datasetName)}"
+    }
+
+    Map(
+      "permalink" ->JString(s"https://$cname/$perma/${datasetId.string}"),
+      "link" -> JString(s"https://$cname/$pretty/${datasetId.string}")
+    )
+  }
 }

@@ -46,6 +46,7 @@ trait TestESData {
       |   ]
       | },
       | "datatype": %s,
+      | "viewtype": %s,
       | "popularity": %s,
       | "is_customer_domain": %s,
       | "indexed_metadata": {
@@ -99,6 +100,7 @@ trait TestESData {
                          animlAnnotationsCategories: Map[String,Float],
                          animlAnnotationsTags: Map[String,Float],
                          datatype: String,
+                         viewtype: String,
                          popularity: Float,
                          isCustomerDomain: Boolean,
                          indexedMetadataName: String,
@@ -131,6 +133,7 @@ trait TestESData {
       quoteQualifyScore(animlAnnotationsCategories),
       quoteQualifyScore(animlAnnotationsTags),
       quoteQualify(datatype),
+      quoteQualify(viewtype),
       popularity.toString,
       isCustomerDomain.toString,
       quoteQualify(indexedMetadataName),
@@ -161,6 +164,7 @@ trait TestESData {
       defaultAaCategories,
       defaultAaTags,
       Datatypes.materialized(i % Datatypes.materialized.length).singular,
+      "",
       popularities(i % popularities.length),
       isCustomerDomains(i % isCustomerDomains.length),
       imNames(i % imNames.length),
