@@ -145,6 +145,25 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     urls.getOrElse("link", fail()).string should include("/dataset/this-is-a-name/1234-asdf")
   }
 
+  test("pretty seo url - defaults to '-'") {
+    val cname = "tempuri.org"
+    val id = JString("1234-asdf")
+    val category = Some("")
+    val name = ""
+    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
+    urls.getOrElse("link", fail()).string should include("/-/-/1234-asdf")
+  }
+
+  test("pretty seo url - limit 50 characters") {
+    val cname = "tempuri.org"
+    val id = JString("1234-asdf")
+    val category = Some("A super long category name is not very likely but we will protect against it anyway")
+    val name = "More commonly customers may write a title that is excessively verbose and it will hit this limit"
+    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
+    urls.getOrElse("link", fail()).string should include("/A-super-long-category-name-is-not-very-likely-but-/More-commonly-customers-may-write-a-title-that-is-/1234-asdf")
+  }
+
+
   // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
   // scalastyle:off non.ascii.character.disallowed
   test("pretty seo url - allows non-english unicode") {

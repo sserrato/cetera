@@ -174,7 +174,11 @@ object SearchService {
       case _                                  => s"d"
     }
 
-    def hyphenize(s: String): String = s.replaceAll("[^\\p{L}\\p{N}_\\-]+", "-")
+    val urlSegmentLengthLimit = 50
+    def hyphenize(text: String): String = Option(text) match {
+      case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_\\-]+", "-").take(urlSegmentLengthLimit)
+      case _ => "-"
+    }
     val pretty = datatype match {
       // TODO: maybe someday stories will allow pretty seo links
       // stories don't have a viewtype today, but who knows...
