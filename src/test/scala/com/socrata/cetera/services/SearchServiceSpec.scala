@@ -3,6 +3,7 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera._
+import com.socrata.cetera.search.{ElasticSearchClient, TestESClient, TestESData}
 import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
@@ -12,7 +13,7 @@ import org.elasticsearch.search.facet.{Facet, InternalFacets}
 import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
-import org.scalatest.{FunSuiteLike, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import scala.collection.JavaConverters._
 
@@ -136,22 +137,26 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  test("pretty seo url - missing category defaults to 'dataset'") {
+  test("pretty seo url - missing/blank category defaults to 'dataset'") {
     val cname = "tempuri.org"
     val id = JString("1234-asdf")
-    val category = None
     val name = "this is a name"
-    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-    urls.getOrElse("link", fail()).string should include("/dataset/this-is-a-name/1234-asdf")
+
+    Seq(None, Some("")).foreach { category =>
+      val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
+      urls.getOrElse("link", fail()).string should include("/dataset/this-is-a-name/1234-asdf")
+    }
   }
 
-  test("pretty seo url - defaults to '-'") {
+  test("pretty seo url - missing/blank name defaults to '-'") {
     val cname = "tempuri.org"
     val id = JString("1234-asdf")
-    val category = Some("")
-    val name = ""
-    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-    urls.getOrElse("link", fail()).string should include("/-/-/1234-asdf")
+    val category = Some("this-is-a-category")
+
+    Seq(null, "").foreach { name =>
+      val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
+      urls.getOrElse("link", fail()).string should include("/this-is-a-category/-/1234-asdf")
+    }
   }
 
   test("pretty seo url - limit 50 characters") {
@@ -162,7 +167,6 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
     urls.getOrElse("link", fail()).string should include("/A-super-long-category-name-is-not-very-likely-but-/More-commonly-customers-may-write-a-title-that-is-/1234-asdf")
   }
-
 
   // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
   // scalastyle:off non.ascii.character.disallowed
@@ -189,4 +193,34 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
   ignore("update frequency") {}
   ignore("domain cname unexpected json value") {}
   ignore("query parameter parser - errors") {}
+}
+
+class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
+  val client: ElasticSearchClient = new TestESClient(testSuiteName)
+  val service: SearchService = new SearchService(Some(client))
+
+  override protected def beforeAll(): Unit = {
+    bootstrapData()
+  }
+
+  override protected def afterAll(): Unit = {
+    removeBootstrapData()
+    client.close()
+  }
+
+  test("search response contains pretty and perma links") {
+    val res = service.doSearch(Map.empty)
+    println(res._1.results)
+    res._1.results.foreach { r =>
+      val dsid = r.resource.dyn.id.!.asInstanceOf[JString].string
+      println(r)
+
+      val perma = "(d|stories/s|view)"
+      val alphanum = "[\\p{L}\\p{N}]+" // all of the test data have proper categories and names
+      val pretty = s"$alphanum/$alphanum"
+
+      r.permalink.string should endWith regex s"/$perma/$dsid"
+      r.link.string should endWith regex s"/$pretty/$dsid"
+    }
+  }
 }
