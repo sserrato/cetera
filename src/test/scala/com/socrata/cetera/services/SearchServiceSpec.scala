@@ -105,7 +105,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
     val cname = "tempuri.org"
     val category = Some("Public Safety")
     val name = "Seattle Police Department 911 Incident Response"
-    val id = JString("1234-abcd")
+    val id = "1234-abcd"
 
     val dt = "datatype"
     val vt = "viewtype"
@@ -139,7 +139,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
   test("pretty seo url - missing/blank category defaults to 'dataset'") {
     val cname = "tempuri.org"
-    val id = JString("1234-asdf")
+    val id = "1234-asdf"
     val name = "this is a name"
 
     Seq(None, Some("")).foreach { category =>
@@ -150,7 +150,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
   test("pretty seo url - missing/blank name defaults to '-'") {
     val cname = "tempuri.org"
-    val id = JString("1234-asdf")
+    val id = "1234-asdf"
     val category = Some("this-is-a-category")
 
     Seq(null, "").foreach { name =>
@@ -161,7 +161,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
   test("pretty seo url - limit 50 characters") {
     val cname = "tempuri.org"
-    val id = JString("1234-asdf")
+    val id = "1234-asdf"
     val category = Some("A super long category name is not very likely but we will protect against it anyway")
     val name = "More commonly customers may write a title that is excessively verbose and it will hit this limit"
     val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
@@ -172,7 +172,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
   // scalastyle:off non.ascii.character.disallowed
   test("pretty seo url - allows non-english unicode") {
     val cname = "tempuri.org"
-    val id = JString("1234-asdf")
+    val id = "1234-asdf"
     val category = Some("بيانات عن الجدات")
     val name = "愛"
     val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
@@ -209,11 +209,8 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   }
 
   test("search response contains pretty and perma links") {
-    val res = service.doSearch(Map.empty)
-    println(res._1.results)
-    res._1.results.foreach { r =>
+    service.doSearch(Map.empty)._1.results.foreach { r =>
       val dsid = r.resource.dyn.id.!.asInstanceOf[JString].string
-      println(r)
 
       val perma = "(d|stories/s|view)"
       val alphanum = "[\\p{L}\\p{N}]+" // all of the test data have proper categories and names

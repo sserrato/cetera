@@ -84,11 +84,11 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
       val links = SearchService.links(
         cname(json),
-        DatatypeSimple(json.dyn.datatype.!.toString()),
-        Option(json.dyn.viewtype.!.toString()),
-        json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString],
-        domainCategory(json).map(_.toString()),
-        json.dyn.resource.name.!.toString())
+        DatatypeSimple(json.dyn.datatype.!.asInstanceOf[JString].string),
+        Option(json.dyn.viewtype.!.asInstanceOf[JString].string),
+        json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString].string,
+        domainCategory(json).map(_.asInstanceOf[JString].string),
+        json.dyn.resource.name.!.asInstanceOf[JString].string)
 
       SearchResult(
         json.dyn.resource.!,
@@ -164,7 +164,7 @@ object SearchService {
   def links(cname: String,
              datatype: Option[DatatypeSimple],
              viewtype: Option[String],
-             datasetId: JString,
+             datasetId: String,
              datasetCategory: Option[String],
              datasetName: String): Map[String,JString] = {
     val perma = (datatype, viewtype) match {
@@ -176,19 +176,21 @@ object SearchService {
 
     val urlSegmentLengthLimit = 50
     def hyphenize(text: String): String = Option(text) match {
-      case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_\\-]+", "-").take(urlSegmentLengthLimit)
+      case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_]+", "-").take(urlSegmentLengthLimit)
       case _ => "-"
     }
     val pretty = datatype match {
       // TODO: maybe someday stories will allow pretty seo links
       // stories don't have a viewtype today, but who knows...
       case Some(TypeStories) => perma
-      case _ => s"${hyphenize(datasetCategory.getOrElse(TypeDatasets.singular))}/${hyphenize(datasetName)}"
+      case _ =>
+        val category = datasetCategory.filter(s => s.nonEmpty).getOrElse(TypeDatasets.singular)
+        s"${hyphenize(category)}/${hyphenize(datasetName)}"
     }
 
     Map(
-      "permalink" ->JString(s"https://$cname/$perma/${datasetId.string}"),
-      "link" -> JString(s"https://$cname/$pretty/${datasetId.string}")
+      "permalink" ->JString(s"https://$cname/$perma/$datasetId"),
+      "link" -> JString(s"https://$cname/$pretty/$datasetId")
     )
   }
 }
