@@ -47,6 +47,12 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     case Right(jv) => Some(jv)
   }
 
+  private def domainCategoryString(j: JValue): Option[String] =
+    domainCategory(j).flatMap {
+      case JString(s) => Option(s)
+      case _ => None
+    }
+
   private def domainTags(j: JValue): Option[JValue] = j.dyn.customer_tags.? match {
     case Left(e) => None
     case Right(jv) => Some(jv)
@@ -76,6 +82,21 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
     case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
   }
 
+  private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
+    decoded.fold(_ => None, {
+      case JString(s) => Option(s)
+      case _ => None
+    })
+
+  private def datatype(j: JValue): Option[DatatypeSimple] =
+    extractJString(j.dyn.datatype.?).flatMap(s => DatatypeSimple(s))
+
+  private def viewtype(j: JValue): Option[String] = extractJString(j.dyn.viewtype.?)
+
+  private def datasetId(j: JValue): Option[String] = extractJString(j.dyn.socrata_id.dataset_id.?)
+
+  private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
+
   def format(showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
@@ -84,11 +105,11 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
       val links = SearchService.links(
         cname(json),
-        DatatypeSimple(json.dyn.datatype.!.asInstanceOf[JString].string),
-        Option(json.dyn.viewtype.!.asInstanceOf[JString].string),
-        json.dyn.socrata_id.dataset_id.!.asInstanceOf[JString].string,
-        domainCategory(json).map(_.asInstanceOf[JString].string),
-        json.dyn.resource.name.!.asInstanceOf[JString].string)
+        datatype(json),
+        viewtype(json),
+        datasetId(json).getOrElse(throw new NoSuchElementException),
+        domainCategoryString(json),
+        datasetName(json).getOrElse(throw new NoSuchElementException))
 
       SearchResult(
         json.dyn.resource.!,
