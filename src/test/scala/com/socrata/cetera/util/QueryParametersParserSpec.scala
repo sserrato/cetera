@@ -24,6 +24,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     qpp.restrictParamFilterType(Some("files")) should be(Right(Some(Seq("file"))))
     qpp.restrictParamFilterType(Some("filters")) should be(Right(Some(Seq("filter"))))
     qpp.restrictParamFilterType(Some("forms")) should be(Right(Some(Seq("form"))))
+    qpp.restrictParamFilterType(Some("stories")) should be(Right(Some(Seq("story"))))
 
     val linksExpected = Seq("href")
     qpp.restrictParamFilterType(Some("links")) should be(Right(Some(linksExpected)))
