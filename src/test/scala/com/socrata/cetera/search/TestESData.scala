@@ -77,6 +77,16 @@ trait TestESData {
       |}
     """.stripMargin
 
+  val esDomainTemplate: String =
+    """{
+      | "domain_cname": %s,
+      | "site_title": %s,
+      | "organization": %s,
+      | "is_customer_domain": %s,
+      | "moderation_enabled": %s
+      |}
+    """.stripMargin
+
   private def quoteQualify(s: String): String = "\"%s\"".format(s)
   private def quoteQualify(ss: Seq[String]): String = ss.map(quoteQualify).mkString(",\n")
   private def quoteQualifyScore(sm: Map[String,Float]): String = sm.map { kvp =>
@@ -148,6 +158,11 @@ trait TestESData {
       quoteQualify(customerTags),
       updateFreq.toString)
 
+  private def buildEsDomain(domainCname: String, siteTitle: String, organization: String,
+                            isCustomerDomain: Boolean, moderationEnabled: Boolean) =
+    esDomainTemplate.format(quoteQualify(domainCname), quoteQualify(siteTitle), quoteQualify(organization),
+                            isCustomerDomain.toString, moderationEnabled.toString)
+
   private def buildEsDocByIndex(i: Int): String = {
     buildEsDoc(
       defaultSocrataIdOrg,
@@ -180,6 +195,14 @@ trait TestESData {
       updateFreqs(i % updateFreqs.length))
   }
 
+  private def buildEsDomainByIndex(cname:String, i: Int): String = {
+    buildEsDomain(cname,
+                  siteTitles(i % siteTitles.length),
+                  defaultSocrataIdOrg,
+                  isCustomerDomains(i % isCustomerDomains.length),
+                  isDomainModerated(i % isDomainModerated.length))
+  }
+
   val defaultSocrataIdOrg = ""
   val defaultResourceUpdatedAt = DateTime.now().toString
   val defaultResourceColumns = Nil
@@ -190,9 +213,11 @@ trait TestESData {
   val defaultImColumnNames = Nil
 
   val socrataIdDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com").map(Seq(_))
+  val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
   val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
   val domainIds = Seq(1L, 2L, 3L, 4L).map(Seq(_))
-  val socrataIdDatasetIds = Seq("aaaa-1111", "aaaa-2222", "aaaa-3333", "aaaa-4444")
+  val numericIds = 0 to Datatypes.materialized.length
+  val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
   val resourceDescriptions = Seq(
     "We're number one",
     "Second the best",
@@ -203,6 +228,7 @@ trait TestESData {
   val resourceNames = Seq("One", "Two", "Three", "Four")
   val popularities = Seq(0.1F, 0.42F, 1F, 42F)
   val isCustomerDomains = Seq(true, true, false)
+  val isDomainModerated = Seq(false, true, false)
   val imNames = resourceNames
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
@@ -235,7 +261,7 @@ trait TestESData {
       .setSettings(indexSettings)
       .execute.actionGet
     client.client.admin().indices().preparePutMapping(testSuiteName)
-      .setType(DatatypeFieldType.fieldName).setSource(datatypeMappings)
+      .setType(esDocumentType).setSource(datatypeMappings)
       .setIgnoreConflicts(true)
       .execute.actionGet
     Indices.foreach { alias =>
@@ -248,8 +274,14 @@ trait TestESData {
   def bootstrapData(): Unit = {
     bootstrapSettings()
     Datatypes.materialized.zipWithIndex.foreach { case (datatype: Materialized, i: Int) =>
-      client.client.prepareIndex(testSuiteName, DatatypeFieldType.fieldName)
+      client.client.prepareIndex(testSuiteName, esDocumentType)
         .setSource(buildEsDocByIndex(i))
+        .setRefresh(true)
+        .execute.actionGet
+    }
+    domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
+    client.client.prepareIndex(testSuiteName, "domain")
+        .setSource(buildEsDomainByIndex(cname, i))
         .setRefresh(true)
         .execute.actionGet
     }

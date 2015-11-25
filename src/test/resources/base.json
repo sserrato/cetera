@@ -1,6 +1,6 @@
 {
   "mappings" : {
-    "datatype" : {
+    "document" : {
       "properties" : {
         "fts_analyzed" : {
           "type": "string",
@@ -249,6 +249,30 @@
               }
             }
           }
+        }
+      }
+    },
+    "domain": {
+      "properties" : {
+        "domain_cname" : {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "site_title" : {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "organization" : {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "is_customer_domain" : {
+          "type": "boolean",
+          "index": "not_analyzed"
+        },
+        "moderation_enabled" : {
+          "type": "boolean",
+          "index": "not_analyzed"
         }
       }
     }

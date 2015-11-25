@@ -2,6 +2,7 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
 import org.elasticsearch.action.search.SearchType.COUNT
@@ -219,9 +220,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         slop = None
       )
       val actual = JsonReader.fromString(request.toString)
-
       actual should be (expected)
-      request.request.types should be (Array())
+      request.request.types should be (Array(esDocumentType))
     }
 
     "construct a match query with terms" in {
@@ -253,7 +253,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array())
+      request.request.types should be (Array(esDocumentType))
     }
 
     "construct a multi match query with boosted fields" in {
@@ -285,7 +285,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.types should be (Array())
+      request.request.types should be (Array(esDocumentType))
     }
   }
 

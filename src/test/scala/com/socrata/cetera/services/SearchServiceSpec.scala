@@ -220,4 +220,12 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       r.link.string should endWith regex s"/$pretty/$dsid"
     }
   }
+
+  test("search response should not contain domains") {
+    val res = service.doSearch(Map.empty)._1.results
+    // we should get precisely 4 results from the 11 available documents:
+    // this is because only fxf-1,fxf-3,fxf-7 and fxf-9 are both on a customer domain
+    // and have an appropriate moderation_status
+    res.length should be(4)
+  }
 }

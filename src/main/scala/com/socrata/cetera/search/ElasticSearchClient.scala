@@ -210,6 +210,7 @@ class ElasticSearchClient(
     // Imperative builder --> order is important
     val search = client.prepareSearch(Indices: _*)
       .setQuery(query)
+      .setTypes(esDocumentType)
     logESRequest(search)
     search
   }

@@ -7,4 +7,6 @@ package object cetera {
 
   val IndexCatalog = "catalog"
   val Indices = List(IndexCatalog)
+
+  val esDocumentType = "document"
 }
