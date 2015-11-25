@@ -20,6 +20,7 @@ class TestESClient(val clusterName: String, val datatypeBoosts: Map[DatatypeSimp
   val node = nodeBuilder().settings(testSettings).local(true).node()
 
   override val client = node.client()
+
   override def close(): Unit = {
     node.close()
 

@@ -5,17 +5,18 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Strategy}
-import com.socrata.cetera._
-import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
-import com.socrata.cetera.util._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpResponse, HttpRequest, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
+
+import com.socrata.cetera._
+import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient}
+import com.socrata.cetera.types._
+import com.socrata.cetera.util.JsonResponses._
+import com.socrata.cetera.util._
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Classification(categories: Seq[JValue],
@@ -38,7 +39,7 @@ object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
 
-class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends SimpleResource {
+class SearchService(elasticSearchClient: ElasticSearchClient, domainClient: DomainSearchClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // TODO: cetera-etl rename customer_blah to domain_blah
@@ -134,11 +135,12 @@ class SearchService(elasticSearchClient: Option[ElasticSearchClient]) extends Si
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val res = elasticSearchClient.getOrElse(throw new NullPointerException).buildSearchRequest(
+        val domain = params.searchContext.flatMap(domainClient.getDomain(_))
+        val res = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
           params.domainMetadata,
-          params.searchContext,
+          domain,
           params.categories,
           params.tags,
           params.only,

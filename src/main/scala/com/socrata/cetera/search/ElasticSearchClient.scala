@@ -2,19 +2,21 @@ package com.socrata.cetera.search
 
 import java.io.Closeable
 
-import com.socrata.cetera._
-import com.socrata.cetera.types._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query._
-import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
-import org.elasticsearch.search.aggregations.bucket.terms.Terms
-import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
+import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
+
+import com.socrata.cetera._
+import com.socrata.cetera.types._
+import com.socrata.cetera.search.Aggregations._
+import com.socrata.cetera.search.Filters._
+import com.socrata.cetera.search.SundryBuilders._
 
 object ElasticSearchClient {
   def apply(
@@ -35,7 +37,6 @@ object ElasticSearchClient {
       defaultMinShouldMatch, scriptScoreFunctions)
   }
 }
-
 
 class ElasticSearchClient(
   host: String,
@@ -58,31 +59,13 @@ class ElasticSearchClient(
 
   def close(): Unit = client.close()
 
-  private def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String) =
-    query.minimumShouldMatch(constraint)
-
-  private def addSlopParam(query: MultiMatchQueryBuilder, slop: Int) = query.slop(slop)
-
-  private def addFunctionScores(query: FunctionScoreQueryBuilder) = {
-    scriptScoreFunctions.foreach { fn =>
-      query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression"))
-    }
-
-    // Take a product of scores and replace original score with product
-    query.scoreMode("multiply").boostMode("replace")
-  }
-
-  private def boostTypes(typeBoosts: Map[DatatypeSimple, Float]) = {
-    typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
-    }
-  }
-
-  private def multiMatch(q: String, mmType: MultiMatchQueryBuilder.Type) = QueryBuilders.multiMatchQuery(q).
-    field("fts_analyzed").
-    field("fts_raw").
-    field("domain_cname").
-    `type`(mmType)
+  private def logESRequest(search: SearchRequestBuilder): Unit =
+    logger.info(
+      s"""Elasticsearch request
+         | indices: ${Indices.mkString(",")},
+         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+       """.stripMargin
+    )
 
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
@@ -144,64 +127,44 @@ class ElasticSearchClient(
     }
   }
 
-  private def datatypeFilter(datatypes: Option[Seq[String]]) =
-    datatypes.map { ts =>
-      val validatedDatatypes = ts.map(t => DatatypeSimple(t).map(_.singular)).flatten
-      FilterBuilders.termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
+  private def buildFilteredQuery(datatypes: Option[Seq[String]],
+                                 domains: Option[Set[String]],
+                                 searchContext: Option[Domain],
+                                 categories: Option[Set[String]],
+                                 tags: Option[Set[String]],
+                                 domainMetadata: Option[Set[(String, String)]],
+                                 q: BaseQueryBuilder): BaseQueryBuilder = {
+    // If there is no search context, use the ODN categories and tags and prohibit domain metadata
+    // otherwise use the custom domain categories, tags, metadata
+    val odnFilters = List.concat(
+      customerDomainFilter,
+      categoriesFilter(categories),
+      tagsFilter(tags)
+    )
+    val domainFilters = List.concat(
+      domainCategoriesFilter(categories),
+      domainTagsFilter(tags),
+      domainMetadataFilter(domainMetadata)
+    )
+    val moderated = searchContext.exists(_.moderationEnabled)
+    val filters = List.concat(
+      datatypeFilter(datatypes),
+      domainFilter(domains),
+      moderationStatusFilter(moderated),
+      if (searchContext.isDefined) domainFilters else odnFilters
+    )
+    if (filters.nonEmpty) {
+      QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
+    } else {
+      q
     }
-
-  private def domainFilter(domains: Option[Set[String]]) =
-    domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq: _*) }
-
-  private def categoriesFilter(categories: Option[Set[String]]) = categories.map { cs =>
-    FilterBuilders.nestedFilter(
-      CategoriesFieldType.fieldName,
-      FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cs.toSeq: _*)
-    )
   }
-
-  private def tagsFilter(tags: Option[Set[String]]) = tags.map { tags =>
-    FilterBuilders.nestedFilter(
-      TagsFieldType.fieldName,
-      FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, tags.toSeq: _*)
-    )
-  }
-
-  private def domainCategoriesFilter(categories: Option[Set[String]]) = categories.map { cs =>
-    FilterBuilders.termsFilter(DomainCategoryFieldType.rawFieldName, cs.toSeq: _*)
-  }
-
-  private def domainTagsFilter(tags: Option[Set[String]]) = tags.map { ts =>
-    FilterBuilders.termsFilter(DomainTagsFieldType.rawFieldName, ts.toSeq: _*)
-  }
-
-  private def domainMetadataFilter(metadata: Option[Set[(String, String)]]) = metadata.map { ss =>
-    FilterBuilders.orFilter(
-      ss.map { kvp =>
-        FilterBuilders.nestedFilter(
-          DomainMetadataFieldType.fieldName,
-          FilterBuilders.andFilter(
-            FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, kvp._1),
-            FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, kvp._2)
-          )
-        )
-      }.toSeq: _*
-    )
-  }
-
-  private def customerDomainFilter =
-    Some(FilterBuilders.notFilter(FilterBuilders.termsFilter(IsCustomerDomainFieldType.fieldName, "false")))
-
-  private def moderationStatusFilter =
-    Some(FilterBuilders.notFilter(
-      FilterBuilders.termsFilter(ModerationStatusFieldType.fieldName, "pending", "rejected")
-    ))
 
   // Assumes validation has already been done
   def buildBaseRequest( // scalastyle:ignore parameter.number
     searchQuery: QueryType,
     domains: Option[Set[String]],
-    searchContext: Option[String],
+    searchContext: Option[Domain],
     categories: Option[Set[String]],
     tags: Option[Set[String]],
     domainMetadata: Option[Set[(String, String)]],
@@ -226,10 +189,10 @@ class ElasticSearchClient(
 
     val q = if (scriptScoreFunctions.nonEmpty) {
       val query = QueryBuilders.functionScoreQuery(matchQuery)
-      addFunctionScores(query)
+      addFunctionScores(scriptScoreFunctions, query)
     } else { matchQuery }
 
-    val query: BaseQueryBuilder = selectSearchContext(only, domains, searchContext, categories, tags, domainMetadata, q)
+    val query: BaseQueryBuilder = buildFilteredQuery(only, domains, searchContext, categories, tags, domainMetadata, q)
 
     // Imperative builder --> order is important
     val search = client.prepareSearch(Indices: _*)
@@ -239,57 +202,12 @@ class ElasticSearchClient(
     search
   }
 
-  private def logESRequest(search: SearchRequestBuilder): Unit =
-    logger.info(
-      s"""Elasticsearch request
-         | indices: ${Indices.mkString(",")},
-         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
-       """.stripMargin
-    )
-
-  private def selectSearchContext(
-                                 datatypes: Option[Seq[String]],
-                                 domains: Option[Set[String]],
-                                 searchContext: Option[String],
-                                 categories: Option[Set[String]],
-                                 tags: Option[Set[String]],
-                                 domainMetadata: Option[Set[(String, String)]],
-                                 q: BaseQueryBuilder): BaseQueryBuilder = {
-    // If there is no search context, use the ODN categories and tags and prohibit domain metadata
-    // otherwise use the custom domain categories, tags, metadata
-    val odnFilters = List.concat(
-      customerDomainFilter,
-      categoriesFilter(categories),
-      tagsFilter(tags)
-    )
-    val domainFilters = List.concat(
-      domainCategoriesFilter(categories),
-      domainTagsFilter(tags),
-      domainMetadataFilter(domainMetadata)
-    )
-    val filters = List.concat(
-      datatypeFilter(datatypes),
-      domainFilter(domains),
-      moderationStatusFilter,
-      if (searchContext.isDefined) domainFilters else odnFilters
-    )
-    if (filters.nonEmpty) {
-      QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
-    } else {
-      q
-    }
-  }
-
-  private val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
-  private def sortFieldAsc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
-  private def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
-
   // First pass logic is very simple. advanced query >> query >> categories >> tags >> default
   def buildSearchRequest( // scalastyle:ignore parameter.number
     searchQuery: QueryType,
     domains: Option[Set[String]],
     domainMetadata: Option[Set[(String, String)]],
-    searchContext: Option[String],
+    searchContext: Option[Domain],
     categories: Option[Set[String]],
     tags: Option[Set[String]],
     only: Option[Seq[String]],
@@ -332,47 +250,11 @@ class ElasticSearchClient(
       .addSort(sort)
   }
 
-  private def aggDomain =
-    AggregationBuilders
-      .terms("domains")
-      .field(DomainFieldType.rawFieldName)
-      .order(Terms.Order.count(false)) // count desc
-      .size(0) // no docs, aggs only
-
-  private def aggCategories =
-    AggregationBuilders
-      .nested("annotations")
-      .path(CategoriesFieldType.fieldName)
-      .subAggregation(
-        AggregationBuilders
-          .terms("names")
-          .field(CategoriesFieldType.Name.rawFieldName)
-          .size(0)
-      )
-
-  private def aggTags =
-    AggregationBuilders
-      .nested("annotations")
-      .path(TagsFieldType.fieldName)
-      .subAggregation(
-        AggregationBuilders
-          .terms("names")
-          .field(TagsFieldType.Name.rawFieldName)
-          .size(0)
-      )
-
-  private def aggDomainCategory =
-    AggregationBuilders
-      .terms("categories")
-      .field(DomainCategoryFieldType.rawFieldName)
-      .order(Terms.Order.count(false)) // count desc
-      .size(0) // no docs, aggs only
-
   def buildCountRequest(
     field: CeteraFieldType with Countable with Rawable,
     searchQuery: QueryType,
     domains: Option[Set[String]],
-    searchContext: Option[String],
+    searchContext: Option[Domain],
     categories: Option[Set[String]],
     tags: Option[Set[String]],
     only: Option[Seq[String]]
@@ -388,11 +270,6 @@ class ElasticSearchClient(
                      Map.empty, Map.empty, None, None)
       .addAggregation(aggregation)
       .setSearchType("count")
-  }
-
-  private def domainQuery(cname: String): QueryBuilder = cname.trim match {
-    case s: String if s.nonEmpty => QueryBuilders.matchQuery("domain_cname", s)
-    case _ => QueryBuilders.matchAllQuery()
   }
 
   def buildFacetRequest(cname: String): SearchRequestBuilder = {

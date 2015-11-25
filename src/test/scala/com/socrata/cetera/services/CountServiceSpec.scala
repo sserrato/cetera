@@ -6,9 +6,12 @@ import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.SearchResults
 import org.scalatest.{FunSuiteLike, Matchers}
+import com.socrata.cetera.search.{DomainSearchClient, TestESClient, ElasticSearchClient}
 
 class CountServiceSpec extends FunSuiteLike with Matchers {
-  val service = new CountService(None)
+  val client: ElasticSearchClient = new TestESClient("CountService")
+  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
+  val service: CountService = new CountService(client, domainClient)
 
   val esResponse = j"""{
     "took" : 1,

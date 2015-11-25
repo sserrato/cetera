@@ -9,4 +9,5 @@ package object cetera {
   val Indices = List(IndexCatalog)
 
   val esDocumentType = "document"
+  val esDomainType = "domain"
 }

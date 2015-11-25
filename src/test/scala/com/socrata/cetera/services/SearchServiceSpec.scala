@@ -1,9 +1,11 @@
 package com.socrata.cetera.services
 
+import scala.collection.JavaConverters._
+
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera._
-import com.socrata.cetera.search.{ElasticSearchClient, TestESClient, TestESData}
+import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient, TestESClient, TestESData}
 import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
@@ -15,10 +17,10 @@ import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import scala.collection.JavaConverters._
-
 class SearchServiceSpec extends FunSuiteLike with Matchers {
-  val service = new SearchService(None)
+  val client: ElasticSearchClient = new TestESClient("Search Service")
+  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
+  val service: SearchService = new SearchService(client, domainClient)
 
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
@@ -197,7 +199,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val service: SearchService = new SearchService(Some(client))
+  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
+  val service: SearchService = new SearchService(client, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -221,11 +224,52 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     }
   }
 
-  test("search response should not contain domains") {
+  test("search response without a searchContext should have the correct set of documents") {
+    // TODO: as we add more and more domain filters, the approach to
+    // creating data in TestESData will need to change so the test
+    // data is more comprehensive and running these sorts of tests
+    // is easier
     val res = service.doSearch(Map.empty)._1.results
-    // we should get precisely 4 results from the 11 available documents:
-    // this is because only fxf-1,fxf-3,fxf-7 and fxf-9 are both on a customer domain
-    // and have an appropriate moderation_status
-    res.length should be(4)
+    /*
+      Test Data
+      fxf-0: rejected view on unmoderated customer domain
+      fxf-1: approved view on moderated customer domain
+      fxf-2: pending view on unmoderated non-customer domain
+      fxf-3: default view on unmoderated customer domain
+      fxf-4: not_moderated view on moderated customer domain
+      fxf-5: rejected view on unmoderated non-customer domain
+      fxf-6: approved view on unmoderated customer domain
+      fxf-7: pending view on moderated customer domain
+      fxf-8: default view on unmoderated non-customer domain
+      fxf-9: not_moderated view on unmoderated customer domain
+      fxf-10: rejected view on moderated customer domain
+     */
+    val expectedFxfs = Set("fxf-1", "fxf-3", "fxf-4", "fxf-6", "fxf-9")
+    res.length should be(expectedFxfs.size)
+    // this shows that:
+    //   * without a searchContext, not-moderated views on moderated domains will show up
+    //   * rejected and pending views don't show up regardless of domain setting
+    //   * that the ES type returned includes only documents (i.e. no domains)
+    //   * that non-customer domains don't show up
+    res.foreach { r =>
+      val id = r.resource.dyn.id.!.asInstanceOf[JString].string
+      expectedFxfs.contains(id) should be(true)
+    }
+  }
+
+  test("not_moderated data federated to a moderated domain should not be in the response") {
+    // the domain params will limit us to fxfs 0,1,3,4,6,7,9 and 10
+    val params = Map[String, String](
+      ("domains", "opendata-demo.socrata.com,petercetera.net"),
+      ("search_context", "opendata-demo.socrata.com")
+    )
+    // we should not include fxfs 0,4,7,9 or 10
+    val expectedFxfs = Set("fxf-1", "fxf-3", "fxf-6")
+    val res = service.doSearch(params)._1.results
+
+    res.foreach { r =>
+      val id = r.resource.dyn.id.!.asInstanceOf[JString].string
+      expectedFxfs.contains(id) should be(true)
+    }
   }
 }

@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
+class FacetService(elasticSearchClient: ElasticSearchClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
   // $COVERAGE-OFF$ jetty wiring
@@ -47,7 +47,7 @@ class FacetService(elasticSearchClient: Option[ElasticSearchClient]) {
   def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val request = elasticSearchClient.getOrElse(throw new NullPointerException).buildFacetRequest(cname)
+    val request = elasticSearchClient.buildFacetRequest(cname)
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
       .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]

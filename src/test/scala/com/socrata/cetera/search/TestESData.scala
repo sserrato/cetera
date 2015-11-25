@@ -123,8 +123,8 @@ trait TestESData {
                          pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
-                         updateFreq: Long): String =
-    esDocTemplate.format(
+                         updateFreq: Long): String = {
+    val doc = esDocTemplate.format(
       socrataIdOrg match {
         case s: String if s.nonEmpty => quoteQualify(s)
         case _ => "null"
@@ -157,6 +157,8 @@ trait TestESData {
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
       updateFreq.toString)
+    doc
+  }
 
   private def buildEsDomain(domainCname: String, siteTitle: String, organization: String,
                             isCustomerDomain: Boolean, moderationEnabled: Boolean) =
@@ -212,10 +214,10 @@ trait TestESData {
   val defaultImColumnsDescriptions = Nil
   val defaultImColumnNames = Nil
 
-  val socrataIdDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com").map(Seq(_))
+  val socrataIdDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org").map(Seq(_))
   val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
   val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
-  val domainIds = Seq(1L, 2L, 3L, 4L).map(Seq(_))
+  val domainIds = Seq(1L, 2L, 3L).map(Seq(_))
   val numericIds = 0 to Datatypes.materialized.length
   val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
   val resourceDescriptions = Seq(
@@ -232,7 +234,7 @@ trait TestESData {
   val imNames = resourceNames
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
-  val moderationStatuses = Seq("rejected", "approved", "pending", "irrelevant")
+  val moderationStatuses = Seq("rejected", "approved", "pending", "default_view", "not_moderated")
   val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
@@ -280,8 +282,9 @@ trait TestESData {
         .execute.actionGet
     }
     domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
-    client.client.prepareIndex(testSuiteName, "domain")
+    client.client.prepareIndex(testSuiteName, esDomainType)
         .setSource(buildEsDomainByIndex(cname, i))
+        .setId(cname)
         .setRefresh(true)
         .execute.actionGet
     }
