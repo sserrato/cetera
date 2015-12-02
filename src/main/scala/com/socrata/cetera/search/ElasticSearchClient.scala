@@ -16,11 +16,32 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
 
+object ElasticSearchClient {
+  def apply(
+    host: String,
+    port: Int,
+    clusterName: String,
+    defaultTypeBoosts: Map[String, Float],
+    defaultTitleBoost: Option[Float],
+    defaultMinShouldMatch: Option[String],
+    scriptScoreFunctions: Set[ScriptScoreFunction]
+  ): ElasticSearchClient = {
+    val datatypeBoosts = defaultTypeBoosts.flatMap { case (k, v) =>
+      DatatypeSimple(k).map(datatype => (datatype, v))
+    }
+
+    new ElasticSearchClient(
+      host, port, clusterName, datatypeBoosts, defaultTitleBoost,
+      defaultMinShouldMatch, scriptScoreFunctions)
+  }
+}
+
+
 class ElasticSearchClient(
   host: String,
   port: Int,
   clusterName: String,
-  defaultTypeBoosts: Map[String, Float],
+  defaultTypeBoosts: Map[DatatypeSimple, Float],
   defaultTitleBoost: Option[Float],
   defaultMinShouldMatch: Option[String],
   scriptScoreFunctions: Set[ScriptScoreFunction]
@@ -51,9 +72,9 @@ class ElasticSearchClient(
     query.scoreMode("multiply").boostMode("replace")
   }
 
-  private def boostTypes = {
-    defaultTypeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype).boost(boost))
+  private def boostTypes(typeBoosts: Map[DatatypeSimple, Float]) = {
+    typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
+      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
     }
   }
 
@@ -76,7 +97,8 @@ class ElasticSearchClient(
   //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
   def generateQuery(
     searchQuery: QueryType,
-    boosts: Map[CeteraFieldType with Boostable, Float],
+    fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+    typeBoosts: Map[DatatypeSimple, Float],
     minShouldMatch: Option[String],
     slop: Option[Int]
   ): BaseQueryBuilder = {
@@ -87,7 +109,7 @@ class ElasticSearchClient(
         val matchTerms = multiMatch(sq, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
         // Side effects!
-        boosts.foreach { case (field, weight) => matchTerms.field(field.fieldName, weight) }
+        fieldBoosts.foreach { case (field, weight) => matchTerms.field(field.fieldName, weight) }
 
         minShouldMatch.foreach(addMinMatchConstraint(matchTerms, _))
 
@@ -100,8 +122,8 @@ class ElasticSearchClient(
         val q = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
         // If we have typeBoosts, add them as should match clause
-        if (defaultTypeBoosts.nonEmpty) {
-          q.should(boostTypes)
+        if (typeBoosts.nonEmpty) {
+          q.should(boostTypes(typeBoosts))
         } else {
           q
         }
@@ -114,7 +136,7 @@ class ElasticSearchClient(
           autoGeneratePhraseQueries(true)
 
         // Side effects!
-        boosts.foreach {
+        fieldBoosts.foreach {
           case (field, weight) => query.field(field.fieldName, weight)
         }
 
@@ -184,7 +206,8 @@ class ElasticSearchClient(
     tags: Option[Set[String]],
     domainMetadata: Option[Set[(String, String)]],
     only: Option[Seq[String]],
-    boosts: Map[CeteraFieldType with Boostable, Float],
+    fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+    datatypeBoosts: Map[DatatypeSimple, Float],
     minShouldMatch: Option[String],
     slop: Option[Int]
   ): SearchRequestBuilder = {
@@ -192,7 +215,8 @@ class ElasticSearchClient(
       searchQuery,
       // Look for default title boost; if a title boost is specified as a query parameter, it
       // will override the default
-      defaultTitleBoost.map(boost => Map(TitleFieldType -> boost) ++ boosts).getOrElse(boosts),
+      defaultTitleBoost.map(boost => Map(TitleFieldType -> boost) ++ fieldBoosts).getOrElse(fieldBoosts),
+      defaultTypeBoosts ++ datatypeBoosts,
       // If we're doing a within-domain catalog search then we want to optimize for precision
       // so by default, we use the defaultMinShouldMatch setting; but we'll always honor the parameter
       // value passed in with the query
@@ -269,7 +293,8 @@ class ElasticSearchClient(
     categories: Option[Set[String]],
     tags: Option[Set[String]],
     only: Option[Seq[String]],
-    boosts: Map[CeteraFieldType with Boostable, Float],
+    fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+    datatypeBoosts: Map[DatatypeSimple, Float],
     minShouldMatch: Option[String],
     slop: Option[Int],
     offset: Int,
@@ -300,8 +325,8 @@ class ElasticSearchClient(
       case (_, _, _) => sortFieldDesc(PageViewsTotalFieldType.fieldName)
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
-                     domainMetadata, only, boosts, minShouldMatch, slop)
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata,
+                     only, fieldBoosts, datatypeBoosts, minShouldMatch, slop)
       .setFrom(offset)
       .setSize(limit)
       .addSort(sort)
@@ -359,7 +384,8 @@ class ElasticSearchClient(
       case DomainCategoryFieldType => aggDomainCategory
     }
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, None, only, Map.empty, None, None)
+    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, None, only,
+                     Map.empty, Map.empty, None, None)
       .addAggregation(aggregation)
       .setSearchType("count")
   }

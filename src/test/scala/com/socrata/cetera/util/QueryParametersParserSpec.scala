@@ -48,4 +48,25 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail("an OnlyError should be returned")
     }
   }
+
+  test("no datatype boost params results in empty datatype boosts map") {
+    QueryParametersParser(Map("query" -> "crime")) match {
+      case Right(params) => params.datatypeBoosts should have size 0
+      case _ => fail()
+    }
+  }
+
+  test("malformed datatype boost params result in empty datatype boosts map") {
+    QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0")) match {
+      case Right(params) => params.datatypeBoosts should have size 0
+      case _ => fail()
+    }
+  }
+
+  test("well-formed datatype boost params validate") {
+    QueryParametersParser(Map("query" -> "crime", "boostDatasets" -> "5.0", "boostMaps" -> "2.0")) match {
+      case Right(params) => params.datatypeBoosts should have size 2
+      case _ => fail()
+    }
+  }
 }

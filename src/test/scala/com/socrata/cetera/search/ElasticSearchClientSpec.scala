@@ -30,7 +30,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
     only = Some(Seq("datasets")),
-    boosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
+    fieldBoosts = Map[CeteraFieldType with Boostable, Float](TitleFieldType -> 2.2f, DescriptionFieldType -> 1.1f),
+    datatypeBoosts = Map.empty,
     minShouldMatch = None,
     slop = None,
     showScore = false,
@@ -215,7 +216,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         tags = None,
         domainMetadata = None,
         only = None,
-        boosts = Map.empty,
+        fieldBoosts = Map.empty,
+        datatypeBoosts = Map.empty,
         minShouldMatch = None,
         slop = None
       )
@@ -246,7 +248,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         tags = None,
         domainMetadata = None,
         only = None,
-        boosts = Map.empty,
+        fieldBoosts = Map.empty,
+        datatypeBoosts = Map.empty,
         minShouldMatch = None,
         slop = None
       )
@@ -278,7 +281,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         tags = None,
         domainMetadata = None,
         only = None,
-        boosts = params.boosts,
+        fieldBoosts = params.fieldBoosts,
+        datatypeBoosts = Map.empty,
         minShouldMatch = None,
         slop = None
       )
@@ -319,7 +323,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         tags = params.tags,
         domainMetadata = None,
         only = params.only,
-        boosts = Map.empty,
+        fieldBoosts = Map.empty,
+        datatypeBoosts = Map.empty,
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
@@ -377,7 +382,8 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         tags = params.tags,
         domainMetadata = None,
         only = params.only,
-        boosts = Map.empty,
+        fieldBoosts = Map.empty,
+        datatypeBoosts = Map.empty,
         minShouldMatch = None,
         slop = None,
         offset = params.offset,

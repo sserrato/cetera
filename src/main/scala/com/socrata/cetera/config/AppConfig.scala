@@ -43,6 +43,6 @@ class ElasticSearchConfig(config:Config, root:String) extends ConfigClass(config
   val titleBoost = optionally[Float](config.getDouble(path("title-boost")).toFloat)
   val minShouldMatch = optionally[String](getString("min-should-match"))
   val functionScoreScripts = getStringList("function-score-scripts")
-  val typeBoosts = getObjectOf[Float]("type-boosts", getBoostMap)
+  val typeBoosts = optionally[Map[String, Float]](getObjectOf[Float]("type-boosts", getBoostMap))
 }
 // $COVERAGE-ON$

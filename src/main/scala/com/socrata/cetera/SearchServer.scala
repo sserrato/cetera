@@ -51,14 +51,14 @@ object SearchServer extends App {
                               executor) with Startable)
 
     elasticSearch <- managed(
-      new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
-                              config.elasticSearch.elasticSearchPort,
-                              config.elasticSearch.elasticSearchClusterName,
-                              config.elasticSearch.typeBoosts,
-                              config.elasticSearch.titleBoost,
-                              config.elasticSearch.minShouldMatch,
-                              config.elasticSearch.functionScoreScripts.flatMap(fnName =>
-                                ScriptScoreFunction.getScriptFunction(fnName)).toSet))
+      ElasticSearchClient(config.elasticSearch.elasticSearchServer,
+                          config.elasticSearch.elasticSearchPort,
+                          config.elasticSearch.elasticSearchClusterName,
+                          config.elasticSearch.typeBoosts.getOrElse(Map.empty),
+                          config.elasticSearch.titleBoost,
+                          config.elasticSearch.minShouldMatch,
+                          config.elasticSearch.functionScoreScripts.flatMap(fnName =>
+                            ScriptScoreFunction.getScriptFunction(fnName)).toSet))
   } {
     logger.info("ElasticSearchClient initialized on nodes " +
                   elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)

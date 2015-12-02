@@ -12,7 +12,8 @@ case class ValidatedQueryParameters(
   categories: Option[Set[String]],
   tags: Option[Set[String]],
   only: Option[Seq[String]],
-  boosts: Map[CeteraFieldType with Boostable, Float],
+  fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+  datatypeBoosts: Map[DatatypeSimple, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
   showScore: Boolean,
@@ -113,24 +114,34 @@ object QueryParametersParser {
     }
 
   val allowedTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
+
   // This can stay case-sensitive because it is so specific
   def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
     only.map { s =>
       DatatypeSimple(s) match {
         case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $s"))
         case Some(d) => Right(Some(d.names))
-    }
-  }.getOrElse(Right(None))
+      }
+    }.getOrElse(Right(None))
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
     apply(req.queryParameters)
+
+  private val boostParamStr = "boost"
+
+  private def datatypeBoostParam(param: String): Option[DatatypeSimple] =
+    param match {
+      case s: String if s.length > boostParamStr.length && s.toLowerCase.startsWith(boostParamStr) =>
+        DatatypeSimple(s.substring(boostParamStr.length).toLowerCase)
+      case _ => None
+    }
 
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals
   def apply(queryParameters: Map[String,String]): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val query = pickQuery(queryParameters.get(Params.querySimple), queryParameters.get(Params.queryAdvanced))
 
-    val boosts = {
+    val fieldBoosts = {
       val boostTitle = queryParameters.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
       val boostDesc = queryParameters.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
       val boostColumns = queryParameters.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
@@ -146,6 +157,12 @@ object QueryParametersParser {
         .toMap[CeteraFieldType with Boostable, Float]
     }
 
+    val datatypeBoosts = queryParameters.flatMap {
+      case (k, _) => datatypeBoostParam(k).flatMap(datatype =>
+        queryParameters.queryParam[NonNegativeFloat](k).map(boost =>
+          (datatype, validated(boost).value)))
+    }
+
     restrictParamFilterType(queryParameters.get(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
@@ -156,7 +173,8 @@ object QueryParametersParser {
           queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
           queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
           o,
-          boosts,
+          fieldBoosts,
+          datatypeBoosts,
           queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
           queryParameters.queryParam[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
@@ -181,6 +199,24 @@ object Params {
   val queryAdvanced = "q_internal"
   val querySimple = "q"
 
+  // The boosting code is rather complex. In addition to the boost parameters listed explicitly here,
+  // we also allow catalog datatypes to be boosted using the boost{typename}={factor} (eg. boostDatasets=10.0)
+  // syntax. Because these types have been changing regularly, we opted to not hardcode them right away.
+  //
+  // Available datatype boosting parameters:
+  //   boostCalendars
+  //   boostDatalenses
+  //   boostDatasets
+  //   boostFiles
+  //   boostFilters
+  //   boostForms
+  //   boostPulses
+  //   boostStories
+  //   boostLinks
+  //   boostCharts
+  //   boostMaps
+  //
+  // TODO: make boost params handling simpler and more consistent.
   val boostColumns = "boostColumns"
   val boostDescription = "boostDesc"
   val boostTitle = "boostTitle"

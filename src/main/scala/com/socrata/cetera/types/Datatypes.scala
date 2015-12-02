@@ -15,12 +15,13 @@ trait DatatypeSimple {
   lazy val singular: String = plural.dropRight(1)
   lazy val names: Seq[String] = Seq(singular)
 }
+
 object DatatypeSimple {
   def apply(s: String): Option[DatatypeSimple] = {
     Datatypes.all.find(d => d.plural == s || d.singular == s).headOption
   }
   def apply(so: Option[String]): Option[DatatypeSimple] = {
-    so.flatMap(s => DatatypeSimple(s))
+    so.flatMap(s => DatatypeSimple(s.toLowerCase))
   }
 }
 
