@@ -1,10 +1,11 @@
 package com.socrata.cetera.search
 
-import com.socrata.cetera._
-import com.socrata.cetera.types._
+import scala.collection.JavaConverters._
+
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import scala.collection.JavaConverters._
+import com.socrata.cetera._
+import com.socrata.cetera.types._
 
 class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)

@@ -1,7 +1,7 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MultiMatchQueryBuilder}
 import org.elasticsearch.index.query.functionscore.{ScoreFunctionBuilders, FunctionScoreQueryBuilder}
+import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MultiMatchQueryBuilder}
 import org.elasticsearch.search.sort.{SortOrder, SortBuilders, SortBuilder}
 
 import com.socrata.cetera.types.{ScriptScoreFunction, DatatypeFieldType, DatatypeSimple}

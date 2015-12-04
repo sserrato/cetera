@@ -1,13 +1,14 @@
 package com.socrata.cetera.search
 
+import scala.io.Source
+
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.util.JsonUtil
-import com.socrata.cetera._
-import com.socrata.cetera.types._
 import org.elasticsearch.common.joda.time.DateTime
 import org.scalatest.exceptions.TestCanceledException
 
-import scala.io.Source
+import com.socrata.cetera._
+import com.socrata.cetera.types._
 
 trait TestESData {
   val client: ElasticSearchClient

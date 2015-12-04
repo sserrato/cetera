@@ -1,10 +1,7 @@
 package com.socrata.cetera.services
 
-import com.socrata.cetera._
-import com.socrata.cetera.search.ElasticSearchClient
-import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
-import com.socrata.cetera.util._
+import scala.collection.JavaConverters._
+
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
@@ -14,7 +11,11 @@ import org.elasticsearch.search.aggregations.bucket.nested.Nested
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import com.socrata.cetera._
+import com.socrata.cetera.search.ElasticSearchClient
+import com.socrata.cetera.types._
+import com.socrata.cetera.util.JsonResponses._
+import com.socrata.cetera.util._
 
 class FacetService(elasticSearchClient: ElasticSearchClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])

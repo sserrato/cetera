@@ -1,12 +1,13 @@
 package com.socrata.cetera.handlers
 
-import com.socrata.cetera._
-import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleRouteContext._
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
+
+import com.socrata.cetera._
+import com.socrata.cetera.types._
+import com.socrata.cetera.util.JsonResponses._
 
 // $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names

@@ -13,10 +13,10 @@ import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.types._
 import com.socrata.cetera.search.Aggregations._
 import com.socrata.cetera.search.Filters._
 import com.socrata.cetera.search.SundryBuilders._
+import com.socrata.cetera.types._
 
 object ElasticSearchClient {
   def apply(

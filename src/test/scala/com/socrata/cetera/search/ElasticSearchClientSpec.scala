@@ -2,11 +2,12 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
+import org.elasticsearch.action.search.SearchType.COUNT
+import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
+
 import com.socrata.cetera._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
-import org.elasticsearch.action.search.SearchType.COUNT
-import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 ////////////////////////////////////////////////////////
 // Brittleness deliberate. Query building not finalized.
