@@ -14,7 +14,8 @@ case class Domain(isCustomerDomain: Boolean,
                   organization: Option[String],
                   domainCname: String,
                   siteTitle: Option[String],
-                  moderationEnabled: Boolean)
+                  moderationEnabled: Boolean,
+                  routingApprovalEnabled: Boolean)
 
 object Domain {
   implicit val jCodec = AutomaticJsonCodecBuilder[Domain]

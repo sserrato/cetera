@@ -67,6 +67,9 @@ trait TestESData {
       |   %s
       | ],
       | "moderation_status": %s,
+      | "approving_domains": [
+      |   %s
+      | ],
       | "page_views": {
       |   "page_views_total": %s
       | },
@@ -84,7 +87,8 @@ trait TestESData {
       | "site_title": %s,
       | "organization": %s,
       | "is_customer_domain": %s,
-      | "moderation_enabled": %s
+      | "moderation_enabled": %s,
+      | "routing_approval_enabled": %s
       |}
     """.stripMargin
 
@@ -121,6 +125,7 @@ trait TestESData {
                          indexedMetadataColumnsNames: Seq[String],
                          customerMetadataFlattened: Map[String,String],
                          moderationStatus: String,
+                         approvingDomains: Seq[String],
                          pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
@@ -154,6 +159,7 @@ trait TestESData {
       quoteQualify(indexedMetadataColumnsNames),
       quoteQualifyMap(customerMetadataFlattened),
       quoteQualify(moderationStatus),
+      quoteQualify(approvingDomains),
       pageViewsTotal,
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
@@ -162,9 +168,9 @@ trait TestESData {
   }
 
   private def buildEsDomain(domainCname: String, siteTitle: String, organization: String,
-                            isCustomerDomain: Boolean, moderationEnabled: Boolean) =
+                            isCustomerDomain: Boolean, moderationEnabled: Boolean, routingApprovalEnabled: Boolean) =
     esDomainTemplate.format(quoteQualify(domainCname), quoteQualify(siteTitle), quoteQualify(organization),
-                            isCustomerDomain.toString, moderationEnabled.toString)
+                            isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString)
 
   private def buildEsDocByIndex(i: Int): String = {
     buildEsDoc(
@@ -192,6 +198,7 @@ trait TestESData {
       defaultImColumnNames,
       domainMetadata(i % domainMetadata.length),
       moderationStatuses(i % moderationStatuses.length),
+      approvingDomains(i % approvingDomains.length),
       pageViewsTotal(i % pageViewsTotal.length),
       domainCategories(i % domainCategories.length),
       domainTags(i % domainTags.length),
@@ -203,7 +210,8 @@ trait TestESData {
                   siteTitles(i % siteTitles.length),
                   defaultSocrataIdOrg,
                   isCustomerDomains(i % isCustomerDomains.length),
-                  isDomainModerated(i % isDomainModerated.length))
+                  isDomainModerated(i % isDomainModerated.length),
+                  hasRoutingApproval(i % hasRoutingApproval.length))
   }
 
   val defaultSocrataIdOrg = ""
@@ -232,10 +240,12 @@ trait TestESData {
   val popularities = Seq(0.1F, 0.42F, 1F, 42F)
   val isCustomerDomains = Seq(true, true, false)
   val isDomainModerated = Seq(false, true, false)
+  val hasRoutingApproval = Seq(true, false, true)
   val imNames = resourceNames
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
   val moderationStatuses = Seq("rejected", "approved", "pending", "default_view", "not_moderated")
+  val approvingDomains = Seq("petercetera.net", "blue.org", "annabelle.island.demo").map(Seq(_))
   val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))

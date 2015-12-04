@@ -151,6 +151,7 @@ class ElasticSearchClient(
       datatypeFilter(datatypes),
       domainFilter(domains),
       moderationStatusFilter(moderated),
+      routingApprovalFilter(searchContext),
       if (searchContext.isDefined) domainFilters else odnFilters
     )
     if (filters.nonEmpty) {

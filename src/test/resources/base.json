@@ -15,6 +15,10 @@
           "type" : "boolean",
           "index": "not_analyzed"
         },
+        "approving_domains" : {
+          "type" : "string",
+          "index": "not_analyzed"
+        },
         "datatype" : {
           "type" : "string",
           "index": "not_analyzed"
@@ -272,6 +276,10 @@
         },
         "moderation_enabled" : {
           "type": "boolean",
+          "index": "not_analyzed"
+        },
+        "routing_approval_enabled" : {
+          "type" : "boolean",
           "index": "not_analyzed"
         }
       }

@@ -43,6 +43,10 @@ case object ModerationStatusFieldType extends CeteraFieldType {
   val fieldName: String = "moderation_status"
 }
 
+case object ApprovingDomainsFieldType extends CeteraFieldType {
+  val fieldName: String = "approving_domains"
+}
+
 case object CategoriesFieldType extends Scorable with Rawable {
   val fieldName: String = "animl_annotations.categories"
   case object Name extends NestedField with Rawable {
