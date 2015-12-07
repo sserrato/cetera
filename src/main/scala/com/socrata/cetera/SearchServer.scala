@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
-import com.socrata.cetera.search.{ElasticSearchClient, DomainSearchClient}
+import com.socrata.cetera.search.{ElasticSearchClient, DocumentClient, DomainClient}
 import com.socrata.cetera.services._
 import com.socrata.cetera.types.ScriptScoreFunction
 
@@ -51,31 +51,36 @@ object SearchServer extends App {
                               config.http.liveness.missable,
                               executor) with Startable)
 
-    elasticSearch <- managed(
-      ElasticSearchClient(config.elasticSearch.elasticSearchServer,
-                          config.elasticSearch.elasticSearchPort,
-                          config.elasticSearch.elasticSearchClusterName,
-                          config.elasticSearch.typeBoosts.getOrElse(Map.empty),
-                          config.elasticSearch.titleBoost,
-                          config.elasticSearch.minShouldMatch,
-                          config.elasticSearch.functionScoreScripts.flatMap(fnName =>
-                            ScriptScoreFunction.getScriptFunction(fnName)).toSet))
-    domainSearch <- managed(new DomainSearchClient(elasticSearch.client))
-  } {
+    esClient <- managed(
+      new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
+                              config.elasticSearch.elasticSearchPort,
+                              config.elasticSearch.elasticSearchClusterName))
+    } {
+
+    val documentClient = DocumentClient(
+      esClient,
+      config.elasticSearch.typeBoosts.getOrElse(Map.empty),
+      config.elasticSearch.titleBoost,
+      config.elasticSearch.minShouldMatch,
+      config.elasticSearch.functionScoreScripts.flatMap(fnName =>
+      ScriptScoreFunction.getScriptFunction(fnName)).toSet
+    )
+    val domainClient = new DomainClient(esClient)
+
     logger.info("ElasticSearchClient initialized on nodes " +
-                  elasticSearch.client.asInstanceOf[TransportClient].transportAddresses().toString)
+                  esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)
 
     logger.info("Initializing VersionService")
     val versionService = VersionService
 
     logger.info("Initializing SearchService with Elasticsearch TransportClient")
-    val searchService = new SearchService(elasticSearch, domainSearch)
+    val searchService = new SearchService(documentClient, domainClient)
 
     logger.info("Initializing FacetService with Elasticsearch TransportClient")
-    val facetService = new FacetService(elasticSearch)
+    val facetService = new FacetService(documentClient)
 
     logger.info("Initializing CountService with Elasticsearch TransportClient")
-    val countService = new CountService(elasticSearch, domainSearch)
+    val countService = new CountService(documentClient, domainClient)
 
     logger.info("Initializing router with services")
     val router = new Router(
@@ -94,7 +99,8 @@ object SearchServer extends App {
       SocrataServerJetty
         .defaultOptions
         .withPort(config.server.port)
-        .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout))
+        .withGracefulShutdownTimeout(config.server.gracefulShutdownTimeout)
+    )
 
     logger.info("Running server!")
     server.run()

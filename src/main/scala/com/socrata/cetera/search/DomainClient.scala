@@ -3,7 +3,6 @@ package com.socrata.cetera.search
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, Strategy, JsonKeyStrategy}
-import org.elasticsearch.client.Client
 import org.elasticsearch.index.query._
 import org.slf4j.LoggerFactory
 
@@ -21,12 +20,10 @@ object Domain {
   implicit val jCodec = AutomaticJsonCodecBuilder[Domain]
 }
 
-class DomainSearchClient(val esClient: Client) {
+class DomainClient(val esClient: ElasticSearchClient) {
 
   val logger = LoggerFactory.getLogger(getClass)
-  val baseRequest = esClient.prepareSearch(Indices: _*)
-
-  def close(): Unit = esClient.close()
+  val baseRequest = esClient.client.prepareSearch(Indices: _*)
 
   def getDomain(cname: String): Option[Domain] = {
     val query = baseRequest.setQuery(QueryBuilders.idsQuery(esDomainType).addIds(cname))

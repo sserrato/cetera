@@ -12,12 +12,12 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.ElasticSearchClient
+import com.socrata.cetera.search.DocumentClient
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
-class FacetService(elasticSearchClient: ElasticSearchClient) {
+class FacetService(documentClient: DocumentClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
   // $COVERAGE-OFF$ jetty wiring
@@ -48,7 +48,7 @@ class FacetService(elasticSearchClient: ElasticSearchClient) {
   def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val request = elasticSearchClient.buildFacetRequest(cname)
+    val request = documentClient.buildFacetRequest(cname)
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
       .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]

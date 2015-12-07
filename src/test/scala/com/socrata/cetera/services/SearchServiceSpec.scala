@@ -5,7 +5,7 @@ import scala.collection.JavaConverters._
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient, TestESClient, TestESData}
+import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
@@ -17,10 +17,15 @@ import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-class SearchServiceSpec extends FunSuiteLike with Matchers {
-  val client: ElasticSearchClient = new TestESClient("Search Service")
-  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
-  val service: SearchService = new SearchService(client, domainClient)
+class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
+  val client: ElasticSearchClient = new TestESClient("SearchService")
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: SearchService = new SearchService(documentClient, domainClient)
+
+  override protected def afterAll(): Unit = {
+    client.close() // Important!!
+  }
 
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
@@ -199,8 +204,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers {
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
-  val service: SearchService = new SearchService(client, domainClient)
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: SearchService = new SearchService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()

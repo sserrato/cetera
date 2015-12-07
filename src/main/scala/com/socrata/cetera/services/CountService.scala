@@ -11,12 +11,12 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient}
+import com.socrata.cetera.search.{DomainClient, DocumentClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
-class CountService(elasticSearchClient: ElasticSearchClient, domainClient: DomainSearchClient) {
+class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
 
   // Possibly belongs in the client
@@ -45,7 +45,7 @@ class CountService(elasticSearchClient: ElasticSearchClient, domainClient: Domai
 
       case Right(params) =>
         val domain = params.searchContext.flatMap(domainClient.getDomain(_))
-        val res = elasticSearchClient.buildCountRequest(
+        val res = documentClient.buildCountRequest(
           field,
           params.searchQuery,
           params.domains,

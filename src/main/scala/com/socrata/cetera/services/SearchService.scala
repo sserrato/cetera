@@ -13,7 +13,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient}
+import com.socrata.cetera.search.{DomainClient, DocumentClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -39,7 +39,7 @@ object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
 
-class SearchService(elasticSearchClient: ElasticSearchClient, domainClient: DomainSearchClient) extends SimpleResource {
+class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // TODO: cetera-etl rename customer_blah to domain_blah

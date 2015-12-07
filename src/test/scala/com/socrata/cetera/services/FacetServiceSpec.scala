@@ -2,12 +2,14 @@ package com.socrata.cetera.services
 
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.search.{ElasticSearchClient, TestESClient, TestESData}
+import com.socrata.cetera.search._
 import com.socrata.cetera.types.Datatypes
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val service: FacetService = new FacetService(client)
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: FacetService = new FacetService(documentClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()

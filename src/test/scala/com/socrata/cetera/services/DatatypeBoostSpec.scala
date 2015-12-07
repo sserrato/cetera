@@ -4,15 +4,18 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.rojoma.json.v3.ast.{JNumber, JString}
 
-import com.socrata.cetera.search.{DomainSearchClient, ElasticSearchClient, TestESClient, TestESData}
+import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
 
 class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val boostedDatatype = TypeCharts
-  val client: ElasticSearchClient = new TestESClient(testSuiteName, Map(boostedDatatype -> 10F))
-  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
-  val service: SearchService = new SearchService(client, domainClient)
+  val datatypeBoosts =  Map[DatatypeSimple, Float](boostedDatatype -> 10F)
+
+  val client: ElasticSearchClient = new TestESClient(testSuiteName)
+  val documentClient: DocumentClient = new DocumentClient(client, datatypeBoosts, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: SearchService = new SearchService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()

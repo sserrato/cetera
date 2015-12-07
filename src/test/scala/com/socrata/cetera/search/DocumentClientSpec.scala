@@ -16,8 +16,9 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 //
 // JSON does not guarantee order.
 
-class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
+class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   val client = new TestESClient("esclientspec")  // Remember to close() me!!
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -209,7 +210,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           }
       }"""
 
-      val request = client.buildBaseRequest(
+      val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
         domains = None,
         searchContext = None,
@@ -241,7 +242,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           }
       }"""
 
-      val request = client.buildBaseRequest(
+      val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
         domains = None,
         searchContext = None,
@@ -274,7 +275,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           }
       }"""
 
-      val request = client.buildBaseRequest(
+      val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
         domains = None,
         searchContext = None,
@@ -316,7 +317,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
         "sort" : [ { "_score" : {} } ]
       }"""
 
-      val request = client.buildSearchRequest(
+      val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
         domains = params.domains,
         searchContext = None,
@@ -375,7 +376,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           ]
       }"""
 
-      val request = client.buildSearchRequest(
+      val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
         domains = params.domains,
         searchContext = None,
@@ -428,7 +429,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           }
       }"""
 
-      val request = client.buildCountRequest(
+      val request = documentClient.buildCountRequest(
         field = DomainFieldType,
         searchQuery = NoQuery,
         domains = None,
@@ -476,7 +477,7 @@ class ElasticSearchClientSpec extends WordSpec with ShouldMatchers with BeforeAn
           }
       }"""
 
-      val request = client.buildCountRequest(
+      val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
         domains = params.domains,

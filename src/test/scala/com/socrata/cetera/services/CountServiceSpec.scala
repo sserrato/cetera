@@ -5,13 +5,19 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.SearchResults
-import org.scalatest.{FunSuiteLike, Matchers}
-import com.socrata.cetera.search.{DomainSearchClient, TestESClient, ElasticSearchClient}
+import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-class CountServiceSpec extends FunSuiteLike with Matchers {
+import com.socrata.cetera.search.{ElasticSearchClient, DomainClient, TestESClient, DocumentClient}
+
+class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient("CountService")
-  val domainClient: DomainSearchClient = new DomainSearchClient(client.client)
-  val service: CountService = new CountService(client, domainClient)
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: CountService = new CountService(documentClient, domainClient)
+
+  override protected def afterAll(): Unit = {
+    client.close() // Important!!
+  }
 
   val esResponse = j"""{
     "took" : 1,
