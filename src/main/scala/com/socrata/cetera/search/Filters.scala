@@ -68,18 +68,10 @@ object Filters {
     Some(FilterBuilders.notFilter(unwantedViews))
   }
 
-  def routingApprovalFilter(domain: Option[Domain]): Option[OrFilterBuilder] = {
+  def routingApprovalFilter(domain: Option[Domain]): Option[TermsFilterBuilder] = {
     domain.flatMap { d =>
       if (d.routingApprovalEnabled) {
-        val defaultViews =
-          FilterBuilders.termFilter(ModerationStatusFieldType.fieldName, "default_view")
-        val derivedViews =
-          FilterBuilders.notFilter(defaultViews)
-        val defaultApprovedViews =
-          FilterBuilders.andFilter(
-            defaultViews,
-            FilterBuilders.termsFilter(ApprovingDomainsFieldType.fieldName, d.domainCname))
-        Some(FilterBuilders.orFilter(derivedViews, defaultApprovedViews))
+        Some(FilterBuilders.termsFilter(ApprovingDomainsFieldType.fieldName, d.domainCname))
       } else {
         None
       }
