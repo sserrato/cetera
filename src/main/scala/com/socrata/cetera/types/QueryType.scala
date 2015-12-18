@@ -19,10 +19,21 @@ object MinShouldMatch {
 case class ScriptScoreFunction(script: String)
 
 object ScriptScoreFunction {
+  private def script(script: String, lang: String = "expression"): ScriptScoreFunction =
+    ScriptScoreFunction(s"""
+      |"script": {
+      |  "lang": "$lang",
+      |  "inline": "$script"
+      |}
+    """.stripMargin)
+
+  protected val VIEWS = script("1 + doc['page_views.page_views_total_log'].value")
+  protected val SCORE = script("_score")
+
   def getScriptFunction(name: String): Option[ScriptScoreFunction] =
     name match {
-      case "views" => Option(ScriptScoreFunction("""1 + doc["page_views.page_views_total_log"].value"""))
-      case "score" => Option(ScriptScoreFunction("_score"))
+      case "views" => Option(VIEWS)
+      case "score" => Option(SCORE)
       case _ => None // log this?
     }
 }

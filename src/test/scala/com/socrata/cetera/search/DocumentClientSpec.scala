@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
-import org.elasticsearch.action.search.SearchType.COUNT
+import org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera._
@@ -96,7 +96,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val moderationFilter = j"""{
     "not" :
       {
-        "filter" :
+        "query" :
           {
             "terms" :
               {
@@ -110,7 +110,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val customerDomainFilter = j"""{
     "not" :
       {
-        "filter" :
+        "query" :
           {
             "terms" : {
                         "is_customer_domain" : [ "false" ]
@@ -120,9 +120,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val defaultFilter = j"""{
-    "and" :
+    "bool" :
       {
-        "filters" :
+        "must" :
           [
             ${moderationFilter},
             ${customerDomainFilter}
@@ -147,7 +147,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val animlCategoriesFilter = j"""{
     "nested" :
       {
-        "filter" :
+        "query" :
           {
             "terms" :
               {
@@ -166,7 +166,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val animlTagsFilter = j"""{
     "nested" :
     {
-      "filter" :
+      "query" :
         {
           "terms" :
             {
@@ -179,9 +179,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val complexFilter = j"""{
-    "and" :
+    "bool" :
       {
-        "filters" :
+        "must" :
           [
             ${datatypeDatasetsFilter},
             ${domainFilter},
@@ -201,9 +201,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val expected = j"""{
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" : { "match_all" : {} },
+                "must" : { "match_all" : {} },
                 "filter" :
                   ${defaultFilter}
               }
@@ -232,9 +232,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val expected = j"""{
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" :
+                "must" :
                   ${boolQuery},
                 "filter" :
                   ${defaultFilter}
@@ -265,9 +265,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val expected = j"""{
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" :
+                "must" :
                   ${boostedBoolQuery},
                 "filter" :
                   ${defaultFilter}
@@ -306,9 +306,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "size" : ${params.limit},
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" :
+                "must" :
                   ${boolQuery},
                 "filter" :
                   ${complexFilter}
@@ -345,9 +345,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "size" : ${params.limit},
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" : { "match_all" : {} },
+                "must" : { "match_all" : {} },
                 "filter" :
                   ${complexFilter}
               }
@@ -406,11 +406,12 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "buildCountRequest" should {
     "construct a default search query with normal aggregation for domains" in {
       val expected = j"""{
+        "size" : 0,
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" : { "match_all" : {} },
+                "must" : { "match_all" : {} },
                 "filter" :
                   ${defaultFilter}
               }
@@ -442,16 +443,18 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.searchType should be (COUNT)
+      request.request.searchType should be(QUERY_THEN_FETCH)
+      request.request.contextSize should be(0)
     }
 
     "construct a filtered match query with nested aggregation for annotations" in {
       val expected = j"""{
+        "size" : 0,
         "query" :
           {
-            "filtered" :
+            "bool" :
               {
-                "query" :
+                "must" :
                   ${boolQuery},
                 "filter" :
                   ${complexFilter}
@@ -490,7 +493,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.request.searchType should be (COUNT)
+      request.request.searchType should be(QUERY_THEN_FETCH)
+      request.request.contextSize should be(0)
     }
   }
 }

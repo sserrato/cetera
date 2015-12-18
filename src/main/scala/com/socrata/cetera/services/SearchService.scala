@@ -135,7 +135,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.getDomain(_))
+        val domain = params.searchContext.flatMap(domainClient.getDomain)
         val res = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,

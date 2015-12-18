@@ -12,10 +12,10 @@ object SundryBuilders {
 
   def addSlopParam(query: MultiMatchQueryBuilder, slop: Int): MultiMatchQueryBuilder = query.slop(slop)
 
-  def addFunctionScores(scriptScoreFunctions:Set[ScriptScoreFunction],
+  def addFunctionScores(scriptScoreFunctions: Set[ScriptScoreFunction],
                         query: FunctionScoreQueryBuilder): FunctionScoreQueryBuilder = {
     scriptScoreFunctions.foreach { fn =>
-      query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression"))
+      query.add(ScoreFunctionBuilders.scriptFunction(fn.script))
     }
 
     // Take a product of scores and replace original score with product
@@ -24,9 +24,7 @@ object SundryBuilders {
 
   def boostTypes(typeBoosts: Map[DatatypeSimple, Float]): BoolQueryBuilder = {
     typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-      typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-        q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
-      }
+      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
     }
   }
 

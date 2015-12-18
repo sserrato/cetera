@@ -4,7 +4,7 @@ import scala.io.Source
 
 import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.util.JsonUtil
-import org.elasticsearch.common.joda.time.DateTime
+import org.joda.time.DateTime
 import org.scalatest.exceptions.TestCanceledException
 
 import com.socrata.cetera._
@@ -275,7 +275,6 @@ trait TestESData {
       .execute.actionGet
     client.client.admin().indices().preparePutMapping(testSuiteName)
       .setType(esDocumentType).setSource(datatypeMappings)
-      .setIgnoreConflicts(true)
       .execute.actionGet
     Indices.foreach { alias =>
       client.client.admin().indices().prepareAliases()

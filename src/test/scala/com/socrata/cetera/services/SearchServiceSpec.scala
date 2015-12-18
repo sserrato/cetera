@@ -11,7 +11,6 @@ import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
 import org.elasticsearch.search.aggregations.{InternalAggregation, InternalAggregations}
-import org.elasticsearch.search.facet.{Facet, InternalFacets}
 import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
@@ -68,7 +67,6 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     val internalSearchHits = new InternalSearchHits(hits, 3037, 1.0f)
     val internalSearchResponse = new InternalSearchResponse(
       internalSearchHits,
-      new InternalFacets(List[Facet]().asJava),
       new InternalAggregations(List[InternalAggregation]().asJava),
       new Suggest(),
       false,

@@ -3,17 +3,18 @@ package com.socrata.cetera.search
 import java.io.File
 import java.nio.file.Files
 
-import org.elasticsearch.common.settings.ImmutableSettings
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.node.NodeBuilder._
 
 class TestESClient(val clusterName: String) extends ElasticSearchClient("local", 0, "useless") {
 
   val tempDataDir = Files.createTempDirectory("elasticsearch_data_").toFile
-  val testSettings = ImmutableSettings.settingsBuilder()
+  val testSettings = Settings.settingsBuilder()
     .put("cluster.name", clusterName)
     .put("client.transport.sniff", false)
     .put("discovery.zen.ping.multicast.enabled", false)
     .put("path.data", tempDataDir.toString)
+    .put("path.home", tempDataDir.getParent)
     .build
   val node = nodeBuilder().settings(testSettings).local(true).node()
 

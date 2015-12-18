@@ -27,7 +27,7 @@ val loggingDependencies = Seq(
 
 libraryDependencies ++= rojomaDependencies ++ socrataDependencies ++ loggingDependencies ++ Seq(
   "com.typesafe" % "config" % "1.0.2",
-  "org.elasticsearch" % "elasticsearch" % "1.7.2"
+  "org.elasticsearch" % "elasticsearch" % "2.0.2"
 )
 
 initialCommands := "import com.socrata.cetera._"

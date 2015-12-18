@@ -1,6 +1,6 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.search.{SearchType, SearchRequestBuilder}
 import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
@@ -61,7 +61,7 @@ class DocumentClient(
     typeBoosts: Map[DatatypeSimple, Float],
     minShouldMatch: Option[String],
     slop: Option[Int]
-  ): BaseQueryBuilder = {
+  ): QueryBuilder = {
     searchQuery match {
       case NoQuery => QueryBuilders.matchAllQuery
 
@@ -110,7 +110,7 @@ class DocumentClient(
                                  categories: Option[Set[String]],
                                  tags: Option[Set[String]],
                                  domainMetadata: Option[Set[(String, String)]],
-                                 q: BaseQueryBuilder): BaseQueryBuilder = {
+                                 q: QueryBuilder): QueryBuilder = {
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
     val odnFilters = List.concat(
@@ -132,7 +132,9 @@ class DocumentClient(
       if (searchContext.isDefined) domainFilters else odnFilters
     )
     if (filters.nonEmpty) {
-      QueryBuilders.filteredQuery(q, FilterBuilders.andFilter(filters.toSeq: _*))
+      QueryBuilders.boolQuery()
+        .must(q)
+        .filter(filters.toSeq.foldLeft(QueryBuilders.boolQuery) { (q, f) => q.must(f) })
     } else {
       q
     }
@@ -152,7 +154,7 @@ class DocumentClient(
     minShouldMatch: Option[String],
     slop: Option[Int]
   ): SearchRequestBuilder = {
-    val matchQuery: BaseQueryBuilder = generateQuery(
+    val matchQuery: QueryBuilder = generateQuery(
       searchQuery,
       // Look for default title boost; if a title boost is specified as a query parameter, it
       // will override the default
@@ -170,7 +172,7 @@ class DocumentClient(
       addFunctionScores(scriptScoreFunctions, query)
     } else { matchQuery }
 
-    val query: BaseQueryBuilder = buildFilteredQuery(only, domains, searchContext, categories, tags, domainMetadata, q)
+    val query: QueryBuilder = buildFilteredQuery(only, domains, searchContext, categories, tags, domainMetadata, q)
 
     // Imperative builder --> order is important
     val search = esClient.client.prepareSearch(Indices: _*)
@@ -207,7 +209,7 @@ class DocumentClient(
           .fieldSort(CategoriesFieldType.Score.fieldName)
           .order(SortOrder.DESC)
           .sortMode("avg")
-          .setNestedFilter(FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cats.toSeq: _*))
+          .setNestedFilter(QueryBuilders.termsQuery(CategoriesFieldType.Name.rawFieldName, cats.toSeq: _*))
 
       // ODN Tags
       case (_, _, Some(ts)) if searchContext.isEmpty =>
@@ -215,7 +217,7 @@ class DocumentClient(
           .fieldSort(TagsFieldType.Score.fieldName)
           .order(SortOrder.DESC)
           .sortMode("avg")
-          .setNestedFilter(FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, ts.toSeq: _*))
+          .setNestedFilter(QueryBuilders.termsQuery(TagsFieldType.Name.rawFieldName, ts.toSeq: _*))
 
       // Default
       case (_, _, _) => sortFieldDesc(PageViewsTotalFieldType.fieldName)
@@ -247,7 +249,8 @@ class DocumentClient(
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, None, only,
                      Map.empty, Map.empty, None, None)
       .addAggregation(aggregation)
-      .setSearchType("count")
+      .setSearchType(SearchType.QUERY_THEN_FETCH)
+      .setSize(0)
   }
 
   def buildFacetRequest(cname: String): SearchRequestBuilder = {
@@ -274,7 +277,7 @@ class DocumentClient(
 
     val filter = Option(cname) match {
       case Some(s) if s.nonEmpty => domainFilter(Some(Set(cname))).getOrElse(throw new NoSuchElementException)
-      case _ => FilterBuilders.matchAllFilter()
+      case _ => QueryBuilders.matchAllQuery()
     }
     val filteredAggs = AggregationBuilders.filter("domain_filter")
       .filter(filter)

@@ -55,23 +55,23 @@ class FacetService(documentClient: DocumentClient) {
       .getAggregations.asMap().asScala
 
     val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+      .getBuckets.asScala.map(b => ValueCount(b.getKeyAsString, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
     val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
 
     val categoriesValues = aggs("categories").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+      .getBuckets.asScala.map(b => ValueCount(b.getKeyAsString, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
     val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
 
     val tagsValues = aggs("tags").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+      .getBuckets.asScala.map(b => ValueCount(b.getKeyAsString, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
     val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
 
     val metadataFacets = aggs("metadata").asInstanceOf[Nested]
       .getAggregations.get("keys").asInstanceOf[Terms]
       .getBuckets.asScala.map { b =>
         val values = b.getAggregations.get("values").asInstanceOf[Terms]
-          .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }.toSeq
-        FacetCount(b.getKey, b.getDocCount, values)
+          .getBuckets.asScala.map { v => ValueCount(v.getKeyAsString, v.getDocCount) }.toSeq
+        FacetCount(b.getKeyAsString, b.getDocCount, values)
       }.toSeq
 
     val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
