@@ -1,3 +1,5 @@
+import sbtassembly.AssemblyPlugin.autoImport._
+
 name := "cetera"
 
 resolvers ++= Seq(
@@ -29,6 +31,14 @@ libraryDependencies ++= rojomaDependencies ++ socrataDependencies ++ loggingDepe
   "com.typesafe" % "config" % "1.0.2",
   "org.elasticsearch" % "elasticsearch" % "2.0.2"
 )
+
+// gosh sbt is a blackhole: joda-time embedded in elasticsearch requires special library shading
+assemblyMergeStrategy in assembly := {
+  case "org/joda/time/base/BaseDateTime.class" => MergeStrategy.first
+  case otherPath =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(otherPath)
+}
 
 initialCommands := "import com.socrata.cetera._"
 
