@@ -192,7 +192,6 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   ignore("es client - advanced query") {}
   ignore("es client - score boosts") {}
   ignore("es client - domain metadata filter") {}
-  ignore("es client - script score functions") {}
   ignore("es client - query with no filters, maybe?") {}
   ignore("es client - sort field asc/desc") {}
   ignore("popularity") {}
@@ -265,9 +264,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("not_moderated data federated to a moderated domain should not be in the response") {
     // the domain params will limit us to fxfs 0,1,3,4,6,7,9 and 10
-    val params = Map[String, String](
-      ("domains", "opendata-demo.socrata.com,petercetera.net"),
-      ("search_context", "opendata-demo.socrata.com")
+    val params = Map(
+      "domains" -> "opendata-demo.socrata.com,petercetera.net",
+      "search_context" -> "opendata-demo.socrata.com"
     )
     // we should not include fxfs 0,4,7,9 or 10
     val expectedFxfs = Set("fxf-1", "fxf-3", "fxf-6")
@@ -282,9 +281,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("if a domain has routing and approval, only datasets approved by that domain should show up") {
     // the domain params will limit us to fxfs 0, 2, 3, 5, 6, 8, 9
-    val params = Map[String, String](
-      ("domains", "blue.org,petercetera.net"),
-      ("search_context", "petercetera.net")
+    val params = Map(
+      "domains" -> "blue.org,petercetera.net",
+      "search_context" -> "petercetera.net"
     )
     // we should not include fxfs 0, 2, 5, *8*
     val expectedFxfs = Set("fxf-3", "fxf-6", "fxf-9")
@@ -294,6 +293,20 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     res.foreach { r =>
       val id = r.resource.dyn.id.!.asInstanceOf[JString].string
       expectedFxfs.contains(id) should be(true)
+    }
+  }
+
+  test("script score functions raise popular items to the top") {
+    val params = Map(
+      "q_internal" -> "one OR second OR third OR fourth"
+    )
+    val (results, timings) = service.doSearch(params)
+    results.results.headOption.foreach { r =>
+      r.resource.dyn.description.! should be(JString("Second the best"))
+      r.resource.dyn.nbe_fxf.! should be(JString("fxf-1"))
+      r.resource.dyn.`type`.! should be(JString("chart"))
+      r.resource.dyn.id.! should be(JString("fxf-1"))
+      r.resource.dyn.name.! should be(JString("Two"))
     }
   }
 }
