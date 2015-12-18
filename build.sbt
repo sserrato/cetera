@@ -29,6 +29,7 @@ val loggingDependencies = Seq(
 
 libraryDependencies ++= rojomaDependencies ++ socrataDependencies ++ loggingDependencies ++ Seq(
   "com.typesafe" % "config" % "1.0.2",
+  "org.apache.lucene" % "lucene-expressions" % "5.2.1",
   "org.elasticsearch" % "elasticsearch" % "2.0.2"
 )
 

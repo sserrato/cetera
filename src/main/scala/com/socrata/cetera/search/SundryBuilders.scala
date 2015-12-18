@@ -1,10 +1,11 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.functionscore.{ScoreFunctionBuilders, FunctionScoreQueryBuilder}
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MultiMatchQueryBuilder}
-import org.elasticsearch.search.sort.{SortOrder, SortBuilders, SortBuilder}
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
+import org.elasticsearch.index.query.functionscore.script.ScriptScoreFunctionBuilder
+import org.elasticsearch.index.query.{BoolQueryBuilder, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 
-import com.socrata.cetera.types.{ScriptScoreFunction, DatatypeFieldType, DatatypeSimple}
+import com.socrata.cetera.types.{DatatypeFieldType, DatatypeSimple}
 
 object SundryBuilders {
   def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String): MultiMatchQueryBuilder =
@@ -12,11 +13,9 @@ object SundryBuilders {
 
   def addSlopParam(query: MultiMatchQueryBuilder, slop: Int): MultiMatchQueryBuilder = query.slop(slop)
 
-  def addFunctionScores(scriptScoreFunctions: Set[ScriptScoreFunction],
+  def addFunctionScores(scriptScoreFunctions: Set[ScriptScoreFunctionBuilder],
                         query: FunctionScoreQueryBuilder): FunctionScoreQueryBuilder = {
-    scriptScoreFunctions.foreach { fn =>
-      query.add(ScoreFunctionBuilders.scriptFunction(fn.script))
-    }
+    scriptScoreFunctions.foreach { script => query.add(script) }
 
     // Take a product of scores and replace original score with product
     query.scoreMode("multiply").boostMode("replace")

@@ -63,7 +63,7 @@ object SearchServer extends App {
       config.elasticSearch.titleBoost,
       config.elasticSearch.minShouldMatch,
       config.elasticSearch.functionScoreScripts.flatMap(fnName =>
-        ScriptScoreFunction.getScriptFunction(fnName)).toSet
+        ScriptScoreFunction.fromName(fnName)).toSet
     )
     val domainClient = new DomainClient(esClient)
 

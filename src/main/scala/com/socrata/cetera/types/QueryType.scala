@@ -1,5 +1,12 @@
 package com.socrata.cetera.types
 
+import scala.collection.JavaConverters._
+
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders
+import org.elasticsearch.index.query.functionscore.script.ScriptScoreFunctionBuilder
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptService.ScriptType
+
 sealed trait QueryType
 
 case object NoQuery extends QueryType
@@ -16,21 +23,20 @@ object MinShouldMatch {
     }
 }
 
-case class ScriptScoreFunction(script: String)
-
 object ScriptScoreFunction {
-  private def script(script: String, lang: String = "expression"): ScriptScoreFunction =
-    ScriptScoreFunction(s"""
-      |"script": {
-      |  "lang": "$lang",
-      |  "inline": "$script"
-      |}
-    """.stripMargin)
+  private def fromScript(script: String, lang: String = "expression"): ScriptScoreFunctionBuilder =
+    ScoreFunctionBuilders.scriptFunction(
+      new Script(
+        script,
+        ScriptType.INLINE,
+        lang,
+        Map.empty[String,AnyRef].asJava
+      ))
 
-  protected val VIEWS = script("1 + doc['page_views.page_views_total_log'].value")
-  protected val SCORE = script("_score")
+  protected val VIEWS = fromScript("1 + doc['page_views.page_views_total_log'].value")
+  protected val SCORE = fromScript("_score")
 
-  def getScriptFunction(name: String): Option[ScriptScoreFunction] =
+  def fromName(name: String): Option[ScriptScoreFunctionBuilder] =
     name match {
       case "views" => Option(VIEWS)
       case "score" => Option(SCORE)

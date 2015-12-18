@@ -10,6 +10,7 @@ import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
+import org.elasticsearch.index.query.functionscore.script.ScriptScoreFunctionBuilder
 import org.elasticsearch.search.aggregations.{InternalAggregation, InternalAggregations}
 import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
@@ -202,7 +203,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val scripts: Set[ScriptScoreFunctionBuilder] = Set("views", "score").flatMap(ScriptScoreFunction.fromName)
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, scripts)
   val domainClient: DomainClient = new DomainClient(client)
   val service: SearchService = new SearchService(documentClient, domainClient)
 

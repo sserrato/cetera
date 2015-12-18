@@ -1,7 +1,8 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.action.search.{SearchType, SearchRequestBuilder}
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchType}
 import org.elasticsearch.index.query._
+import org.elasticsearch.index.query.functionscore.script.ScriptScoreFunctionBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
@@ -18,7 +19,7 @@ object DocumentClient {
     defaultTypeBoosts: Map[String, Float],
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
-    scriptScoreFunctions: Set[ScriptScoreFunction]
+    scriptScoreFunctions: Set[ScriptScoreFunctionBuilder]
     ): DocumentClient = {
     val datatypeBoosts = defaultTypeBoosts.flatMap { case (k, v) =>
       DatatypeSimple(k).map(datatype => (datatype, v))
@@ -32,7 +33,7 @@ class DocumentClient(
   defaultTypeBoosts: Map[DatatypeSimple, Float],
   defaultTitleBoost: Option[Float],
   defaultMinShouldMatch: Option[String],
-  scriptScoreFunctions: Set[ScriptScoreFunction]
+  scriptScoreFunctions: Set[ScriptScoreFunctionBuilder]
   ) {
   val logger = LoggerFactory.getLogger(getClass)
 
