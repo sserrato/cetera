@@ -202,7 +202,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val scripts: Set[ScriptScoreFunctionBuilder] = Set("views", "score").flatMap(ScriptScoreFunction.fromName)
+  val scripts: Set[ScriptScoreFunctionBuilder] = Set("views", "score").flatMap(fn => ScriptScoreFunction.fromName(fn))
   val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, scripts)
   val domainClient: DomainClient = new DomainClient(client)
   val service: SearchService = new SearchService(documentClient, domainClient)

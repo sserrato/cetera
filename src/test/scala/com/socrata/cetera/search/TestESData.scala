@@ -281,6 +281,25 @@ trait TestESData {
         .addAlias(testSuiteName, alias)
         .execute.actionGet
     }
+
+    client.client.preparePutIndexedScript
+      .setScriptLang("groovy")
+      .setId("script1")
+      .setSource("_score * doc['my_numeric_field'].value")
+      .execute.actionGet
+
+    client.client.preparePutIndexedScript
+      .setScriptLang("expression")
+      .setId("views")
+      .setSource("1 + doc['page_views.page_views_total_log'].value")
+      .setCreate(true)
+      .execute.actionGet
+    client.client.preparePutIndexedScript
+      .setScriptLang("expression")
+      .setId("score")
+      .setSource("_score")
+      .setCreate(true)
+      .execute.actionGet
   }
 
   def bootstrapData(): Unit = {

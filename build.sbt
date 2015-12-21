@@ -29,8 +29,9 @@ val loggingDependencies = Seq(
 
 libraryDependencies ++= rojomaDependencies ++ socrataDependencies ++ loggingDependencies ++ Seq(
   "com.typesafe" % "config" % "1.0.2",
-  "org.apache.lucene" % "lucene-expressions" % "5.2.1",
-  "org.elasticsearch" % "elasticsearch" % "2.0.2"
+  "org.apache.lucene" % "lucene-expressions" % "5.3.1",
+  "org.codehaus.groovy" % "groovy-all" % "2.4.4",
+  "org.elasticsearch" % "elasticsearch" % "2.1.1"
 )
 
 // gosh sbt is a blackhole: joda-time embedded in elasticsearch requires special library shading

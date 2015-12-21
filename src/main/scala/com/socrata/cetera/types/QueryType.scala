@@ -33,13 +33,15 @@ object ScriptScoreFunction {
         Map.empty[String,AnyRef].asJava
       ))
 
-  protected val VIEWS = fromScript("1 + doc['page_views.page_views_total_log'].value")
-  protected val SCORE = fromScript("_score")
-
-  def fromName(name: String): Option[ScriptScoreFunctionBuilder] =
-    name match {
-      case "views" => Option(VIEWS)
-      case "score" => Option(SCORE)
-      case _ => None // log this?
-    }
+  def fromName(name: String, lang: String = "expression"): Option[ScriptScoreFunctionBuilder] =
+    Option(
+      ScoreFunctionBuilders.scriptFunction(
+        new Script(
+          name,
+          ScriptType.INDEXED,
+          lang,
+          Map.empty[String,AnyRef].asJava
+        )
+      )
+    )
 }
