@@ -80,7 +80,7 @@ class DocumentClient(
         slop.foreach(addSlopParam(matchPhrase, _))
 
         // Combines the two queries above into a single Boolean query
-        val q = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
+        val q = QueryBuilders.boolQuery.must(matchTerms).should(matchPhrase)
 
         // If we have typeBoosts, add them as should match clause
         if (typeBoosts.nonEmpty) {
@@ -133,7 +133,7 @@ class DocumentClient(
       if (searchContext.isDefined) domainFilters else odnFilters
     )
     if (filters.nonEmpty) {
-      QueryBuilders.boolQuery()
+      QueryBuilders.boolQuery
         .must(q)
         .filter(filters.toSeq.foldLeft(QueryBuilders.boolQuery) { (q, f) => q.must(f) })
     } else {

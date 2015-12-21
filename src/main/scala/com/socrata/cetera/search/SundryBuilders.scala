@@ -22,7 +22,7 @@ object SundryBuilders {
   }
 
   def boostTypes(typeBoosts: Map[DatatypeSimple, Float]): BoolQueryBuilder = {
-    typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
+    typeBoosts.foldLeft(QueryBuilders.boolQuery) { case (q, (datatype, boost)) =>
       q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
     }
   }

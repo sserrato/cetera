@@ -42,11 +42,11 @@ object Filters {
 
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[BoolQueryBuilder] =
     metadata.map { sss =>
-      sss.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (q, kvp) =>
+      sss.foldLeft(QueryBuilders.boolQuery.minimumNumberShouldMatch(1)) { (q, kvp) =>
         q.should(
           QueryBuilders.nestedQuery(
             DomainMetadataFieldType.fieldName,
-            QueryBuilders.boolQuery()
+            QueryBuilders.boolQuery
               .must(QueryBuilders.termsQuery(DomainMetadataFieldType.Key.rawFieldName, kvp._1))
               .must(QueryBuilders.termsQuery(DomainMetadataFieldType.Value.rawFieldName, kvp._2))
           )
@@ -54,17 +54,17 @@ object Filters {
       }
     }
 
-  def customerDomainFilter: Option[NotQueryBuilder] =
-    Some(QueryBuilders.notQuery(QueryBuilders.termsQuery(IsCustomerDomainFieldType.fieldName, "false")))
+  def customerDomainFilter: Option[BoolQueryBuilder] =
+    Some(QueryBuilders.boolQuery.mustNot(QueryBuilders.termsQuery(IsCustomerDomainFieldType.fieldName, "false")))
 
-  def moderationStatusFilter(domainModerated:Boolean = false): Option[NotQueryBuilder] = {
+  def moderationStatusFilter(domainModerated:Boolean = false): Option[BoolQueryBuilder] = {
     val unwantedViews =
       if (domainModerated) {
         QueryBuilders.termsQuery(ModerationStatusFieldType.fieldName, "pending", "rejected", "not_moderated")
       } else {
         QueryBuilders.termsQuery(ModerationStatusFieldType.fieldName, "pending", "rejected")
       }
-    Some(QueryBuilders.notQuery(unwantedViews))
+    Some(QueryBuilders.boolQuery.mustNot(unwantedViews))
   }
 
   def routingApprovalFilter(domain: Option[Domain]): Option[TermsQueryBuilder] = {

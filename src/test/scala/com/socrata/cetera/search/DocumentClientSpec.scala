@@ -94,9 +94,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val moderationFilter = j"""{
-    "not" :
+    "bool" :
       {
-        "query" :
+        "must_not" :
           {
             "terms" :
               {
@@ -108,9 +108,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val customerDomainFilter = j"""{
-    "not" :
+    "bool" :
       {
-        "query" :
+        "must_not" :
           {
             "terms" : {
                         "is_customer_domain" : [ "false" ]
