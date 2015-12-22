@@ -34,8 +34,9 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
     val res = client.client.admin().indices().prepareGetSettings()
       .execute.actionGet
     val settings = res.getIndexToSettings.asScala.map(ooc => ooc.key -> ooc.value)
-    settings.size should be(1)
+    settings.size should be(2)
     settings.find { case (i,_) => i == testSuiteName } should be('defined)
+    settings.find { case (i,_) => i == ".scripts" } should be('defined)
   }
 
   test("mappings are bootstrapped") {
@@ -46,11 +47,15 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
         iom.key -> iom.value.sourceAsMap().asScala
       }
     }
-    mappings.size should be(2)
+    mappings.size should be(4)
+    mappings.find(_._1 == "document") should be('defined)
+    mappings.find(_._1 == "domain") should be('defined)
+    mappings.find(_._1 == "expression") should be('defined)
+    mappings.find(_._1 == "groovy") should be('defined)
   }
 
   test("test docs are bootstrapped") {
-    val res = client.client.prepareSearch().execute.actionGet
+    val res = client.client.prepareSearch(Indices :_*).execute.actionGet
     val numDocs = Datatypes.materialized.length
     val numDomains = domainCnames.length
     res.getHits.getTotalHits should be(numDocs + numDomains)
