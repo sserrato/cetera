@@ -127,15 +127,6 @@ object QueryParametersParser {
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
     apply(req.queryParameters)
 
-  private val boostParamStr = "boost"
-
-  private def datatypeBoostParam(param: String): Option[DatatypeSimple] =
-    param match {
-      case s: String if s.length > boostParamStr.length && s.toLowerCase.startsWith(boostParamStr) =>
-        DatatypeSimple(s.substring(boostParamStr.length).toLowerCase)
-      case _ => None
-    }
-
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals
   def apply(queryParameters: Map[String,String]): Either[Seq[ParseError], ValidatedQueryParameters] = {
@@ -158,7 +149,7 @@ object QueryParametersParser {
     }
 
     val datatypeBoosts = queryParameters.flatMap {
-      case (k, _) => datatypeBoostParam(k).flatMap(datatype =>
+      case (k, _) => Params.datatypeBoostParam(k).flatMap(datatype =>
         queryParameters.queryParam[NonNegativeFloat](k).map(boost =>
           (datatype, validated(boost).value)))
     }
@@ -199,9 +190,10 @@ object Params {
   val queryAdvanced = "q_internal"
   val querySimple = "q"
 
-  // The boosting code is rather complex. In addition to the boost parameters listed explicitly here,
-  // we also allow catalog datatypes to be boosted using the boost{typename}={factor} (eg. boostDatasets=10.0)
-  // syntax. Because these types have been changing regularly, we opted to not hardcode them right away.
+  // We allow catalog datatypes to be boosted using the boost{typename}={factor}
+  // (eg. boostDatasets=10.0) syntax. To avoid redundancy, we get the available
+  // types by way of the com.socrata.cetera.types.Datatypes.all method.
+  // See com.socrata.cetera.types.Datatypes for the type definitions.
   //
   // Available datatype boosting parameters:
   //   boostCalendars
@@ -215,8 +207,24 @@ object Params {
   //   boostLinks
   //   boostCharts
   //   boostMaps
-  //
-  // TODO: make boost params handling simpler and more consistent.
+
+  private val boostParamPrefix = "boost"
+
+  private val datatypeBoostParams = Datatypes.all.map(
+    datatype => s"$boostParamPrefix${datatype.plural.capitalize}")
+
+  private def typeNameFromBoostParam(boostParam: String): Option[String] =
+    if (boostParam.startsWith(boostParamPrefix)) {
+      Option(boostParam.stripPrefix(boostParamPrefix))
+    } else {
+      None
+    }
+
+  def datatypeBoostParam(param: String): Option[DatatypeSimple] =
+    datatypeBoostParams.find(_ == param).flatMap(boostParam =>
+      DatatypeSimple(typeNameFromBoostParam(boostParam.toLowerCase)))
+
+  // field boosting parameters
   val boostColumns = "boostColumns"
   val boostDescription = "boostDesc"
   val boostTitle = "boostTitle"
@@ -231,11 +239,26 @@ object Params {
   val scanOffset = "offset"
 
   // HEY! when adding/removing parameters update this list.
-  private val keys = List(context, filterDomains, filterCategories, filterTags, filterType,
-    queryAdvanced, querySimple, boostColumns, boostDescription, boostTitle,
-    minMatch, slop, showFeatureValues, showScore, functionScore, scanLength, scanOffset)
+  private val keys = List(
+    context,
+    filterDomains,
+    filterCategories,
+    filterTags,
+    filterType,
+    queryAdvanced,
+    querySimple,
+    boostColumns,
+    boostDescription,
+    boostTitle,
+    minMatch,
+    slop,
+    showFeatureValues,
+    showScore,
+    functionScore,
+    scanLength,
+    scanOffset
+  ) ++ datatypeBoostParams
 
-  def remaining(qs: Map[String, String]): Map[String, String] = {
-    qs.filterKeys(key => !keys.contains(key))
-  }
+  def remaining(qs: Map[String, String]): Map[String, String] =
+    qs.filterKeys(key => !(keys.contains(key)))
 }

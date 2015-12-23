@@ -21,7 +21,7 @@ object DatatypeSimple {
     Datatypes.all.find(d => d.plural == s || d.singular == s).headOption
   }
   def apply(so: Option[String]): Option[DatatypeSimple] = {
-    so.flatMap(s => DatatypeSimple(s.toLowerCase))
+    so.flatMap(DatatypeSimple(_))
   }
 }
 
