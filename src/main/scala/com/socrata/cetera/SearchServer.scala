@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
-import com.socrata.cetera.search.{ElasticSearchClient, DocumentClient, DomainClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient}
 import com.socrata.cetera.services._
 import com.socrata.cetera.types.ScriptScoreFunction
 

@@ -6,7 +6,7 @@ import java.nio.file.Files
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.node.NodeBuilder._
 
-class TestESClient(val clusterName: String) extends ElasticSearchClient("local", 0, "useless") {
+class TestESClient(val clusterName: String) extends ElasticSearchClient("localhost", 9301, "useless") {
 
   val tempDataDir = Files.createTempDirectory("elasticsearch_data_").toFile
   val testSettings = Settings.settingsBuilder()
