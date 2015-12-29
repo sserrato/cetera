@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.search.{DomainClient, DocumentClient}
+import com.socrata.cetera.types.HttpQueryParams._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -35,7 +36,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
   def doAggregate(field: CeteraFieldType with Countable with Rawable,
-                  queryParameters: Map[String,String]): (SearchResults[Count], InternalTimings) = {
+                  queryParameters: MultiQueryParams): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
     QueryParametersParser(queryParameters) match {
@@ -44,7 +45,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.getDomain(_))
+        val domain = params.searchContext.flatMap(domainClient.getDomain)
         val res = documentClient.buildCountRequest(
           field,
           params.searchQuery,
@@ -76,7 +77,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     }
 
     try {
-      val (formattedResults, timings) = doAggregate(field, req.queryParameters)
+      val (formattedResults, timings) = doAggregate(field, req.multiQueryParams)
       logger.info(LogHelper.formatRequest(req, timings))
       OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {

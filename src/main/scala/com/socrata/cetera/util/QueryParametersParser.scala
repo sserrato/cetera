@@ -2,6 +2,7 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
+import com.socrata.cetera.types.HttpQueryParams._
 import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
@@ -43,15 +44,23 @@ object QueryParametersParser {
   }
 
   // monkeys have been here
-  implicit class TypedQueryParams(queryParameters: Map[String,String]) {
-    def queryParam[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
-      queryParameters
-        .get(name)
-        .map(implicitly[ParamConverter[T]].convertFrom)
+  implicit class TypedQueryParams(queryParameters: MultiQueryParams) {
+    def getFirst(name: String): Option[String] = {
+      queryParameters.get(name).flatMap(_.headOption)
     }
 
-    def queryParamOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
-      queryParam[T](name).getOrElse(Right(default))
+    def getTypedSeq[T: ParamConverter](name: String): Option[Seq[Either[ParamConversionFailure, T]]] = {
+      queryParameters.get(name).map {
+        _.map(implicitly[ParamConverter[T]].convertFrom)
+      }
+    }
+
+    def getTypedFirst[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
+      queryParameters.getTypedSeq[T](name).flatMap(_.headOption)
+    }
+
+    def getTypedFirstOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
+      getTypedFirst[T](name).getOrElse(Right(default))
     }
   }
 
@@ -125,17 +134,20 @@ object QueryParametersParser {
     }.getOrElse(Right(None))
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
-    apply(req.queryParameters)
+    apply(req.multiQueryParams)
 
   // Convert these params to lower case because of Elasticsearch filters
   // Yes, the params parser now concerns itself with ES internals
-  def apply(queryParameters: Map[String,String]): Either[Seq[ParseError], ValidatedQueryParameters] = {
-    val query = pickQuery(queryParameters.get(Params.querySimple), queryParameters.get(Params.queryAdvanced))
+  def apply(queryParameters: MultiQueryParams): Either[Seq[ParseError], ValidatedQueryParameters] = {
+    val query = pickQuery(
+      queryParameters.get(Params.querySimple).flatMap(_.headOption),
+      queryParameters.get(Params.queryAdvanced).flatMap(_.headOption)
+    )
 
     val fieldBoosts = {
-      val boostTitle = queryParameters.queryParam[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
-      val boostDesc = queryParameters.queryParam[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
-      val boostColumns = queryParameters.queryParam[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
+      val boostTitle = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+      val boostDesc = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+      val boostColumns = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
 
       Map(
         TitleFieldType -> boostTitle,
@@ -150,34 +162,34 @@ object QueryParametersParser {
 
     val datatypeBoosts = queryParameters.flatMap {
       case (k, _) => Params.datatypeBoostParam(k).flatMap(datatype =>
-        queryParameters.queryParam[NonNegativeFloat](k).map(boost =>
+        queryParameters.getTypedFirst[NonNegativeFloat](k).map(boost =>
           (datatype, validated(boost).value)))
     }
 
-    restrictParamFilterType(queryParameters.get(Params.filterType)) match {
+    restrictParamFilterType(queryParameters.getFirst(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          queryParameters.get(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
+          queryParameters.getFirst(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(queryParameters)),
-          queryParameters.get(Params.context).map(_.toLowerCase),
-          queryParameters.get(Params.filterCategories).map(_.split(filterDelimiter).toSet),
-          queryParameters.get(Params.filterTags).map(_.toLowerCase.split(filterDelimiter).toSet),
+          queryParameters.getFirst(Params.context).map(_.toLowerCase),
+          queryParameters.get(Params.filterCategories).map(_.toSet),
+          queryParameters.get(Params.filterTags).map(_.map(tag => tag.toLowerCase).toSet),
           o,
           fieldBoosts,
           datatypeBoosts,
-          queryParameters.get(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
-          queryParameters.queryParam[Int](Params.slop).map(validated), // Check for slop
+          queryParameters.getFirst(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          queryParameters.getTypedFirst[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
-          validated(queryParameters.queryParamOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
-          validated(queryParameters.queryParamOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
+          validated(queryParameters.getTypedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
+          validated(queryParameters.getTypedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
         ))
       case Left(e) => Left(Seq(e))
     }
   }
 
-  private def queryStringDomainMetadata(queryParameters: Map[String,String]): Set[(String, String)] =
-    Params.remaining(queryParameters).toSet
+  private def queryStringDomainMetadata(queryParameters: MultiQueryParams): Set[(String, String)] =
+    Params.remaining(queryParameters).mapValues(_.head).toSet
 }
 
 object Params {
@@ -259,6 +271,5 @@ object Params {
     scanOffset
   ) ++ datatypeBoostParams
 
-  def remaining(qs: Map[String, String]): Map[String, String] =
-    qs.filterKeys(key => !(keys.contains(key)))
+  def remaining(qs: MultiQueryParams): MultiQueryParams = qs.filterKeys(key => !keys.contains(key))
 }
