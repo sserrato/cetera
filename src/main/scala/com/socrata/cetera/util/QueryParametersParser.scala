@@ -2,7 +2,6 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
-import com.socrata.cetera.types.HttpQueryParams._
 import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(

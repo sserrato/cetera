@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.search.{DomainClient, DocumentClient}
-import com.socrata.cetera.types.HttpQueryParams._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
