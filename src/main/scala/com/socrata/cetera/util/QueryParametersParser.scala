@@ -80,9 +80,9 @@ object QueryParametersParser {
     )
 
     val fieldBoosts = {
-      val boostTitle = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
-      val boostDesc = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
-      val boostColumns = queryParameters.getTypedFirst[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
+      val boostTitle = queryParameters.typedFirst[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+      val boostDesc = queryParameters.typedFirst[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+      val boostColumns = queryParameters.typedFirst[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
 
       Map(
         TitleFieldType -> boostTitle,
@@ -97,27 +97,27 @@ object QueryParametersParser {
 
     val datatypeBoosts = queryParameters.flatMap {
       case (k, _) => Params.datatypeBoostParam(k).flatMap(datatype =>
-        queryParameters.getTypedFirst[NonNegativeFloat](k).map(boost =>
+        queryParameters.typedFirst[NonNegativeFloat](k).map(boost =>
           (datatype, validated(boost).value)))
     }
 
-    restrictParamFilterType(queryParameters.getFirst(Params.filterType)) match {
+    restrictParamFilterType(queryParameters.first(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          queryParameters.getFirst(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
+          queryParameters.first(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(queryParameters)),
-          queryParameters.getFirst(Params.context).map(_.toLowerCase),
+          queryParameters.first(Params.context).map(_.toLowerCase),
           queryParameters.get(Params.filterCategories).map(_.toSet),
           queryParameters.get(Params.filterTags).map(_.map(tag => tag.toLowerCase).toSet),
           o,
           fieldBoosts,
           datatypeBoosts,
-          queryParameters.getFirst(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
-          queryParameters.getTypedFirst[Int](Params.slop).map(validated), // Check for slop
+          queryParameters.first(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          queryParameters.typedFirst[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
-          validated(queryParameters.getTypedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
-          validated(queryParameters.getTypedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
+          validated(queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
+          validated(queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))).value
         ))
       case Left(e) => Left(Seq(e))
     }

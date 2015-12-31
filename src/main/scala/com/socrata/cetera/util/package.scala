@@ -11,22 +11,22 @@ package object util {
   }
 
   implicit class TypedQueryParams(queryParameters: MultiQueryParams) {
-    def getFirst(name: String): Option[String] = {
+    def first(name: String): Option[String] = {
       queryParameters.get(name).flatMap(_.headOption)
     }
 
-    def getTypedSeq[T: ParamConverter](name: String): Option[Seq[Either[ParamConversionFailure, T]]] = {
+    def typedSeq[T: ParamConverter](name: String): Option[Seq[Either[ParamConversionFailure, T]]] = {
       queryParameters.get(name).map {
         _.map(implicitly[ParamConverter[T]].convertFrom)
       }
     }
 
-    def getTypedFirst[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
-      queryParameters.getTypedSeq[T](name).flatMap(_.headOption)
+    def typedFirst[T: ParamConverter](name: String): Option[Either[ParamConversionFailure, T]] = {
+      queryParameters.typedSeq[T](name).flatMap(_.headOption)
     }
 
-    def getTypedFirstOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
-      getTypedFirst[T](name).getOrElse(Right(default))
+    def typedFirstOrElse[T: ParamConverter](name: String, default: T): Either[ParamConversionFailure, T] = {
+      typedFirst[T](name).getOrElse(Right(default))
     }
   }
 }
