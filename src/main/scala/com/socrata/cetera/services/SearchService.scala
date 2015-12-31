@@ -127,7 +127,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
     })
   }
 
-  def doSearch(queryParameters: Map[String,String]): (SearchResults[SearchResult], InternalTimings) = {
+  def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
     QueryParametersParser(queryParameters) match {
       case Left(errors) =>
@@ -135,7 +135,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.getDomain(_))
+        val domain = params.searchContext.flatMap(domainClient.getDomain)
         val res = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
@@ -164,7 +164,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
   // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
     try {
-      val (formattedResults, timings) = doSearch(req.queryParameters)
+      val (formattedResults, timings) = doSearch(req.multiQueryParams)
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {
