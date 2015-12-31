@@ -43,12 +43,12 @@ object Filters {
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[OrFilterBuilder] =
     metadata.map { ss =>
       FilterBuilders.orFilter(
-        ss.map { kvp =>
+        ss.map { case (key, value) =>
           FilterBuilders.nestedFilter(
             DomainMetadataFieldType.fieldName,
             FilterBuilders.andFilter(
-              FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, kvp._1),
-              FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, kvp._2)
+              FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, key),
+              FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, value)
             )
           )
         }.toSeq: _*
