@@ -1,6 +1,7 @@
 package com.socrata.cetera.services
 
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
@@ -36,7 +37,7 @@ class FacetService(documentClient: DocumentClient) {
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             val esError = ElasticsearchError(e)
             logger.error(s"Database error: ${esError.getMessage}")
             InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)

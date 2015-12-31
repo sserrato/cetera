@@ -1,5 +1,7 @@
 package com.socrata.cetera.services
 
+import scala.util.control.NonFatal
+
 import com.rojoma.json.v3.ast._
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
@@ -171,7 +173,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-      case e: Exception =>
+      case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")
         InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
