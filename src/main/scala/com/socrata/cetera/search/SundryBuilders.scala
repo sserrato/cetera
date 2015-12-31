@@ -4,7 +4,7 @@ import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, S
 import org.elasticsearch.index.query.{BoolQueryBuilder, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 
-import com.socrata.cetera.types.{DatatypeFieldType, DatatypeSimple, ScriptScoreFunction}
+import com.socrata.cetera.types.{DatatypeFieldType, Datatype, ScriptScoreFunction}
 
 object SundryBuilders {
   def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String): MultiMatchQueryBuilder =
@@ -22,7 +22,7 @@ object SundryBuilders {
     query.scoreMode("multiply").boostMode("replace")
   }
 
-  def boostTypes(typeBoosts: Map[DatatypeSimple, Float]): BoolQueryBuilder = {
+  def boostTypes(typeBoosts: Map[Datatype, Float]): BoolQueryBuilder = {
     typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
       typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
         q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))

@@ -4,32 +4,37 @@ object Datatypes {
   val materialized: Seq[Materialized] = Seq(TypeCalendars, TypeCharts,
     TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms,
     TypeMaps, TypeHrefs, TypePulses, TypeStories)
-  val renamed: Seq[DatatypeSimple] = Seq(TypeLinks)
-  val viewSpecific: Seq[DatatypeSimple] = Seq(TypeDatalensCharts, TypeDatalensMaps, TypeTabularMaps)
+  val renamed: Seq[Datatype] = Seq(TypeLinks)
+  val viewSpecific: Seq[Datatype] = Seq(TypeDatalensCharts, TypeDatalensMaps, TypeTabularMaps)
 
-  val all: Seq[DatatypeSimple] = viewSpecific ++ renamed ++ materialized
+  val all: Seq[Datatype] = viewSpecific ++ renamed ++ materialized
 }
 
-trait DatatypeSimple {
-  val plural: String
+trait Datatype {
+  def plural: String
+  def singular: String
+  def names: Seq[String]
+}
+
+object Datatype {
+  def apply(s: String): Option[Datatype] = {
+    Datatypes.all.find(d => d.plural == s || d.singular == s).headOption
+  }
+  def apply(so: Option[String]): Option[Datatype] = {
+    so.flatMap(Datatype(_))
+  }
+}
+
+trait DatatypeSimple extends Datatype {
   lazy val singular: String = plural.dropRight(1)
   lazy val names: Seq[String] = Seq(singular)
 }
 
-object DatatypeSimple {
-  def apply(s: String): Option[DatatypeSimple] = {
-    Datatypes.all.find(d => d.plural == s || d.singular == s).headOption
-  }
-  def apply(so: Option[String]): Option[DatatypeSimple] = {
-    so.flatMap(DatatypeSimple(_))
-  }
+trait DatatypeRename extends Datatype {
+  lazy val singular: String = plural.dropRight(1)
 }
 
-trait DatatypeRename extends DatatypeSimple {
-  override lazy val names: Seq[String] = ???
-}
-
-trait Materialized extends DatatypeSimple
+trait Materialized extends Datatype
 
 case object TypeCalendars extends DatatypeSimple with Materialized {
   val plural = "calendars"

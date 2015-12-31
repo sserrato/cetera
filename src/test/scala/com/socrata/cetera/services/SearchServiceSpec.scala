@@ -139,7 +139,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       Map(dt -> "href"),
       Map(dt -> "story", xp -> "/stories/s/", xs -> "/stories/s/")
     ).foreach { t =>
-      val urls = SearchService.links(cname, DatatypeSimple(t.get(dt)), t.get(vt), id, category, name)
+      val urls = SearchService.links(cname, Datatype(t.get(dt)), t.get(vt), id, category, name)
       urls.getOrElse("permalink", fail()).string should include(t.getOrElse(xp, xpDefault))
       urls.getOrElse("link", fail()).string should include(t.getOrElse(xs, xsDefault))
     }

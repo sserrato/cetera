@@ -89,8 +89,8 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
       case _ => None
     })
 
-  private def datatype(j: JValue): Option[DatatypeSimple] =
-    extractJString(j.dyn.datatype.?).flatMap(s => DatatypeSimple(s))
+  private def datatype(j: JValue): Option[Datatype] =
+    extractJString(j.dyn.datatype.?).flatMap(s => Datatype(s))
 
   private def viewtype(j: JValue): Option[String] = extractJString(j.dyn.viewtype.?)
 
@@ -186,7 +186,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
 
 object SearchService {
   def links(cname: String,
-             datatype: Option[DatatypeSimple],
+             datatype: Option[Datatype],
              viewtype: Option[String],
              datasetId: String,
              datasetCategory: Option[String],

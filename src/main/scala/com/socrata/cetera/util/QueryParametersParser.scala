@@ -13,7 +13,7 @@ case class ValidatedQueryParameters(
   tags: Option[Set[String]],
   only: Option[Seq[String]],
   fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-  datatypeBoosts: Map[DatatypeSimple, Float],
+  datatypeBoosts: Map[Datatype, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
   showScore: Boolean,
@@ -62,7 +62,7 @@ object QueryParametersParser {
   // This can stay case-sensitive because it is so specific
   def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
     only.map { s =>
-      DatatypeSimple(s) match {
+      Datatype(s) match {
         case None => Left(OnlyError(s"'only' must be one of $allowedTypes; got $s"))
         case Some(d) => Right(Some(d.names))
       }
@@ -167,9 +167,9 @@ object Params {
       None
     }
 
-  def datatypeBoostParam(param: String): Option[DatatypeSimple] =
+  def datatypeBoostParam(param: String): Option[Datatype] =
     datatypeBoostParams.find(_ == param).flatMap(boostParam =>
-      DatatypeSimple(typeNameFromBoostParam(boostParam.toLowerCase)))
+      Datatype(typeNameFromBoostParam(boostParam.toLowerCase)))
 
   // field boosting parameters
   val boostColumns = "boostColumns"
