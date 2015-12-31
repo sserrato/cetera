@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.io.JsonReader
-import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, Strategy, JsonKeyStrategy}
+import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Strategy}
 import org.elasticsearch.index.query._
 import org.slf4j.LoggerFactory
 

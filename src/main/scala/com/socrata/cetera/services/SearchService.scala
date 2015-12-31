@@ -8,12 +8,12 @@ import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Stra
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpResponse, HttpRequest, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainClient, DocumentClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._

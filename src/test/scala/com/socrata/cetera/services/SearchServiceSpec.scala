@@ -4,9 +4,6 @@ import scala.collection.JavaConverters._
 
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
-import com.socrata.cetera._
-import com.socrata.cetera.search._
-import com.socrata.cetera.types._
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -16,6 +13,10 @@ import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
+
+import com.socrata.cetera._
+import com.socrata.cetera.search._
+import com.socrata.cetera.types._
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient("SearchService")

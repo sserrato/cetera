@@ -1,8 +1,7 @@
 package com.socrata.cetera.services
 
-import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
-
 import com.rojoma.json.v3.ast.{JNumber, JString}
+import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._

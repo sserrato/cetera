@@ -3,11 +3,11 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
-import com.socrata.cetera.types.Count
-import com.socrata.cetera.util.SearchResults
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.search.{ElasticSearchClient, DomainClient, TestESClient, DocumentClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient, TestESClient}
+import com.socrata.cetera.types.Count
+import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient("CountService")

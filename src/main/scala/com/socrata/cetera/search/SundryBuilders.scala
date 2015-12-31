@@ -1,10 +1,10 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.functionscore.{ScoreFunctionBuilders, FunctionScoreQueryBuilder}
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MultiMatchQueryBuilder}
-import org.elasticsearch.search.sort.{SortOrder, SortBuilders, SortBuilder}
+import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
+import org.elasticsearch.index.query.{BoolQueryBuilder, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 
-import com.socrata.cetera.types.{ScriptScoreFunction, DatatypeFieldType, DatatypeSimple}
+import com.socrata.cetera.types.{DatatypeFieldType, DatatypeSimple, ScriptScoreFunction}
 
 object SundryBuilders {
   def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String): MultiMatchQueryBuilder =
