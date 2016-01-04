@@ -116,7 +116,7 @@ object QueryParametersParser {
         Right(ValidatedQueryParameters(
           query,
           queryParameters.first(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
-          Option(queryStringDomainMetadata(queryParameters)),
+          queryStringDomainMetadata(queryParameters),
           queryParameters.first(Params.context).map(_.toLowerCase),
           mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)),
           mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray), _.toLowerCase),
@@ -133,8 +133,10 @@ object QueryParametersParser {
     }
   }
 
-  private def queryStringDomainMetadata(queryParameters: MultiQueryParams): Set[(String, String)] =
-    Params.remaining(queryParameters).mapValues(_.head).toSet
+  private def queryStringDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
+    val ms = Params.remaining(queryParameters).mapValues(_.head).toSet
+    if (ms.nonEmpty) Some(ms) else None
+  }
 }
 
 object Params {
