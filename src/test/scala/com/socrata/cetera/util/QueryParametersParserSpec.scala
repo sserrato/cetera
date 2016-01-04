@@ -149,4 +149,87 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
   }
+
+  test("also allow categories[] parameters") {
+    QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz"))) match {
+      case Right(params) =>
+        params.categories should be('defined)
+        params.categories.get should have size 4
+        params.categories.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
+      case _ => fail()
+    }
+  }
+
+  test("also allow tags[] parameters") {
+    QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz"))) match {
+      case Right(params) =>
+        params.tags should be('defined)
+        params.tags.get should have size 4
+        params.tags.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
+      case _ => fail()
+    }
+  }
+
+  test("domain metadata excludes known parameters") {
+    val knownEnumParams = Map("only" -> Seq("calendar",
+      "chart",
+      "datalens",
+      "dataset",
+      "file",
+      "filter",
+      "form",
+      "map",
+      "href",
+      "pulse",
+      "story",
+      "link",
+      "datalens_chart",
+      "datalens_map",
+      "tabular_map"))
+
+    val knownNumericParams = List(
+      "boostColumns",
+      "boostDesc",
+      "boostTitle",
+      "limit",
+      "offset",
+      "slop",
+      "boostCalendars",
+      "boostCharts",
+      "boostDatalenses",
+      "boostDatasets",
+      "boostFiles",
+      "boostFilters",
+      "boostForms",
+      "boostMaps",
+      "boostHrefs",
+      "boostPulses",
+      "boostStories",
+      "boostLinks",
+      "boostDatalens_charts",
+      "boostDatalens_maps",
+      "boostTabular_maps"
+    ).map(p => p -> Seq("42")).toMap
+
+    val knownStringParams = List(
+      "search_context",
+      "domains",
+      "categories",
+      "categories[]",
+      "tags",
+      "tags[]",
+      "q",
+      "q_internal",
+      "min_should_match",
+      "show_feature_vals",
+      "show_score",
+      "function_score"
+    ).map(p => p -> Seq(p)).toMap
+
+    QueryParametersParser(knownEnumParams ++ knownNumericParams ++ knownStringParams) match {
+      case Right(params) =>
+        params.domainMetadata shouldNot be('defined)
+      case _ => fail()
+    }
+  }
 }
