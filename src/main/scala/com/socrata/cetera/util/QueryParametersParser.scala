@@ -113,7 +113,7 @@ object QueryParametersParser {
           o,
           fieldBoosts,
           datatypeBoosts,
-          queryParameters.first(Params.minMatch).flatMap { case p: String => MinShouldMatch.fromParam(query, p) },
+          queryParameters.first(Params.minMatch).flatMap { p => MinShouldMatch.fromParam(query, p) },
           queryParameters.typedFirst[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
           validated(queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))).value,
