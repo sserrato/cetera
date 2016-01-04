@@ -1,5 +1,7 @@
 package com.socrata.cetera.services
 
+import scala.util.control.NonFatal
+
 import com.rojoma.json.v3.ast._
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
@@ -8,12 +10,12 @@ import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Stra
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpResponse, HttpRequest, HttpService}
+import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainClient, DocumentClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -89,8 +91,8 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
       case _ => None
     })
 
-  private def datatype(j: JValue): Option[DatatypeSimple] =
-    extractJString(j.dyn.datatype.?).flatMap(s => DatatypeSimple(s))
+  private def datatype(j: JValue): Option[Datatype] =
+    extractJString(j.dyn.datatype.?).flatMap(s => Datatype(s))
 
   private def viewtype(j: JValue): Option[String] = extractJString(j.dyn.viewtype.?)
 
@@ -135,7 +137,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.getDomain)
+        val domain = params.searchContext.flatMap(domainClient.find)
         val res = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
@@ -171,7 +173,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-      case e: Exception =>
+      case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")
         InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
@@ -186,7 +188,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
 
 object SearchService {
   def links(cname: String,
-             datatype: Option[DatatypeSimple],
+             datatype: Option[Datatype],
              viewtype: Option[String],
              datasetId: String,
              datasetCategory: Option[String],

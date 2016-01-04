@@ -21,7 +21,7 @@ object DocumentClient {
     scriptScoreFunctions: Set[ScriptScoreFunction]
     ): DocumentClient = {
     val datatypeBoosts = defaultTypeBoosts.flatMap { case (k, v) =>
-      DatatypeSimple(k).map(datatype => (datatype, v))
+      Datatype(k).map(datatype => (datatype, v))
     }
     new DocumentClient(esClient, datatypeBoosts, defaultTitleBoost, defaultMinShouldMatch, scriptScoreFunctions)
   }
@@ -29,7 +29,7 @@ object DocumentClient {
 
 class DocumentClient(
   esClient: ElasticSearchClient,
-  defaultTypeBoosts: Map[DatatypeSimple, Float],
+  defaultTypeBoosts: Map[Datatype, Float],
   defaultTitleBoost: Option[Float],
   defaultMinShouldMatch: Option[String],
   scriptScoreFunctions: Set[ScriptScoreFunction]
@@ -58,7 +58,7 @@ class DocumentClient(
   def generateQuery(
     searchQuery: QueryType,
     fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-    typeBoosts: Map[DatatypeSimple, Float],
+    typeBoosts: Map[Datatype, Float],
     minShouldMatch: Option[String],
     slop: Option[Int]
   ): BaseQueryBuilder = {
@@ -148,7 +148,7 @@ class DocumentClient(
     domainMetadata: Option[Set[(String, String)]],
     only: Option[Seq[String]],
     fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-    datatypeBoosts: Map[DatatypeSimple, Float],
+    datatypeBoosts: Map[Datatype, Float],
     minShouldMatch: Option[String],
     slop: Option[Int]
   ): SearchRequestBuilder = {
@@ -190,7 +190,7 @@ class DocumentClient(
     tags: Option[Set[String]],
     only: Option[Seq[String]],
     fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-    datatypeBoosts: Map[DatatypeSimple, Float],
+    datatypeBoosts: Map[Datatype, Float],
     minShouldMatch: Option[String],
     slop: Option[Int],
     offset: Int,

@@ -24,14 +24,14 @@ class DomainClientSpec extends WordSpec with ShouldMatchers  with TestESData wit
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
         routingApprovalEnabled = true)
-      val actualDomain = domainClient.getDomain("petercetera.net")
+      val actualDomain = domainClient.find("petercetera.net")
 
       actualDomain.get should be(expectedDomain)
     }
 
     "return None if the domain does not exist" in {
       val expectedDomain = None
-      val actualDomain = domainClient.getDomain("hellcat.com")
+      val actualDomain = domainClient.find("hellcat.com")
 
       actualDomain should be(expectedDomain)
     }

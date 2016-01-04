@@ -3,7 +3,7 @@ package com.socrata.cetera.services
 import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpService, HttpRequest}
+import com.socrata.http.server.{HttpRequest, HttpService}
 import org.slf4j.LoggerFactory
 
 class VersionService

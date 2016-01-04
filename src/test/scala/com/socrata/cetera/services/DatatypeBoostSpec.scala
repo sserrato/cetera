@@ -1,8 +1,7 @@
 package com.socrata.cetera.services
 
-import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
-
 import com.rojoma.json.v3.ast.{JNumber, JString}
+import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
@@ -10,7 +9,7 @@ import com.socrata.cetera.util.Params
 
 class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val boostedDatatype = TypeCharts
-  val datatypeBoosts =  Map[DatatypeSimple, Float](boostedDatatype -> 10F)
+  val datatypeBoosts =  Map[Datatype, Float](boostedDatatype -> 10F)
 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(client, datatypeBoosts, None, None, Set.empty)

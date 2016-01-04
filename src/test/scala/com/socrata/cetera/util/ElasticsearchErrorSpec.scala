@@ -1,6 +1,6 @@
 package com.socrata.cetera.util
 
-import org.scalatest.{Matchers, FunSuiteLike}
+import org.scalatest.{FunSuiteLike, Matchers}
 
 class ElasticsearchErrorSpec extends FunSuiteLike with Matchers {
   test("parse this one error") {

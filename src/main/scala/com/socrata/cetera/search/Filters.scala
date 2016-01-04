@@ -7,7 +7,7 @@ import com.socrata.cetera.types._
 object Filters {
   def datatypeFilter(datatypes: Option[Seq[String]]): Option[TermsFilterBuilder] =
     datatypes.map { ts =>
-      val validatedDatatypes = ts.map(t => DatatypeSimple(t).map(_.singular)).flatten
+      val validatedDatatypes = ts.map(t => Datatype(t).map(_.singular)).flatten
       FilterBuilders.termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
     }
 
@@ -43,12 +43,12 @@ object Filters {
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[OrFilterBuilder] =
     metadata.map { ss =>
       FilterBuilders.orFilter(
-        ss.map { kvp =>
+        ss.map { case (key, value) =>
           FilterBuilders.nestedFilter(
             DomainMetadataFieldType.fieldName,
             FilterBuilders.andFilter(
-              FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, kvp._1),
-              FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, kvp._2)
+              FilterBuilders.termsFilter(DomainMetadataFieldType.Key.rawFieldName, key),
+              FilterBuilders.termsFilter(DomainMetadataFieldType.Value.rawFieldName, value)
             )
           )
         }.toSeq: _*

@@ -1,6 +1,5 @@
 package com.socrata.cetera.config
 
-import com.socrata.thirdparty.curator.{CuratorConfig, DiscoveryConfig}
 import com.socrata.thirdparty.typesafeconfig.ConfigClass
 import com.typesafe.config.Config
 
