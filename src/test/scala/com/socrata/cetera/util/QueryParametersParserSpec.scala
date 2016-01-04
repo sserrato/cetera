@@ -149,4 +149,24 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
   }
+
+  test("also allow categories[] parameters") {
+    QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz"))) match {
+      case Right(params) =>
+        params.categories should be('defined)
+        params.categories.get should have size 4
+        params.categories.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
+      case _ => fail()
+    }
+  }
+
+  test("also allow tags[] parameters") {
+    QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz"))) match {
+      case Right(params) =>
+        params.tags should be('defined)
+        params.tags.get should have size 4
+        params.tags.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
+      case _ => fail()
+    }
+  }
 }

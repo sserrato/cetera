@@ -57,6 +57,16 @@ object QueryParametersParser {
       case _ => NoQuery
     }
 
+  private def mergeOptionalSets[T](ss: Set[Option[Set[T]]]): Option[Set[T]] = {
+    val cs = ss.foldLeft(Set.empty[T]) { (acc, ost) => acc ++ ost.getOrElse(Set.empty[T]) }
+    if (cs.nonEmpty) Some(cs) else None
+  }
+
+  private def mergeParams(queryParameters: MultiQueryParams,
+                          selectKeys: Set[String],
+                          transform: String => String = identity): Option[Set[String]] =
+    mergeOptionalSets(selectKeys.map(key => queryParameters.get(key).map(_.map(value => transform(value)).toSet)))
+
   val allowedTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
 
   // This can stay case-sensitive because it is so specific
@@ -108,8 +118,8 @@ object QueryParametersParser {
           queryParameters.first(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
           Option(queryStringDomainMetadata(queryParameters)),
           queryParameters.first(Params.context).map(_.toLowerCase),
-          queryParameters.get(Params.filterCategories).map(_.toSet),
-          queryParameters.get(Params.filterTags).map(_.map(tag => tag.toLowerCase).toSet),
+          mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)),
+          mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray), _.toLowerCase),
           o,
           fieldBoosts,
           datatypeBoosts,
@@ -131,7 +141,9 @@ object Params {
   val context = "search_context"
   val filterDomains = "domains"
   val filterCategories = "categories"
+  val filterCategoriesArray = "categories[]"
   val filterTags = "tags"
+  val filterTagsArray = "tags[]"
   val filterType = "only"
 
   val queryAdvanced = "q_internal"
@@ -190,7 +202,9 @@ object Params {
     context,
     filterDomains,
     filterCategories,
+    filterCategoriesArray,
     filterTags,
+    filterTagsArray,
     filterType,
     queryAdvanced,
     querySimple,
