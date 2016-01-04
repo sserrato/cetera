@@ -58,7 +58,7 @@ object QueryParametersParser {
     }
 
   private def mergeOptionalSets[T](ss: Set[Option[Set[T]]]): Option[Set[T]] = {
-    val cs = ss.foldLeft(Set.empty[T]) { (acc, ost) => acc ++ ost.getOrElse(Set.empty[T]) }
+    val cs = ss.flatMap(_.getOrElse(Set.empty[T]))
     if (cs.nonEmpty) Some(cs) else None
   }
 
