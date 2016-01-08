@@ -134,7 +134,8 @@ object QueryParametersParser {
   }
 
   private def queryStringDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
-    val ms = Params.remaining(queryParameters).mapValues(_.head).toSet
+    val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
+    val ms = Params.remaining(queryParamsNonEmpty).mapValues(_.head).toSet
     if (ms.nonEmpty) Some(ms) else None
   }
 }

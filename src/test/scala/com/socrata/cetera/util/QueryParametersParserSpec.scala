@@ -232,4 +232,20 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
   }
+
+  // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&
+  test("handle empty query string param key") {
+    QueryParametersParser(Map("" -> Seq())) match {
+      case Right(params) => ()
+      case _ => fail()
+    }
+  }
+
+  // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&
+  test("handle empty query string param value") {
+    QueryParametersParser(Map("one extra" -> Seq())) match {
+      case Right(params) => ()
+      case _ => fail()
+    }
+  }
 }
