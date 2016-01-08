@@ -24,9 +24,13 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   // Possibly belongs in the client
   def extract(body: JValue): Either[DecodeError, Seq[JValue]]= {
     val buckets = Variable.decodeOnly[Seq[JValue]]
+
+    // These have to jive with 'terms' and 'nested' fields in
+    // ../search/Aggregations.scala
     val pattern = PObject(
       "aggregations" -> FirstOf(
         PObject("domains" -> PObject("buckets" -> buckets)),
+        PObject("domain_categories" -> PObject("buckets" -> buckets)),
         PObject("annotations" -> PObject("names" -> PObject("buckets" -> buckets)))))
 
     pattern.matches(body).right.map(buckets)
@@ -75,6 +79,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
       case DomainFieldType => Count.encode("domain")
       case CategoriesFieldType => Count.encode("category")
       case TagsFieldType => Count.encode("tag")
+      case DomainCategoryFieldType => Count.encode("domain_category")
     }
 
     try {

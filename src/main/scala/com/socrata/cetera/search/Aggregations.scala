@@ -6,11 +6,20 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import com.socrata.cetera.types._
 
 object Aggregations {
+  // The 'terms' and 'nested' fields need to jive with
+  // ../services/CountService.scala
 
   val aggDomain =
     AggregationBuilders
       .terms("domains")
       .field(DomainFieldType.rawFieldName)
+      .order(Terms.Order.count(false)) // count desc
+      .size(0) // no docs, aggs only
+
+  val aggDomainCategory =
+    AggregationBuilders
+      .terms("domain_categories")
+      .field(DomainCategoryFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
       .size(0) // no docs, aggs only
 
@@ -35,12 +44,5 @@ object Aggregations {
           .field(TagsFieldType.Name.rawFieldName)
           .size(0)
       )
-
-  val aggDomainCategory =
-    AggregationBuilders
-      .terms("categories")
-      .field(DomainCategoryFieldType.rawFieldName)
-      .order(Terms.Order.count(false)) // count desc
-      .size(0) // no docs, aggs only
 
 }

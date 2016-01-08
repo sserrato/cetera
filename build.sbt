@@ -1,23 +1,25 @@
 name := "cetera"
 
+scalaVersion := "2.11.7"
+
 resolvers ++= Seq(
+  "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
+  "socrata internal maven" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
   "socrata maven" at "https://repository-socrata-oss.forge.cloudbees.com/release",
   "socrata maven-snap" at "https://repository-socrata-oss.forge.cloudbees.com/snapshot",
-  "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
   Classpaths.sbtPluginReleases,
-  "socrata internal maven" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
   Resolver.url("socrata ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns)
 )
 
 val rojomaDependencies = Seq(
-  "com.rojoma" %% "rojoma-json-v3" % "3.3.0",
+  "com.rojoma" %% "rojoma-json-v3" % "3.4.1",
   "com.rojoma" %% "simple-arm-v2" % "2.1.0"
 )
 
 val socrataDependencies = Seq(
-  "com.socrata" %% "socrata-http-jetty" % "3.0.0",
-  "com.socrata" %% "socrata-http-client" % "3.0.0",
-  "com.socrata" %% "socrata-thirdparty-utils" % "2.6.2"
+  "com.socrata" %% "socrata-http-client" % "3.5.0",
+  "com.socrata" %% "socrata-http-jetty" % "3.5.0",
+  "com.socrata" %% "socrata-thirdparty-utils" % "4.0.12"
 ).map { _.excludeAll(ExclusionRule(organization = "com.rojoma")) }
 
 val loggingDependencies = Seq(
@@ -35,6 +37,9 @@ initialCommands := "import com.socrata.cetera._"
 enablePlugins(sbtbuildinfo.BuildInfoPlugin)
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 scalacOptions ++= Seq("-Yinline-warnings")
+
+// This forks a new JVM because our ES tests leak threads
+fork in Test := true
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
 
 // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
