@@ -8,12 +8,9 @@ Main endpoint for querying the catalog of datasets housed by Socrata. Datasets c
 
 Note: select features may not be implemented but are included to future proof the API against version changes.
 
-All calls return a JSON object containing a list of datasets and pages ranked by relevance in a `results` field. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource is either a page or a dataset.
+All calls return a JSON object containing a list of datasets, visualizations, and other assets ranked by relevance in a `results` field. This `results` array contains an array of hashes. Each hash contains a key `resource` containing the resource to be returned. Hashes may contain additional fields to `resource` including metadata about the resource, such as the `classification` object. Each resource is either a page or a dataset.
 
-Pages and datasets are distinguished by the `type` field. This is set to `dataset` for datasets and to `page` for pages. Additionally, the bodies differ from each other as follows:
-
-- Pages include the fields `pageId`, `datasetId`, and `cards`,
-- Datasets include the fields `id` and `columns`.
+Datasets and other assets are distinguished by the `type` field.
 
 With the exception of the additional `type` field, the objects in the `resources` field are unaltered from their representation in whatever owns their truth.
 
@@ -197,10 +194,10 @@ The search service allows pagination of results.  By default, we will return at 
 
 
 ## Limiting results to specific resource types [/catalog/v1{?only}]
-The search service currently indexes datasets and pages with new resource types to be added in the future.  The caller can restrict the results to a particular type (`pages`, `datasets`) by specifying this parameter.
+The search service currently indexes datasets, visualizations, and other assets with new resource types to be added in the future.  The caller can restrict the results to a particular type (eg `datasets`, `charts`, `maps`) by specifying this parameter.
 
 + Parameters
-    + only (optional, list[string], `pages`) ... Limit results to a particular resource type (`pages`, `datasets`). If not present searches all types
+    + only (optional, list[string], `datasets`) ... Limit results to a particular resource type (`datasets`, `charts`, `maps`, `datalenses`, `stories`, `files`, `hrefs`). If not present searches all types
 
 
 ### Resource search API [GET]
@@ -232,7 +229,7 @@ The full search API is detailed here, with some additional options such as `tags
     + q (optional, string, `potholes`) ... A string for full text search
     + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
     + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
-    + only (optional, list[string], `pages`) ... Limit results to a particular resource type (`pages`, `datasets`). If not present searches all types
+    + only (optional, list[string], `datasets`) ... Limit results to a particular resource type (`datasets`, `charts`, `maps`, `datalenses`, `stories`, `files`, `hrefs`). If not present searches all types
     + include_internal_metadata (optional, boolean, `true`) ... Results return with additional rendering metadata useful to frontend. If not present, assumed false
     + highlight (optional, boolean, `true`) ... Include highlighting information
 
