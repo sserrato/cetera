@@ -5,7 +5,7 @@ import java.io.{StringWriter, PrintWriter}
 import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, AutomaticJsonEncodeBuilder}
 import com.socrata.http.server.HttpResponse
-import com.socrata.http.server.responses._
+import com.socrata.http.server.responses.Json
 
 object JsonResponses {
   def jsonMessage(message: String): HttpResponse = {

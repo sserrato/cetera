@@ -4,7 +4,7 @@ import java.util.concurrent.{ExecutorService, Executors}
 
 import com.rojoma.simplearm.v2._
 import com.socrata.http.client.InetLivenessChecker
-import com.socrata.http.server._
+import com.socrata.http.server.SocrataServerJetty
 import com.socrata.thirdparty.typesafeconfig.Propertizer
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.PropertyConfigurator
@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient}
-import com.socrata.cetera.services._
+import com.socrata.cetera.services.{CountService, FacetService, SearchService, VersionService}
 import com.socrata.cetera.types.ScriptScoreFunction
 
 // $COVERAGE-OFF$ jetty wiring

@@ -7,7 +7,7 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{FirstOf, PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses._
+import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, OK}
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera._
 import com.socrata.cetera.search.{DocumentClient, DomainClient}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
+import com.socrata.cetera.util.JsonResponses.jsonError
 import com.socrata.cetera.util._
 
 class CountService(documentClient: DocumentClient, domainClient: DomainClient) {

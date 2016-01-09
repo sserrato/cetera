@@ -3,7 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 
-import com.socrata.cetera.types._
+import com.socrata.cetera.types.{CategoriesFieldType, DomainCategoryFieldType, DomainFieldType, TagsFieldType}
 
 object Aggregations {
   // The 'terms' and 'nested' fields need to jive with
@@ -44,5 +44,4 @@ object Aggregations {
           .field(TagsFieldType.Name.rawFieldName)
           .size(0)
       )
-
 }

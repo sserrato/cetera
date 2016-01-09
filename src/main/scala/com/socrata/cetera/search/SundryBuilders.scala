@@ -4,7 +4,7 @@ import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, S
 import org.elasticsearch.index.query.{BoolQueryBuilder, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 
-import com.socrata.cetera.types.{DatatypeFieldType, Datatype, ScriptScoreFunction}
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, ScriptScoreFunction}
 
 object SundryBuilders {
   def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String): MultiMatchQueryBuilder =
