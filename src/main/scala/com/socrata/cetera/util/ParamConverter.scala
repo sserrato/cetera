@@ -1,26 +1,27 @@
 package com.socrata.cetera.util
 
-import scala.util.control.NonFatal
-
 trait ParamConverter[T] {
   def convertFrom(s: String): Either[ParamConversionFailure, T]
-
-  private def convertFrom(s: String, f: (String => T)): Either[ParamConversionFailure, T] =
-    try {
-      Right(f(s))
-    } catch {
-      case NonFatal(_) => Left(InvalidValue(s))
-    }
 }
 
 object ParamConverter {
-  implicit object IntParam extends ParamConverter[Int] {
-    override def convertFrom(s: String): Either[ParamConversionFailure, Int] = convertFrom(s, _.toInt)
+  // Identity implementation for the type class
+  implicit object StringParam extends ParamConverter[String] {
+    override def convertFrom(s: String): Either[ParamConversionFailure, String] = Right(s)
   }
 
-  implicit object FloatParam extends ParamConverter[Float] {
-    override def convertFrom(s: String): Either[ParamConversionFailure, Float] = convertFrom(s, _.toFloat)
-  }
+  private def convertNumber[T](f: (String => T)): ParamConverter[T] =
+    new ParamConverter[T] {
+      def convertFrom(s: String): Either[ParamConversionFailure, T] =
+        try {
+          Right(f(s))
+        } catch {
+          case _: NumberFormatException => Left(InvalidValue(s))
+        }
+    }
+
+  implicit val intParam = convertNumber(_.toInt)
+  implicit val floatParam = convertNumber(_.toFloat)
 
   def filtered[A: ParamConverter, B](f: A => Option[B]): ParamConverter[B] = {
     new ParamConverter[B] {

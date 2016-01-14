@@ -39,7 +39,10 @@ class Router(
 
     // document counts for queries grouped by tag
     Route("/catalog/tags", countResource(TagsFieldType)),
-    Route("/catalog/v1/tags", countResource(TagsFieldType))
+    Route("/catalog/v1/tags", countResource(TagsFieldType)),
+
+    Route("/catalog/domain_categories", countResource(DomainCategoryFieldType)),
+    Route("/catalog/v1/domain_categories", countResource(DomainCategoryFieldType))
   )
 
   def route(req: HttpRequest): HttpResponse =

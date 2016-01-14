@@ -1,5 +1,7 @@
 package com.socrata.cetera.util
 
+import java.io.{StringWriter, PrintWriter}
+
 import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, AutomaticJsonEncodeBuilder}
 import com.socrata.http.server.HttpResponse
@@ -19,8 +21,17 @@ object JsonResponses {
   def jsonError(context: String, error: Throwable): HttpResponse = {
     Json(Map("context" -> context,
       "error" -> error.toString,
-      "stackTrace" -> error.getStackTraceString
+      "stackTrace" -> getStackTraceAsString(error)
     ))}
+
+  private
+
+  // from http://alvinalexander.com/scala/how-convert-stack-trace-exception-string-print-logger-logging-log4j-slf4j
+  def getStackTraceAsString(t: Throwable) = {
+    val sw = new StringWriter
+    t.printStackTrace(new PrintWriter(sw))
+    sw.toString
+  }
 }
 
 // Helpers for internal timing information to report to the caller

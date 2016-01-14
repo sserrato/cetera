@@ -5,11 +5,13 @@ import org.scalatest.{FunSuiteLike, Matchers}
 class ElasticsearchErrorSpec extends FunSuiteLike with Matchers {
   test("parse this one error") {
     val thisOneError = "Failed to execute phase [query], all shards failed; shardFailures {[NDfvHsbsQnid-YLZ9_nKGw][201510230201_calendars][0]: SearchParseException[[201510230201_calendars][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [Failed to parse source [{\\\"from\\\":0,\\\"size\\\":100,\\\"query\\\":{\\\"filtered\\\":{\\\"query\\\":{\\\"match_all\\\":{}},\\\"filter\\\":{\\\"and\\\":{\\\"filters\\\":[{\\\"terms\\\":{\\\"socrata_id.domain_cname.raw\\\":[\\\"data.cityofchicago.org\\\"]}},{\\\"not\\\":{\\\"filter\\\":{\\\"terms\\\":{\\\"moderation_status\\\":[\\\"pending\\\",\\\"rejected\\\"]}}}},{\\\"or\\\":{\\\"filters\\\":[]}}]}}}},\\\"sort\\\":[{\\\"page_views.page_views_total\\\":{\\\"order\\\":\\\"desc\\\"}}]}]]]; nested: SearchParseException[[201510230201_calendars][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [No mapping found for [page_views.page_views_total] in order to sort on]]; }{[NDfvHsbsQnid-YLZ9_nKGw][201510230201_charts][0]: SearchParseException[[201510230201_charts][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [Failed to parse source [{\\\"from\\\":0,\\\"size\\\":100,\\\"query\\\":{\\\"filtered\\\":{\\\"query\\\":{\\\"match_all\\\":{}},\\\"filter\\\":{\\\"and\\\":{\\\"filters\\\":[{\\\"terms\\\":{\\\"socrata_id.domain_cname.raw\\\":[\\\"data.cityofchicago.org\\\"]}},{\\\"not\\\":{\\\"filter\\\":{\\\"terms\\\":{\\\"moderation_status\\\":[\\\"pending\\\",\\\"rejected\\\"]}}}},{\\\"or\\\":{\\\"filters\\\":[]}}]}}}},\\\"sort\\\":[{\\\"page_views.page_views_total\\\":{\\\"order\\\":\\\"desc\\\"}}]}]]]; nested: SearchParseException[[201510230201_charts][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [No mapping found for [page_views.page_views_total] in order to sort on]]; }"
+
     val expectedShortMessage =
       """Failed to execute phase [query], all shards failed;
         |example shard failure:
         |{[NDfvHsbsQnid-YLZ9_nKGw][201510230201_calendars][0]: SearchParseException[[201510230201_calendars][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [Failed to parse source [{\"from\":0,\"size\":100,\"query\":{\"filtered\":{\"query\":{\"match_all\":{}},\"filter\":{\"and\":{\"filters\":[{\"terms\":{\"socrata_id.domain_cname.raw\":[\"data.cityofchicago.org\"]}},{\"not\":{\"filter\":{\"terms\":{\"moderation_status\":[\"pending\",\"rejected\"]}}}},{\"or\":{\"filters\":[]}}]}}}},\"sort\":[{\"page_views.page_views_total\":{\"order\":\"desc\"}}]}]]]; nested: SearchParseException[[201510230201_calendars][0]: query[ConstantScore(+cache(socrata_id.domain_cname.raw:data.cityofchicago.org) +NotFilter(cache(moderation_status:pending moderation_status:rejected)))],from[0],size[100]: Parse Failure [No mapping found for [page_views.page_views_total] in order to sort on]]; }""".stripMargin
-    val expectedStackTrace = "ElasticsearchErrorSpec.test(ElasticsearchErrorSpec.scala:42)\n"
+
+    val expectedStackTraceString = "ElasticsearchErrorSpec.test(ElasticsearchErrorSpec.scala:42)"
 
     val e = new Exception(thisOneError)
     e.setStackTrace(Array(
@@ -18,7 +20,7 @@ class ElasticsearchErrorSpec extends FunSuiteLike with Matchers {
     val eem = ElasticsearchError(e)
 
     eem.shortMessage should be(expectedShortMessage)
-    eem.getStackTraceString should be(expectedStackTrace)
+    eem.getStackTrace.head.toString should be(expectedStackTraceString)
   }
 
   test("null error") {
