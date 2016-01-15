@@ -1,6 +1,8 @@
 name := "cetera"
 
 scalaVersion := "2.11.7"
+// keeping 2.10 around during transition, once we're happy with 2.11 in prod we can remove it.
+crossScalaVersions := Seq("2.10.4", scalaVersion.value)
 
 resolvers ++= Seq(
   "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
