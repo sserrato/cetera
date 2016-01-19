@@ -1,5 +1,6 @@
 package com.socrata.cetera.util
 
+// The way this is used, we assume the error is coming from elasticsearch
 case class ElasticsearchError(originalMessage: String, stackTrace: Array[StackTraceElement]) extends Throwable {
   override def getStackTrace: Array[StackTraceElement] = stackTrace
   override def toString: String = shortMessage
