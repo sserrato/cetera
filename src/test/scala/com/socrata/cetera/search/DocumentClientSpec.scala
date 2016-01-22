@@ -3,7 +3,6 @@ package com.socrata.cetera.search
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
-import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.esDocumentType
@@ -16,9 +15,6 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 // These tests are very brittle because they test (typically) the JSON blob
 // that gets sent to ES, and JSON blobs make no guarantees about order.
 //
-// Some of intermediate steps that do not yet produce JSON blobs simply test
-// the output of the toString function.
-//
 // These tests serve to codify expected behavior of our query builders.
 // (e.g, given the following user input, did we build the correct sort order?)
 // They do not test the correctness of those queries.
@@ -27,7 +23,8 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 
 class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   val client = new TestESClient("esclientspec")  // Remember to close() me!!
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val defaultMinShouldMatch = Some("37%")
+  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, defaultMinShouldMatch, Set.empty)
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -196,36 +193,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
-
-  ////////////////////////
-  // buildAverageScoreSort
-  ////////////////////////
-
-  "buildAverageScoreSort" should {
-    "build a sort by average field score descending" in {
-      val fieldName = "this_looks_like.things"
-      val rawFieldName = "this_looks_like.things.raw"
-      val classifications = Set("one kind of thing", "another kind of thing")
-
-      // Using toString as proxy since toString does not give JSON parsable string
-      val expectedAsString = s"""
-         |"${fieldName}"{
-         |  "order" : "desc",
-         |  "mode" : "avg",
-         |  "nested_filter" : {
-         |    "terms" : {
-         |      "${rawFieldName}" : [ "${classifications.head}", "${classifications.last}" ]
-         |    }
-         |  }
-         |}""".stripMargin
-
-      val actual = documentClient.buildAverageScoreSort(fieldName, rawFieldName, classifications)
-
-      actual.toString should be (expectedAsString)
-    }
-  }
-
-
   ///////////////////
   // buildBaseRequest
   ///////////////////
@@ -320,7 +287,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }
 
-
   ////////////////////
   // buildCountRequest
   // /////////////////
@@ -407,72 +373,78 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }
 
-
   ////////////////////
   // buildFacetRequest
   ////////////////////
 
+  // TODO: Make this a JSON comparison
   "buildFacetRequest" should {
-    val cname = "example.com"
-    val expectedAsString = s"""{
-      |  "size" : 0,
-      |  "aggregations" : {
-      |    "domain_filter" : {
-      |      "filter" : {
-      |        "terms" : {
-      |          "socrata_id.domain_cname.raw" : [ "${cname}" ]
-      |        }
-      |      },
-      |      "aggregations" : {
-      |        "datatypes" : {
-      |          "terms" : {
-      |            "field" : "datatype",
-      |            "size" : 0
-      |          }
-      |        },
-      |        "categories" : {
-      |          "terms" : {
-      |            "field" : "customer_category.raw",
-      |            "size" : 0
-      |          }
-      |        },
-      |        "tags" : {
-      |          "terms" : {
-      |            "field" : "customer_tags.raw",
-      |            "size" : 0
-      |          }
-      |        },
-      |        "metadata" : {
-      |          "nested" : {
-      |            "path" : "customer_metadata_flattened"
-      |          },
-      |          "aggregations" : {
-      |            "keys" : {
-      |              "terms" : {
-      |                "field" : "customer_metadata_flattened.key.raw",
-      |                "size" : 0
-      |              },
-      |              "aggregations" : {
-      |                "values" : {
-      |                  "terms" : {
-      |                    "field" : "customer_metadata_flattened.value.raw",
-      |                    "size" : 0
-      |                  }
-      |                }
-      |              }
-      |            }
-      |          }
-      |        }
-      |      }
-      |    }
-      |  }
-      |}""".stripMargin
+    "build a faceted request" in {
+      val cname = "example.com"
+      val expectedAsString = s"""{
+        |  "size" : 0,
+        |  "aggregations" : {
+        |    "domain_filter" : {
+        |      "filter" : {
+        |        "terms" : {
+        |          "socrata_id.domain_cname.raw" : [ "${cname}" ]
+        |        }
+        |      },
+        |      "aggregations" : {
+        |        "datatypes" : {
+        |          "terms" : {
+        |            "field" : "datatype",
+        |            "size" : 0
+        |          }
+        |        },
+        |        "categories" : {
+        |          "terms" : {
+        |            "field" : "customer_category.raw",
+        |            "size" : 0
+        |          }
+        |        },
+        |        "tags" : {
+        |          "terms" : {
+        |            "field" : "customer_tags.raw",
+        |            "size" : 0
+        |          }
+        |        },
+        |        "metadata" : {
+        |          "nested" : {
+        |            "path" : "customer_metadata_flattened"
+        |          },
+        |          "aggregations" : {
+        |            "keys" : {
+        |              "terms" : {
+        |                "field" : "customer_metadata_flattened.key.raw",
+        |                "size" : 0
+        |              },
+        |              "aggregations" : {
+        |                "values" : {
+        |                  "terms" : {
+        |                    "field" : "customer_metadata_flattened.value.raw",
+        |                    "size" : 0
+        |                  }
+        |                }
+        |              }
+        |            }
+        |          }
+        |        }
+        |      }
+        |    }
+        |  }
+        |}""".stripMargin
 
-    val actual = documentClient.buildFacetRequest(cname)
+      val actual = documentClient.buildFacetRequest(cname)
 
-    actual.toString should be(expectedAsString)
+      actual.toString should be(expectedAsString)
+    }
+
+    "not throw when cname is a null string" in {
+      val cname: String = null // scalastyle:ignore
+      documentClient.buildFacetRequest(cname)
+    }
   }
-
 
   /////////////////////
   // buildSearchRequest
@@ -572,145 +544,143 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }
 
+  ////////////////////////
+  // generateAdvancedQuery
+  ////////////////////////
 
-  ////////////
-  // buildSort
-  ////////////
+  "generateAdvancedQuery" should {
+    "produce an advanced query with field boosts applied" in {
+      val expectedJson = j"""{
+        "query_string": {
+            "auto_generate_phrase_queries": true,
+            "fields": [
+                "fts_analyzed",
+                "fts_raw",
+                "domain_cname",
+                "indexed_metadata.name^6.66",
+                "indexed_metadata.columns_description^1.11",
+                "indexed_metadata.columns_field_name^2.22",
+                "indexed_metadata.columns_name^3.33",
+                "datatype^4.44",
+                "indexed_metadata.description^5.55"
+            ],
+            "query": "any old query string"
+        }
+      }"""
 
-  // TODO: Really, these should check that the correct sort fns are getting
-  // called, and separate tests for sort fns should test the expected strings.
-  // We'll double these up for now and possibly split them out later.
-
-  "buildSort" should {
-    // Be sure that you do provide extraneous fields when possible
-    "order by page views descending for default null query" in {
-      val expected = SundryBuilders.sortFieldDesc("page_views.page_views_total")
-      val expectedAsString = s"""
-        |"page_views.page_views_total"{
-        |  "order" : "desc"
-        |}""".stripMargin
-
-      expected.toString should be(expectedAsString)
-
-      val actual = documentClient.buildSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = None,
-        tags = None
+      val actual = documentClient.generateAdvancedQuery(
+        "any old query string",
+        Map(
+          ColumnDescriptionFieldType -> 1.11f,
+          ColumnFieldNameFieldType -> 2.22f,
+          ColumnNameFieldType -> 3.33f,
+          DatatypeFieldType -> 4.44f,
+          DescriptionFieldType -> 5.55f,
+          TitleFieldType -> 6.66f
+        )
       )
 
-      actual.toString should be (expectedAsString)
-    }
+      val actualJson = JsonReader.fromString(actual.toString)
 
-    "order by query score descending when given an advanced query" in {
-      val expected = SundryBuilders.sortScoreDesc
-      val expectedAsString = s"""
-        |"_score"{ }""".stripMargin
-
-      expected.toString should be(expectedAsString)
-
-      val actual = documentClient.buildSort(
-        searchQuery = AdvancedQuery("sandwich AND (soup OR salad)"),
-        searchContext = None,
-        categories = None,
-        tags = None
-      )
-
-      actual.toString should be(expectedAsString)
-    }
-
-    "order by query score desc when given a simple query" in {
-      val expected = SundryBuilders.sortScoreDesc
-      val expectedAsString = s"""
-        |"_score"{ }""".stripMargin
-
-      expected.toString should be(expectedAsString)
-
-      val actual = documentClient.buildSort(
-        searchQuery = SimpleQuery("soup salad sandwich"),
-        searchContext = None,
-        categories = None,
-        tags = None
-      )
-
-      actual should be(expected)
-    }
-
-    "order by average category score descending when no query but ODN categories present" in {
-      val cats = Set[String]("comestibles", "potables")
-      val tags = Set[String]("tasty", "sweet", "taters", "precious")
-
-      val expectedAsString = s"""
-        |"animl_annotations.categories.score"{
-        |  "order" : "desc",
-        |  "mode" : "avg",
-        |  "nested_filter" : {
-        |    "terms" : {
-        |      "animl_annotations.categories.name.raw" : [ "${cats.head}", "${cats.last}" ]
-        |    }
-        |  }
-        |}""".stripMargin
-
-      val actual = documentClient.buildSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = Some(cats),
-        tags = Some(tags)
-      )
-
-      actual.toString should be(expectedAsString)
-    }
-
-    "order by average tag score desc when no query or categories but ODN tags present" in {
-      val tags = Set[String]("tasty", "sweet", "taters", "precious")
-      val tagsJson = "[ \"" + tags.mkString("\", \"") + "\" ]"
-
-      val expectedAsString = s"""
-        |"animl_annotations.tags.score"{
-        |  "order" : "desc",
-        |  "mode" : "avg",
-        |  "nested_filter" : {
-        |    "terms" : {
-        |      "animl_annotations.tags.name.raw" : ${tagsJson}
-        |    }
-        |  }
-        |}""".stripMargin
-
-      val actual = documentClient.buildSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = None,
-        tags = Some(tags)
-      )
-
-      actual.toString should be(expectedAsString)
-    }
-
-    // Be sure that you do provide extraneous fields when possible
-    "order by page views DESC when given no query, categories, or tags" in {
+      actualJson should be (expectedJson)
     }
   }
 
+  //////////////////////
+  // generateSimpleQuery
+  //////////////////////
 
-  ////////////////
-  // generateQuery
-  ////////////////
+  "generateSimpleQuery" should {
+    "produce anything but a simple query" in {
+      val expectedJson = j"""{
+        "bool": {
+            "must": {
+                "multi_match": {
+                    "fields": [
+                        "fts_analyzed",
+                        "fts_raw",
+                        "domain_cname",
+                        "indexed_metadata.description^7.77",
+                        "indexed_metadata.name^8.88"
+                    ],
+                    "minimum_should_match": "20%",
+                    "query": "query string OR (query AND string)",
+                    "type": "cross_fields"
+                }
+            },
+            "should": [
+                {
+                    "multi_match": {
+                        "fields": [
+                            "fts_analyzed",
+                            "fts_raw",
+                            "domain_cname"
+                        ],
+                        "query": "query string OR (query AND string)",
+                        "slop": 12,
+                        "type": "phrase"
+                    }
+                },
+                {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "datatype": {
+                                        "boost": 9.99,
+                                        "value": "datalens"
+                                    }
+                                }
+                            },
+                            {
+                                "term": {
+                                    "datatype": {
+                                        "boost": 10.1,
+                                        "value": "datalens_map"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+      }"""
 
-  "generateQuery" should {
-    "generate a match all query by default" in {
-      val expectedAsString = s"""{
-        |  "match_all" : { }
-        |}""".stripMargin
-
-      val actual = documentClient.generateQuery(
-        searchQuery = NoQuery,
-        fieldBoosts = Map.empty,
-        typeBoosts = Map.empty,
-        minShouldMatch = None,
-        slop = None
+      val actual = documentClient.generateSimpleQuery(
+        "query string OR (query AND string)",
+        Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
+        Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
+        Some("20%"), // minShouldMatch is a String because it can be a percentage
+        Some(12) // slop is max num of intervening unmatched positions permitted
       )
 
-      actual.toString should be(expectedAsString)
+      val actualJson = JsonReader.fromString(actual.toString)
+
+      actualJson should be (expectedJson)
+    }
+  }
+
+  //////////////////////
+  // applyMinShouldMatch
+  //////////////////////
+
+  "applyMinShouldMatch" should {
+    val msm = Some("2<-25% 9<-3") // I can be an involved string
+    val sc = Domain(false, None, "example.com", Some("Example! (dotcom)"), false, false)
+
+    "apply minShouldMatch if present" in {
+      documentClient.applyMinShouldMatch(msm, None) should be (msm)
+      documentClient.applyMinShouldMatch(msm, Some(sc)) should be (msm)
+    }
+
+    // Use case here is increasing search precision on customer domains
+    "apply default MSM value if none is passed in but search context is present" in {
+      documentClient.applyMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
+    }
+
+    "apply nothing if no MSM value is passed in and no search context is present" in {
+      documentClient.applyMinShouldMatch(None, None) should be (None)
     }
   }
 }

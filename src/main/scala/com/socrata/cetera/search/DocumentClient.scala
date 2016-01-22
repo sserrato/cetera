@@ -1,16 +1,13 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query._
+import org.elasticsearch.index.query.FilterBuilder
+import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
-import org.elasticsearch.search.sort.{FieldSortBuilder, SortBuilder, SortBuilders, SortOrder}
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera._
-import com.socrata.cetera.search.Aggregations._
-import com.socrata.cetera.search.Filters._
-import com.socrata.cetera.search.SundryBuilders._
 import com.socrata.cetera.types._
+import com.socrata.cetera.{Indices, esDocumentType}
 
 object DocumentClient {
   def apply(
@@ -63,55 +60,57 @@ class DocumentClient(
   // documents. See the ElasticSearch documentation here:
   //
   //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
-  def generateQuery(
-      searchQuery: QueryType,
+  def generateSimpleQuery(
+      queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       typeBoosts: Map[Datatype, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : BaseQueryBuilder = {
 
-    searchQuery match {
-      case NoQuery =>
-        QueryBuilders.matchAllQuery
+    // Query #1: terms
+    val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-      case SimpleQuery(sq) =>
-        val matchTerms = multiMatch(sq, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-
-        // Side effects!
-        fieldBoosts.foreach { case (field, weight) => matchTerms.field(field.fieldName, weight) }
-        minShouldMatch.foreach(addMinMatchConstraint(matchTerms, _))
-
-        val matchPhrase = multiMatch(sq, MultiMatchQueryBuilder.Type.PHRASE)
-
-        // NOTE: if no slop is specified, we do not set a default
-        slop.foreach(addSlopParam(matchPhrase, _))
-
-        // Combines the two queries above into a single Boolean query
-        val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
-
-        // If we have typeBoosts, add them as should match clause
-        if (typeBoosts.nonEmpty) {
-          query.should(boostTypes(typeBoosts))
-        } else {
-          query
-        }
-
-      case AdvancedQuery(aq) =>
-        val query = QueryBuilders
-          .queryStringQuery(aq)
-          .field("fts_analyzed")
-          .field("fts_raw")
-          .field("domain_cname")
-          .autoGeneratePhraseQueries(true)
-
-        // Side effects!
-        fieldBoosts.foreach { case (field, weight) =>
-          query.field(field.fieldName, weight)
-        }
-
-        query
+    fieldBoosts.foreach { case (field, weight) =>
+      matchTerms.field(field.fieldName, weight)
     }
+
+    minShouldMatch.foreach(SundryBuilders.addMinMatchConstraint(matchTerms, _))
+
+    // Query #2: phrase
+    val matchPhrase = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.PHRASE)
+
+    // If no slop is specified, we do not set a default
+    slop.foreach(SundryBuilders.addSlopParam(matchPhrase, _))
+
+    // Combine the two queries above into a single Boolean query
+    val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
+
+    // If we have typeBoosts, add them as should match clause
+    if (typeBoosts.nonEmpty) {
+      query.should(SundryBuilders.boostTypes(typeBoosts))
+    } else {
+      query
+    }
+  }
+
+  def generateAdvancedQuery(
+      queryString: String,
+      fieldBoosts: Map[CeteraFieldType with Boostable, Float])
+    : BaseQueryBuilder = {
+
+    val query = QueryBuilders
+      .queryStringQuery(queryString)
+      .field("fts_analyzed")
+      .field("fts_raw")
+      .field("domain_cname")
+      .autoGeneratePhraseQueries(true)
+
+      fieldBoosts.foreach { case (field, weight) =>
+        query.field(field.fieldName, weight)
+      }
+
+      query
   }
 
   private def buildFilteredQuery(
@@ -123,6 +122,8 @@ class DocumentClient(
       domainMetadata: Option[Set[(String, String)]],
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
+
+    import com.socrata.cetera.search.Filters._ // scalastyle:ignore
 
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
@@ -158,6 +159,49 @@ class DocumentClient(
     }
   }
 
+  private def applyDefaultTitleBoost(
+      fieldBoosts: Map[CeteraFieldType with Boostable, Float])
+    : Map[CeteraFieldType with Boostable, Float] = {
+
+    // Look for default title boost; if a title boost is specified as a query
+    // parameter, it will override the default
+    defaultTitleBoost
+      .map(boost => Map(TitleFieldType -> boost) ++ fieldBoosts)
+      .getOrElse(fieldBoosts)
+  }
+
+  private def applyDefaultDatatypeBoosts(datatypeBoosts: Map[Datatype, Float]) = {
+    defaultTypeBoosts ++ datatypeBoosts
+  }
+
+  def applyMinShouldMatch(
+      minShouldMatch: Option[String],
+      searchContext: Option[Domain])
+    : Option[String] = {
+
+    (minShouldMatch, searchContext) match {
+      // If a minShouldMatch value is passed in, we must honor that.
+      case (Some(msm), _) => minShouldMatch
+
+      // If a minShouldMatch value is absent but a searchContext is present,
+      // use default minShouldMatch settings for better precision.
+      case (None, Some(sc)) => defaultMinShouldMatch
+
+      // If neither is present, then do not use minShouldMatch.
+      case (None, None) => None
+    }
+  }
+
+  private def applyScoringFunctions(query: BaseQueryBuilder) = {
+    if (scriptScoreFunctions.nonEmpty) {
+      SundryBuilders.addFunctionScores(scriptScoreFunctions,
+        QueryBuilders.functionScoreQuery(query))
+    } else {
+      query
+    }
+  }
+
+  // Called by buildSearchRequest andbuildCountRequest
   // Assumes validation has already been done
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
@@ -173,30 +217,23 @@ class DocumentClient(
       slop: Option[Int])
     : SearchRequestBuilder = {
 
-    val matchQuery: BaseQueryBuilder = generateQuery(
-      searchQuery,
-
-      // Look for default title boost; if a title boost is specified as a query
-      // parameter, it will override the default
-      defaultTitleBoost.map(boost => Map(TitleFieldType -> boost) ++ fieldBoosts).getOrElse(fieldBoosts),
-      defaultTypeBoosts ++ datatypeBoosts,
-
-      // If we're doing a within-domain catalog search then we want to optimize
-      // for precision so by default, we use the defaultMinShouldMatch setting;
-      // but we'll always honor the parameter value passed in with the query
-      minShouldMatch.orElse(if (searchContext.isDefined) defaultMinShouldMatch else None),
-      slop
-    )
-
-    val query = if (scriptScoreFunctions.nonEmpty) {
-      addFunctionScores(
-        scriptScoreFunctions,
-        QueryBuilders.functionScoreQuery(matchQuery)
+    // Construct basic match query
+    val matchQuery = searchQuery match {
+      case NoQuery => QueryBuilders.matchAllQuery
+      case AdvancedQuery(queryString) => generateAdvancedQuery(queryString, fieldBoosts)
+      case SimpleQuery(queryString) => generateSimpleQuery(
+        queryString,
+        applyDefaultTitleBoost(fieldBoosts),
+        applyDefaultDatatypeBoosts(datatypeBoosts),
+        applyMinShouldMatch(minShouldMatch, searchContext),
+        slop
       )
-    } else {
-      matchQuery
     }
 
+    // Apply any scoring functions
+    val query = applyScoringFunctions(matchQuery)
+
+    // Apply filters
     val filteredQuery = buildFilteredQuery(
       only,
       domains,
@@ -207,68 +244,14 @@ class DocumentClient(
       query
     )
 
-    // Imperative builder --> order is important
     val preparedSearch = esClient.client
       .prepareSearch(Indices: _*)
       .setQuery(filteredQuery)
       .setTypes(esDocumentType)
 
+    // TODO: Logging should happen at time of execution
     logESRequest(preparedSearch)
     preparedSearch
-  }
-
-  def buildAverageScoreSort(
-      fieldName: String,
-      rawFieldName: String,
-      classifications: Set[String])
-    : FieldSortBuilder = {
-
-    SortBuilders
-      .fieldSort(fieldName)
-      .order(SortOrder.DESC)
-      .sortMode("avg")
-      .setNestedFilter(
-        FilterBuilders.termsFilter(
-          rawFieldName,
-          classifications.toSeq: _*
-        )
-      )
-  }
-
-  // TODO: Possibly chooseSort is a better name
-  // First pass logic is very simple. query >> categories >> tags >> default
-  def buildSort(
-      searchQuery: QueryType,
-      searchContext: Option[Domain],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]])
-    : SortBuilder = {
-
-    (searchQuery, categories, tags) match {
-      // Query
-      case (AdvancedQuery(_) | SimpleQuery(_), _, _) => sortScoreDesc
-
-      // ODN Categories
-      // Q: What happens when we search according to domain_categories? It's not clear
-      case (_, Some(cats), _) if searchContext.isEmpty =>
-        buildAverageScoreSort(
-          CategoriesFieldType.Score.fieldName,
-          CategoriesFieldType.Name.rawFieldName,
-          cats
-        )
-
-      // ODN Tags
-      case (_, _, Some(ts)) if searchContext.isEmpty =>
-        buildAverageScoreSort(
-          TagsFieldType.Score.fieldName,
-          TagsFieldType.Name.rawFieldName,
-          ts
-        )
-
-      // Default (No query, categories, or tags)
-      case (_, _, _) =>
-        sortFieldDesc(PageViewsTotalFieldType.fieldName)
-    }
   }
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
@@ -288,7 +271,7 @@ class DocumentClient(
       advancedQuery: Option[String] = None)
     : SearchRequestBuilder = {
 
-    val sort = buildSort(searchQuery, searchContext, categories, tags)
+    val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata,
                      only, fieldBoosts, datatypeBoosts, minShouldMatch, slop)
@@ -307,12 +290,7 @@ class DocumentClient(
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
 
-    val aggregation = field match {
-      case DomainFieldType => aggDomain
-      case CategoriesFieldType => aggCategories
-      case TagsFieldType => aggTags
-      case DomainCategoryFieldType => aggDomainCategory
-    }
+    val aggregation = Aggregations.chooseAggregation(field)
 
     buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
                      None, only, Map.empty, Map.empty, None, None)
@@ -327,7 +305,6 @@ class DocumentClient(
       .terms("datatypes")
       .field(DatatypeFieldType.fieldName)
       .size(size)
-
 
     val categoryAgg = AggregationBuilders
       .terms("categories")
@@ -349,8 +326,9 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(size)))
 
-    val filter = Option(cname) match {
-      case Some(s) if s.nonEmpty => domainFilter(Some(Set(cname))).getOrElse(throw new NoSuchElementException)
+    // TODO: fix this awkward construction and resolve how we feel about nulls
+    val filter: FilterBuilder = Option(cname) match {
+      case Some(s) if s.nonEmpty => Filters.domainFilter(Some(Set(cname))).get
       case _ => FilterBuilders.matchAllFilter()
     }
 
@@ -367,8 +345,8 @@ class DocumentClient(
       .addAggregation(filteredAggs)
       .setSize(size)
 
+    // TODO: Logging should happen at time of execution
     logESRequest(preparedSearch)
     preparedSearch
   }
 }
-
