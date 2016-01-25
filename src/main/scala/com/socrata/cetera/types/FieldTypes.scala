@@ -162,10 +162,15 @@ case object ColumnFieldNameFieldType extends Boostable {
   val fieldName: String = "indexed_metadata.columns_field_name"
 }
 
+case object DatatypeFieldType extends Boostable {
+  val fieldName: String = "datatype"
+}
+
+
+//////////////
+// For sorting
+
 case object PageViewsTotalFieldType extends CeteraFieldType {
   val fieldName: String = "page_views.page_views_total"
 }
 
-case object DatatypeFieldType extends Boostable {
-  val fieldName: String = "datatype"
-}

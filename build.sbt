@@ -42,7 +42,7 @@ scalacOptions ++= Seq("-Yinline-warnings")
 
 // This forks a new JVM because our ES tests leak threads
 fork in Test := true
-testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDS")
 
 // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
 fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "configs") }

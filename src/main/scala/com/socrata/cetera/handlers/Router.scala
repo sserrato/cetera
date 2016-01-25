@@ -1,13 +1,13 @@
 package com.socrata.cetera.handlers
 
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses._
-import com.socrata.http.server.routing.SimpleRouteContext._
+import com.socrata.http.server.responses.NotFound
+import com.socrata.http.server.routing.SimpleRouteContext.{Route, Routes}
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
-import com.socrata.cetera._
+import com.socrata.cetera.HeaderAclAllowOriginAll
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
+import com.socrata.cetera.util.JsonResponses.jsonError
 
 // $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names
@@ -41,6 +41,7 @@ class Router(
     Route("/catalog/tags", countResource(TagsFieldType)),
     Route("/catalog/v1/tags", countResource(TagsFieldType)),
 
+    // document counts for queries grouped by domain_category
     Route("/catalog/domain_categories", countResource(DomainCategoryFieldType)),
     Route("/catalog/v1/domain_categories", countResource(DomainCategoryFieldType))
   )

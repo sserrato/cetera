@@ -2,9 +2,8 @@ package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 import org.elasticsearch.index.query.{BoolQueryBuilder, MultiMatchQueryBuilder, QueryBuilders}
-import org.elasticsearch.search.sort.{SortBuilder, SortBuilders, SortOrder}
 
-import com.socrata.cetera.types.{DatatypeFieldType, Datatype, ScriptScoreFunction}
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, ScriptScoreFunction}
 
 object SundryBuilders {
   def addMinMatchConstraint(query: MultiMatchQueryBuilder, constraint: String): MultiMatchQueryBuilder =
@@ -24,9 +23,7 @@ object SundryBuilders {
 
   def boostTypes(typeBoosts: Map[Datatype, Float]): BoolQueryBuilder = {
     typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-      typeBoosts.foldLeft(QueryBuilders.boolQuery()) { case (q, (datatype, boost)) =>
-        q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
-      }
+      q.should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular).boost(boost))
     }
   }
 
@@ -36,8 +33,4 @@ object SundryBuilders {
       .field("fts_raw")
       .field("domain_cname")
       .`type`(mmType)
-
-  val sortScoreDesc: SortBuilder = SortBuilders.scoreSort().order(SortOrder.DESC)
-  def sortFieldAsc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.ASC)
-  def sortFieldDesc(field: String): SortBuilder = SortBuilders.fieldSort(field).order(SortOrder.DESC)
 }
