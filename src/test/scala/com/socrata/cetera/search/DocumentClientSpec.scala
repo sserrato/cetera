@@ -440,9 +440,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       actual.toString should be(expectedAsString)
     }
 
-    "not throw when cname is a null string" in {
+    "throw when cname is a null string" in {
       val cname: String = null // scalastyle:ignore
-      documentClient.buildFacetRequest(cname)
+      a [NullPointerException] should be thrownBy documentClient.buildFacetRequest(cname)
     }
   }
 

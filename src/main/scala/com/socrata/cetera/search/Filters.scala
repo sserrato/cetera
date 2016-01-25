@@ -14,6 +14,10 @@ object Filters {
   def domainFilter(domains: Option[Set[String]]): Option[TermsFilterBuilder] =
     domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq: _*) }
 
+  def domainFilter(domain: String): Option[TermsFilterBuilder] =
+    if (domain.nonEmpty) Option(FilterBuilders.termsFilter(DomainFieldType.rawFieldName, domain))
+    else None
+
   def categoriesFilter(categories: Option[Set[String]]): Option[NestedFilterBuilder] =
     categories.map { cs =>
       FilterBuilders.nestedFilter(

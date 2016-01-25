@@ -326,11 +326,8 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(size)))
 
-    // TODO: fix this awkward construction and resolve how we feel about nulls
-    val filter: FilterBuilder = Option(cname) match {
-      case Some(s) if s.nonEmpty => Filters.domainFilter(Some(Set(cname))).get
-      case _ => FilterBuilders.matchAllFilter()
-    }
+    val filter = Filters.domainFilter(cname)
+      .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")
