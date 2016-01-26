@@ -6,7 +6,7 @@ import com.socrata.cetera.types._
 
 case class ValidatedQueryParameters(
   searchQuery: QueryType,
-  domains: Option[Set[String]],
+  domains: Set[String],
   domainMetadata: Option[Set[(String, String)]],
   searchContext: Option[String],
   categories: Option[Set[String]],
@@ -81,7 +81,27 @@ object QueryParametersParser {
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
     apply(req.multiQueryParams)
 
-  // Convert these params to lower case because of Elasticsearch filters
+  def prepareFieldBoosts(queryParameters: MultiQueryParams): Map[CeteraFieldType with Boostable, Float] = {
+    val boostTitle = queryParameters.typedFirst[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
+    val boostDesc = queryParameters.typedFirst[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
+    val boostColumns = queryParameters.typedFirst[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
+
+    val fieldBoosts = Map(
+      TitleFieldType -> boostTitle,
+      DescriptionFieldType -> boostDesc,
+
+      ColumnNameFieldType -> boostColumns,
+      ColumnDescriptionFieldType -> boostColumns,
+      ColumnFieldNameFieldType -> boostColumns
+    )
+
+    fieldBoosts
+      .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
+      .toMap[CeteraFieldType with Boostable, Float]
+  }
+
+  // NOTE: Watch out for case sensitivity in params
+  // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
   def apply(queryParameters: MultiQueryParams): Either[Seq[ParseError], ValidatedQueryParameters] = {
     val query = pickQuery(
@@ -89,21 +109,12 @@ object QueryParametersParser {
       queryParameters.get(Params.queryAdvanced).flatMap(_.headOption)
     )
 
-    val fieldBoosts = {
-      val boostTitle = queryParameters.typedFirst[NonNegativeFloat](Params.boostTitle).map(validated(_).value)
-      val boostDesc = queryParameters.typedFirst[NonNegativeFloat](Params.boostDescription).map(validated(_).value)
-      val boostColumns = queryParameters.typedFirst[NonNegativeFloat](Params.boostColumns).map(validated(_).value)
-
-      Map(
-        TitleFieldType -> boostTitle,
-        DescriptionFieldType -> boostDesc,
-        ColumnNameFieldType -> boostColumns,
-        ColumnDescriptionFieldType -> boostColumns,
-        ColumnFieldNameFieldType -> boostColumns
-      )
-        .collect { case (fieldType, Some(weight)) => (fieldType, weight) }
-        .toMap[CeteraFieldType with Boostable, Float]
+    val domains: Set[String] = queryParameters.first(Params.filterDomains) match {
+      case Some(ds) => ds.toLowerCase.split(filterDelimiter).toSet
+      case None => Set.empty[String]
     }
+
+    val fieldBoosts = prepareFieldBoosts(queryParameters)
 
     val datatypeBoosts = queryParameters.flatMap {
       case (k, _) => Params.datatypeBoostParam(k).flatMap(datatype =>
@@ -115,7 +126,7 @@ object QueryParametersParser {
       case Right(o) =>
         Right(ValidatedQueryParameters(
           query,
-          queryParameters.first(Params.filterDomains).map(_.toLowerCase.split(filterDelimiter).toSet),
+          domains,
           queryStringDomainMetadata(queryParameters),
           queryParameters.first(Params.context).map(_.toLowerCase),
           mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)),
