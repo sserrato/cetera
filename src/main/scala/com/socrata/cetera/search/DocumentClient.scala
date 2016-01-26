@@ -115,7 +115,7 @@ class DocumentClient(
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      domains: Option[Set[String]],
+      domains: Set[String],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -205,7 +205,7 @@ class DocumentClient(
   // Assumes validation has already been done
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Option[Set[String]],
+      domains: Set[String],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -256,7 +256,7 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Option[Set[String]],
+      domains: Set[String],
       domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -283,7 +283,7 @@ class DocumentClient(
   def buildCountRequest(
       field: CeteraFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Option[Set[String]],
+      domains: Set[String],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],

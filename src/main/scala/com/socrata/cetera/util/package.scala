@@ -3,7 +3,7 @@ package com.socrata.cetera
 import com.socrata.http.server.HttpRequest
 
 package object util {
-  type MultiQueryParams = Map[String,Seq[String]]
+  type MultiQueryParams = Map[String, Seq[String]]
 
   implicit class HttpRequestCompanion(req: HttpRequest) {
     def multiQueryParams: MultiQueryParams =

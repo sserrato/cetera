@@ -11,15 +11,15 @@ object Filters {
       FilterBuilders.termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
     }
 
-  def domainFilter(domains: Option[Set[String]]): Option[TermsFilterBuilder] =
-    domains.map { ds => FilterBuilders.termsFilter(DomainFieldType.rawFieldName, ds.toSeq: _*) }
-
-  def domainFilter(domain: String): Option[TermsFilterBuilder] =
-    if (domain.nonEmpty) {
-      Option(FilterBuilders.termsFilter(DomainFieldType.rawFieldName, domain))
+  def domainFilter(domains: Set[String]): Option[TermsFilterBuilder] =
+    if (domains.nonEmpty) {
+      Some(FilterBuilders.termsFilter(DomainFieldType.rawFieldName, domains.toSeq: _*))
     } else {
       None
     }
+
+  def domainFilter(domain: String): Option[TermsFilterBuilder] =
+    if (domain.nonEmpty) domainFilter(Set(domain)) else None
 
   def categoriesFilter(categories: Option[Set[String]]): Option[NestedFilterBuilder] =
     categories.map { cs =>

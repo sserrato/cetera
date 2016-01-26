@@ -32,7 +32,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
-    domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
+    domains = Set("www.example.com", "test.example.com", "socrata.com"),
     domainMetadata = None,
     searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
@@ -212,7 +212,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domains = None,
+        domains = Set.empty[String],
         searchContext = None,
         categories = None,
         tags = None,
@@ -240,7 +240,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = None,
+        domains = Set.empty[String],
         searchContext = None,
         categories = None,
         tags = None,
@@ -269,7 +269,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = None,
+        domains = Set.empty[String],
         searchContext = None,
         categories = None,
         tags = None,
@@ -318,7 +318,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         field = DomainFieldType,
         searchQuery = NoQuery,
-        domains = None,
+        domains = Set.empty[String],
         searchContext = None,
         categories = None,
         tags = None,
