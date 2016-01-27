@@ -14,6 +14,7 @@ case class ValidatedQueryParameters(
   only: Option[Seq[String]],
   fieldBoosts: Map[CeteraFieldType with Boostable, Float],
   datatypeBoosts: Map[Datatype, Float],
+  domainBoosts: Map[String, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
   showScore: Boolean,
@@ -100,6 +101,13 @@ object QueryParametersParser {
       .toMap[CeteraFieldType with Boostable, Float]
   }
 
+  // WARN: regex and dangerous head.toFloat conversion!
+  // TODO: make this sensible and robust
+  def extractDomainBoosts(queryParameters: MultiQueryParams): Map[String, Float] = {
+    val regex = """^boostDomains\[(.*)\]""".r
+    queryParameters.collect { case (regex(key), value) if value.nonEmpty => key -> value.head.toFloat }
+  }
+
   // NOTE: Watch out for case sensitivity in params
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
@@ -122,6 +130,8 @@ object QueryParametersParser {
           (datatype, validated(boost).value)))
     }
 
+    val domainBoosts = extractDomainBoosts(queryParameters)
+
     restrictParamFilterType(queryParameters.first(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
@@ -134,6 +144,7 @@ object QueryParametersParser {
           o,
           fieldBoosts,
           datatypeBoosts,
+          domainBoosts,
           queryParameters.first(Params.minMatch).flatMap { p => MinShouldMatch.fromParam(query, p) },
           queryParameters.typedFirst[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
@@ -202,6 +213,9 @@ object Params {
   val boostDescription = "boostDesc"
   val boostTitle = "boostTitle"
 
+  // e.g., boostDomains[example.com]=1.23&boostDomains[data.seattle.gov]=4.56
+  val boostDomains = "boostDomains[]"
+
   val minMatch = "min_should_match"
   val slop = "slop"
   val showFeatureValues = "show_feature_vals"
@@ -225,6 +239,7 @@ object Params {
     boostColumns,
     boostDescription,
     boostTitle,
+    boostDomains,
     minMatch,
     slop,
     showFeatureValues,

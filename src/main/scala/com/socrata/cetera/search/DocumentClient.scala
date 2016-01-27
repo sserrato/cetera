@@ -218,6 +218,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
+      domainBoosts: Map[String, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : SearchRequestBuilder = {
@@ -269,6 +270,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
+      domainBoosts: Map[String, Float],
       minShouldMatch: Option[String],
       slop: Option[Int],
       offset: Int,
@@ -278,8 +280,22 @@ class DocumentClient(
 
     val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags, domainMetadata,
-                     only, fieldBoosts, datatypeBoosts, minShouldMatch, slop)
+    val baseRequest = buildBaseRequest(
+      searchQuery,
+      domains,
+      searchContext,
+      categories,
+      tags,
+      domainMetadata,
+      only,
+      fieldBoosts,
+      datatypeBoosts,
+      domainBoosts,
+      minShouldMatch,
+      slop
+    )
+
+    baseRequest
       .setFrom(offset)
       .setSize(limit)
       .addSort(sort)
@@ -297,8 +313,22 @@ class DocumentClient(
 
     val aggregation = Aggregations.chooseAggregation(field)
 
-    buildBaseRequest(searchQuery, domains, searchContext, categories, tags,
-                     None, only, Map.empty, Map.empty, None, None)
+    val baseRequest = buildBaseRequest(
+      searchQuery,
+      domains,
+      searchContext,
+      categories,
+      tags,
+      None,
+      only,
+      Map.empty,
+      Map.empty,
+      Map.empty,
+      None,
+      None
+    )
+
+    baseRequest
       .addAggregation(aggregation)
       .setSearchType("count")
   }

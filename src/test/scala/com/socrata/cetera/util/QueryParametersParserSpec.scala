@@ -241,10 +241,64 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&
+  // Q: what happens on &one+extra= ?
+  // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&one+extra
   test("handle empty query string param value") {
     QueryParametersParser(Map("one extra" -> Seq())) match {
       case Right(params) => ()
+      case _ => fail()
+    }
+  }
+
+  test("domain boosts can be parsed") {
+    val domainBoosts = Map(
+      "boostDomains[example.com]" -> Seq("1.23"),
+      "boostDomains[data.seattle.gov]" -> Seq("4.56")
+    )
+
+    QueryParametersParser(domainBoosts) match {
+      case Right(params) =>
+        params.domainBoosts should be(Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f))
+      case _ => fail()
+    }
+  }
+
+  test("domain boost defined twice will go with the first definition -- just documenting behavior") {
+    val domainBoosts = Map(
+      "boostDomains[example.com]" -> Seq("1.23", "2.34"),
+      "boostDomains[data.seattle.gov]" -> Seq("4.56")
+    )
+
+    QueryParametersParser(domainBoosts) match {
+      case Right(params) =>
+        params.domainBoosts should be(Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f))
+      case _ => fail()
+    }
+  }
+
+  test("domain boosts missing fields do not explode the params parser") {
+    val domainBoosts = Map(
+      "boostDomains[data.seattle.gov]" -> Seq("4.56"),
+      "boostDomains[example.com]" -> Seq(),
+      "boostDomains[]" -> Seq("7.89"),
+      "boostDomains[]" -> Seq()
+    )
+
+    QueryParametersParser(domainBoosts) match {
+      case Right(params) =>
+        params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
+      case _ => fail()
+    }
+  }
+
+  test("domain boost degenerate cases do not explode the params parser") {
+    val domainBoosts = Map(
+      "boostDomains[boostDomains[example.com]]" -> Seq("1.23")
+    )
+
+    QueryParametersParser(domainBoosts) match {
+      case Right(params) =>
+        params.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
       case _ => fail()
     }
   }

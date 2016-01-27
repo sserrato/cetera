@@ -148,6 +148,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
           params.only,
           params.fieldBoosts,
           params.datatypeBoosts,
+          params.domainBoosts,
           params.minShouldMatch,
           params.slop,
           params.offset,

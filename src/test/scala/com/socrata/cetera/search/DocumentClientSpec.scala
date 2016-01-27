@@ -43,6 +43,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       DescriptionFieldType -> 1.1f
     ),
     datatypeBoosts = Map.empty,
+    domainBoosts = Map.empty[String, Float],
     minShouldMatch = None,
     slop = None,
     showScore = false,
@@ -232,6 +233,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -260,6 +262,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -289,6 +292,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = params.fieldBoosts,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -490,6 +494,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
@@ -543,6 +548,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
