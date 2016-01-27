@@ -62,6 +62,20 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  val boostedShouldMatch = j"""{
+    "multi_match": {
+        "fields": [
+            "fts_analyzed",
+            "fts_raw",
+            "domain_cname",
+             "indexed_metadata.name^2.2",
+             "indexed_metadata.description^1.1"
+        ],
+        "query": "search query terms",
+        "type": "phrase"
+    }
+  }"""
+
   val boolQuery = j"""{
     "bool": {
         "must": {
@@ -86,15 +100,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 "fields": [
                     "fts_analyzed",
                     "fts_raw",
-                    "domain_cname",
-                    "indexed_metadata.name^2.2",
-                    "indexed_metadata.description^1.1"
+                    "domain_cname"
                 ],
                 "query": "search query terms",
                 "type": "cross_fields"
             }
         },
-        "should": ${shouldMatch}
+        "should": ${boostedShouldMatch}
     }
   }"""
 
@@ -599,9 +611,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                     "fields": [
                         "fts_analyzed",
                         "fts_raw",
-                        "domain_cname",
-                        "indexed_metadata.description^7.77",
-                        "indexed_metadata.name^8.88"
+                        "domain_cname"
                     ],
                     "minimum_should_match": "20%",
                     "query": "query string OR (query AND string)",
@@ -614,7 +624,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                         "fields": [
                             "fts_analyzed",
                             "fts_raw",
-                            "domain_cname"
+                            "domain_cname",
+                            "indexed_metadata.description^7.77",
+                            "indexed_metadata.name^8.88"
                         ],
                         "query": "query string OR (query AND string)",
                         "slop": 12,

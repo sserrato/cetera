@@ -53,11 +53,15 @@ class DocumentClient(
   // into a single query. By default, the must match clause enforces a term match
   // such that one or more of the query terms must be present in at least one of the
   // fields specified. The optional minimum_should_match constraint applies to this
-  // clause. The should clause handles applies to a phrase search, with an optional slop
-  // param. (specified by the query parameter). This has the effect of giving a boost
-  // to documents where there is a phrasal match. The scores are then averaged together
-  // by ES with a defacto score of 0 for should a clause if it does not in fact match any
-  // documents. See the ElasticSearch documentation here:
+  // clause. The should clause is intended to give a subset of retrieved results boosts
+  // based on:
+  //
+  //   1. better phrase matching in the case of multiterm queries
+  //   2. matches in particular fields (specified in fieldBoosts)
+  //
+  // The scores are then averaged together by ES with a defacto score of 0 for a should
+  // clause if it does not in fact match any documents. See the ElasticSearch
+  // documentation here:
   //
   //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
   def generateSimpleQuery(
@@ -71,10 +75,6 @@ class DocumentClient(
     // Query #1: terms
     val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
-    fieldBoosts.foreach { case (field, weight) =>
-      matchTerms.field(field.fieldName, weight)
-    }
-
     minShouldMatch.foreach(SundryBuilders.addMinMatchConstraint(matchTerms, _))
 
     // Query #2: phrase
@@ -82,6 +82,11 @@ class DocumentClient(
 
     // If no slop is specified, we do not set a default
     slop.foreach(SundryBuilders.addSlopParam(matchPhrase, _))
+
+    // Add any optional field boosts to "should" match clause
+    fieldBoosts.foreach { case (field, weight) =>
+      matchPhrase.field(field.fieldName, weight)
+    }
 
     // Combine the two queries above into a single Boolean query
     val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
