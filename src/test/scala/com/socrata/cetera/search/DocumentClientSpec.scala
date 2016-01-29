@@ -669,6 +669,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query string OR (query AND string)",
         Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
         Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
+        Map.empty[String, Float], // domain boosts are empty for now
         Some("20%"), // minShouldMatch is a String because it can be a percentage
         Some(12) // slop is max num of intervening unmatched positions permitted
       )

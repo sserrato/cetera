@@ -67,17 +67,18 @@ class DocumentClient(
   def generateSimpleQuery(
       queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      typeBoosts: Map[Datatype, Float],
+      datatypeBoosts: Map[Datatype, Float],
+      domainBoosts: Map[String, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : BaseQueryBuilder = {
 
-    // Query #1: terms
+    // Query #1: terms (must)
     val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
     minShouldMatch.foreach(SundryBuilders.addMinMatchConstraint(matchTerms, _))
 
-    // Query #2: phrase
+    // Query #2: phrase (should)
     val matchPhrase = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.PHRASE)
 
     // If no slop is specified, we do not set a default
@@ -91,14 +92,21 @@ class DocumentClient(
     // Combine the two queries above into a single Boolean query
     val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
-    // If we have typeBoosts, add them as should match clause
-    if (typeBoosts.nonEmpty) {
-      query.should(SundryBuilders.boostTypes(typeBoosts))
-    } else {
-      query
+    // If we have datatypeBoosts, add them as should match clause
+    if (datatypeBoosts.nonEmpty) {
+      query.should(Boosts.boostDatatypes(datatypeBoosts))
     }
+
+    // If we have domainBoosts, add them as should match clause
+    if (domainBoosts.nonEmpty) {
+      query.should(Boosts.boostDomains(domainBoosts))
+    }
+
+    query
   }
 
+  // NOTE: Advanced queries respect fieldBoosts but no others
+  // Q: Is this expected and desired?
   def generateAdvancedQuery(
       queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float])
@@ -231,6 +239,7 @@ class DocumentClient(
         queryString,
         applyDefaultTitleBoost(fieldBoosts),
         applyDefaultDatatypeBoosts(datatypeBoosts),
+        domainBoosts,
         applyMinShouldMatch(minShouldMatch, searchContext),
         slop
       )
