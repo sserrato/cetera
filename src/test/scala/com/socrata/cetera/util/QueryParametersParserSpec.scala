@@ -145,7 +145,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case Right(params) =>
         params.tags should be('defined)
         params.tags.get should have size 3
-        params.tags.get should contain theSameElementsAs Seq("traffic", "parking", "transportation")
+        params.tags.get should contain theSameElementsAs Seq("Traffic", "Parking", "Transportation")
       case _ => fail()
     }
   }

@@ -211,6 +211,7 @@
               "properties" : {
                 "name" : {
                   "type" : "string",
+                  "analyzer": "case_insensitive_en",
                   "copy_to": [ "fts_analyzed", "fts_raw" ],
                   "fields" : {
                     "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
@@ -225,6 +226,7 @@
               "properties" : {
                 "name" : {
                   "type" : "string",
+                  "analyzer": "case_insensitive_en",
                   "copy_to": [ "fts_analyzed", "fts_raw" ],
                   "fields" : {
                     "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
@@ -238,6 +240,7 @@
         },
         "customer_tags" : {
           "type" : "string",
+          "analyzer": "case_insensitive_en",
           "copy_to": [ "fts_analyzed", "fts_raw" ],
           "fields": {
             "raw" : {"type" : "string", "index" : "not_analyzed"},
@@ -246,6 +249,7 @@
         },
         "customer_category" : {
           "type" : "string",
+          "analyzer": "case_insensitive_en",
           "copy_to": [ "fts_analyzed", "fts_raw" ],
           "fields" : {
             "raw" : {"type" : "string", "index" : "not_analyzed"},

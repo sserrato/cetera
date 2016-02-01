@@ -1,8 +1,7 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.FilterBuilder
-import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.slf4j.LoggerFactory
 
@@ -127,41 +126,39 @@ class DocumentClient(
       domainMetadata: Option[Set[(String, String)]],
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
-
-    import com.socrata.cetera.search.Filters._ // scalastyle:ignore
-
+    import com.socrata.cetera.search.Filters._ // scalastyle:ignore import.grouping
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
-    val odnFilters = List.concat(
-      customerDomainFilter,
-      categoriesFilter(categories),
-      tagsFilter(tags)
-    )
-
-    val domainFilters = List.concat(
-      domainCategoriesFilter(categories),
-      domainTagsFilter(tags),
-      domainMetadataFilter(domainMetadata)
-    )
+    val categoriesAndTags: Seq[QueryBuilder] = if (searchContext.isDefined) {
+      List.concat(
+        domainCategoriesQuery(categories),
+        domainTagsQuery(tags))
+    } else {
+      List.concat(
+        categoriesQuery(categories),
+        tagsQuery(tags))
+    }
 
     val moderated = searchContext.exists(_.moderationEnabled)
 
-    val filters = List.concat(
+    val filters: List[FilterBuilder] = List.concat(
       datatypeFilter(datatypes),
       domainFilter(domains),
       moderationStatusFilter(moderated),
       routingApprovalFilter(searchContext),
-      if (searchContext.isDefined) domainFilters else odnFilters
+      if (searchContext.isDefined) domainMetadataFilter(domainMetadata) else customerDomainFilter
     )
+
+    val categoriesAndTagsQuery = if (categoriesAndTags.nonEmpty) {
+      categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
+    } else { query }
 
     if (filters.nonEmpty) {
       QueryBuilders.filteredQuery(
-        query,
+        categoriesAndTagsQuery,
         FilterBuilders.andFilter(filters.toSeq: _*)
       )
-    } else {
-      query
-    }
+    } else { categoriesAndTagsQuery }
   }
 
   private def applyDefaultTitleBoost(

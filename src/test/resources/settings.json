@@ -2,10 +2,22 @@
   "settings": {
     "index": {
       "analysis": {
+        "filter": {
+          "lowercase_en": {
+            "type": "lowercase"
+          }
+        },
         "analyzer": {
           "snowball_en": {
             "type": "snowball",
             "language": "English"
+          },
+          "case_insensitive_en": {
+            "type": "custom",
+            "filter": [
+              "lowercase_en"
+            ],
+            "tokenizer": "keyword"
           }
         }
       },

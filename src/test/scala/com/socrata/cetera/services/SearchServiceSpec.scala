@@ -297,4 +297,70 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       expectedFxfs.contains(id) should be(true)
     }
   }
+
+  test("categories filter should be case insensitive") {
+    val paramsTitleCase = Map(
+      "domains" -> Seq("petercetera.net"),
+      "categories" -> Seq("Personal")
+    )
+    val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
+    val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
+
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase)
+
+    resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
+    resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
+  }
+
+  test("custom domain categories filter should be case insensitive") {
+    val paramsTitleCase = Map(
+      "domains" -> Seq("petercetera.net"),
+      "search_context" -> Seq("petercetera.net"),
+      "categories" -> Seq("Alpha")
+    )
+    val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
+    val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
+
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase)
+
+    resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
+    resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
+  }
+
+  test("tags filter should be case insensitive") {
+    val paramsTitleCase = Map(
+      "domains" -> Seq("petercetera.net"),
+      "tags" -> Seq("Happy")
+    )
+    val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
+    val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
+
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase)
+
+    resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
+    resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
+  }
+
+  test("custom domain tags filter should be case insensitive") {
+    val paramsTitleCase = Map(
+      "domains" -> Seq("petercetera.net"),
+      "search_context" -> Seq("petercetera.net"),
+      "tags" -> Seq("1-One")
+    )
+    val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
+    val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
+
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase)
+
+    resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
+    resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
+  }
 }
