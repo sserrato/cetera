@@ -51,7 +51,7 @@ object Filters {
   def domainTagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
     tags.map { ts =>
       ts.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-        b.should(QueryBuilders.multiMatchQuery(DomainTagsFieldType.fieldName, q))
+        b.should(QueryBuilders.matchQuery(DomainTagsFieldType.fieldName, q))
       }
     }
 
