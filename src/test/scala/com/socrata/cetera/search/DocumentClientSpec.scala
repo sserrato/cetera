@@ -162,33 +162,63 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
-  val animlCategoriesFilter = j"""{
+  val animlCategoriesQuery = j"""{
     "nested": {
-        "filter": {
-            "terms": {
-                "animl_annotations.categories.name.raw": [
-                    "Social Services",
-                    "Environment",
-                    "Housing & Development"
-                ]
-            }
-        },
-        "path": "animl_annotations.categories"
+      "query": {
+        "bool": {
+          "should": [
+            { "match": { "animl_annotations.categories.name" : { "query":"Social Services", "type":"boolean"} } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Environment", "type":"boolean"} } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"boolean"} } }
+          ],
+          "minimum_should_match" : "1"
+        }
+      },
+      "path": "animl_annotations.categories"
     }
   }"""
 
-  val animlTagsFilter = j"""{
+  val animlTagsQuery = j"""{
     "nested": {
-        "filter": {
-            "terms": {
-                "animl_annotations.tags.name.raw": [
-                    "taxi",
-                    "art",
-                    "clowns"
-                ]
-            }
-        },
-        "path": "animl_annotations.tags"
+      "query": {
+        "bool": {
+          "should": [
+            { "match": { "animl_annotations.tags.name" : { "query":"taxi", "type":"boolean" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"art", "type":"boolean" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"boolean" } } }
+          ],
+          "minimum_should_match" : "1"
+        }
+      },
+      "path": "animl_annotations.tags"
+    }
+  }"""
+
+  val simpleQuery = j"""{
+    "bool": {
+      "must": [
+        {"match_all": {}},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
+    }
+  }"""
+  val complexQuery = j"""{
+    "bool": {
+      "must": [
+        ${boolQuery},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
+    }
+  }"""
+  val boostedComplexQuery = j"""{
+    "bool": {
+      "must": [
+        ${boostedBoolQuery},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
     }
   }"""
 
@@ -198,9 +228,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             ${datatypeDatasetsFilter},
             ${domainFilter},
             ${moderationFilter},
-            ${customerDomainFilter},
-            ${animlCategoriesFilter},
-            ${animlTagsFilter}
+            ${customerDomainFilter}
         ]
     }
   }"""
@@ -363,7 +391,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${complexFilter},
-                "query": ${boolQuery}
+                "query": ${complexQuery}
             }
         }
       }"""
@@ -469,7 +497,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${complexFilter},
-                "query": ${boolQuery}
+                "query": ${complexQuery}
             }
         },
         "size": ${params.limit},
@@ -507,10 +535,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "from": ${params.offset},
         "query": {
             "filtered": {
-                "filter": ${complexFilter},
-                "query": {
-                    "match_all": {}
-                }
+                "query": ${simpleQuery},
+                "filter": ${complexFilter}
             }
         },
         "size": ${params.limit},
