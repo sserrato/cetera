@@ -1,5 +1,6 @@
 package com.socrata.cetera.search
 
+import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
@@ -24,7 +25,18 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   val client = new TestESClient("esclientspec")  // Remember to close() me!!
   val defaultMinShouldMatch = Some("37%")
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, defaultMinShouldMatch, Set.empty)
+  val scriptScoreFunctions = Set(
+    ScriptScoreFunction.getScriptFunction("views"),
+    ScriptScoreFunction.getScriptFunction("score")
+  ).flatMap { fn => fn }
+
+  val documentClient: DocumentClient = DocumentClient(
+    esClient = client,
+    defaultTypeBoosts = Map.empty,
+    defaultTitleBoost = None,
+    defaultMinShouldMatch = defaultMinShouldMatch,
+    scriptScoreFunctions = scriptScoreFunctions
+  )
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -206,6 +218,28 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  val matchAll = j"""{ "match_all" : {} }"""
+
+  def functionScoreQuery(query: JValue) = j"""{
+    "function_score" : {
+      "query" : ${query},
+      "functions" : [
+        {
+          "script_score" : {
+            "script" : "1 + doc[\"page_views.page_views_total_log\"].value",
+            "lang" : "expression"
+          }
+        },
+        {
+          "script_score" :
+          { "script" : "_score", "lang" : "expression" }
+        }
+      ],
+      "score_mode" : "multiply",
+      "boost_mode" : "replace"
+    }
+  }"""
+
   ///////////////////
   // buildBaseRequest
   ///////////////////
@@ -214,12 +248,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "construct a default match all query" in {
       val expected = j"""{
         "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": {
-                    "match_all": {}
-                }
-            }
+          "filtered": {
+            "filter": ${defaultFilter},
+            "query": ${functionScoreQuery(matchAll)}
+          }
         }
       }"""
 
@@ -247,7 +279,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${defaultFilter},
-                "query": ${boolQuery}
+                "query": ${functionScoreQuery(boolQuery)}
             }
         }
       }"""
@@ -277,7 +309,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${defaultFilter},
-                "query": ${boostedBoolQuery}
+                "query": ${functionScoreQuery(boostedBoolQuery)}
             }
         }
       }"""
@@ -324,9 +356,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${defaultFilter},
-                "query": {
-                    "match_all": {}
-                }
+                "query": ${functionScoreQuery(matchAll)}
             }
         }
       }"""
@@ -367,7 +397,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${complexFilter},
-                "query": ${boolQuery}
+                "query": ${functionScoreQuery(boolQuery)}
             }
         }
       }"""
@@ -473,14 +503,11 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": {
             "filtered": {
                 "filter": ${complexFilter},
-                "query": ${boolQuery}
+                "query": ${functionScoreQuery(boolQuery)}
             }
         },
         "size": ${params.limit},
-        "sort": [
-            {
-                "_score": {}
-            }
+        "sort": [ { "_score": {} }
         ]
       }"""
 
@@ -507,15 +534,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
     }
 
-    "sort by categories score when query term is missing but cat filter is present" in {
+    "sort by average category scores given search context and categories" in {
       val expected = j"""{
         "from": ${params.offset},
         "query": {
             "filtered": {
                 "filter": ${complexFilter},
-                "query": {
-                    "match_all": {}
-                }
+                "query": ${functionScoreQuery(matchAll)}
             }
         },
         "size": ${params.limit},
@@ -611,58 +636,45 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "generateSimpleQuery" should {
     "produce anything but a simple query" in {
       val expectedJson = j"""{
-        "bool": {
-            "must": {
-                "multi_match": {
-                    "fields": [
-                        "fts_analyzed",
-                        "fts_raw",
-                        "domain_cname"
-                    ],
-                    "minimum_should_match": "20%",
-                    "query": "query string OR (query AND string)",
-                    "type": "cross_fields"
-                }
-            },
-            "should": [
+        "bool" :
+          {
+            "must" :
+              {
+                "multi_match" :
+                  {
+                    "query" : "query string OR (query AND string)",
+                    "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                    "type" : "cross_fields",
+                    "minimum_should_match" : "20%"
+                  }
+              },
+            "should" :
+              [
                 {
-                    "multi_match": {
-                        "fields": [
-                            "fts_analyzed",
-                            "fts_raw",
-                            "domain_cname",
-                            "indexed_metadata.description^7.77",
-                            "indexed_metadata.name^8.88"
+                  "multi_match" :
+                    {
+                      "query" : "query string OR (query AND string)",
+                      "fields" :
+                        [
+                          "fts_analyzed",
+                          "fts_raw",
+                          "domain_cname",
+                          "indexed_metadata.description^7.77",
+                          "indexed_metadata.name^8.88"
                         ],
-                        "query": "query string OR (query AND string)",
-                        "slop": 12,
-                        "type": "phrase"
+                      "type" : "phrase",
+                      "slop" : 12
                     }
                 },
                 {
-                    "bool": {
-                        "should": [
-                            {
-                                "term": {
-                                    "datatype": {
-                                        "boost": 9.99,
-                                        "value": "datalens"
-                                    }
-                                }
-                            },
-                            {
-                                "term": {
-                                    "datatype": {
-                                        "boost": 10.1,
-                                        "value": "datalens_map"
-                                    }
-                                }
-                            }
-                        ]
-                    }
+                  "term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 } }
+                },
+                {
+                  "term" :
+                    { "datatype" : { "value" : "datalens_map", "boost" : 10.1 } }
                 }
-            ]
-        }
+              ]
+          }
       }"""
 
       val actual = documentClient.generateSimpleQuery(

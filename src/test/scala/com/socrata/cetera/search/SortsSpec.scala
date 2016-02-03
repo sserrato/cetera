@@ -159,8 +159,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
       actual.toString should be(expectedAsString)
     }
 
-    "order by page views descending for default null query" in {
-      val expected = Sorts.sortFieldDesc("page_views.page_views_total")
+    "order by page score descending for default null query" in {
+      val expected = Sorts.sortScoreDesc
 
       val actual = Sorts.chooseSort(
         searchQuery = NoQuery,
@@ -169,7 +169,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         tags = None
       )
 
-      actual.toString should be (expected.toString)
+      actual should be (expected)
     }
   }
 }

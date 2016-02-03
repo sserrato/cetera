@@ -1,8 +1,7 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.FilterBuilder
-import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query.{BaseQueryBuilder, BoostingQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.slf4j.LoggerFactory
 
@@ -49,6 +48,16 @@ class DocumentClient(
        """.stripMargin
     )
 
+  // The default catalog when there is no query text present
+  def generateNoQuery(domainBoosts: Map[String, Float]): BaseQueryBuilder = {
+    if (domainBoosts.nonEmpty) {
+      val query = QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery)
+      Boosts.boostDomains(query, domainBoosts)
+    } else {
+      QueryBuilders.matchAllQuery
+    }
+  }
+
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
   // such that one or more of the query terms must be present in at least one of the
@@ -76,6 +85,7 @@ class DocumentClient(
     // Query #1: terms (must)
     val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
+    // Apply minShouldMatch if present
     minShouldMatch.foreach(SundryBuilders.addMinMatchConstraint(matchTerms, _))
 
     // Query #2: phrase (should)
@@ -92,15 +102,10 @@ class DocumentClient(
     // Combine the two queries above into a single Boolean query
     val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
-    // If we have datatypeBoosts, add them as should match clause
-    if (datatypeBoosts.nonEmpty) {
-      query.should(Boosts.boostDatatypes(datatypeBoosts))
-    }
-
-    // If we have domainBoosts, add them as should match clause
-    if (domainBoosts.nonEmpty) {
-      query.should(Boosts.boostDomains(domainBoosts))
-    }
+    // Add datatype boosts and domain boosts (if any). These end up in the should clause.
+    // NOTE: These boosts are normalized (i.e., not absolute weights on final scores).
+    Boosts.boostDatatypes(query, datatypeBoosts)
+    Boosts.boostDomains(query, domainBoosts)
 
     query
   }
@@ -205,17 +210,13 @@ class DocumentClient(
     }
   }
 
-  private def applyScoringFunctions(query: BaseQueryBuilder) = {
-    if (scriptScoreFunctions.nonEmpty) {
-      SundryBuilders.addFunctionScores(scriptScoreFunctions,
-        QueryBuilders.functionScoreQuery(query))
-    } else {
-      query
-    }
-  }
-
-  // Called by buildSearchRequest andbuildCountRequest
   // Assumes validation has already been done
+  //
+  // Called by buildSearchRequest and buildCountRequest
+  //
+  // * Chooses query type to be used and constructs query with applicable boosts
+  // * Applies scripted scoring functions (not normalized, affecting overall query)
+  // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
       domains: Set[String],
@@ -233,7 +234,7 @@ class DocumentClient(
 
     // Construct basic match query
     val matchQuery = searchQuery match {
-      case NoQuery => QueryBuilders.matchAllQuery
+      case NoQuery => generateNoQuery(domainBoosts)
       case AdvancedQuery(queryString) => generateAdvancedQuery(queryString, fieldBoosts)
       case SimpleQuery(queryString) => generateSimpleQuery(
         queryString,
@@ -246,7 +247,8 @@ class DocumentClient(
     }
 
     // Apply any scoring functions
-    val query = applyScoringFunctions(matchQuery)
+    val query = SundryBuilders.addFunctionScores(scriptScoreFunctions,
+      QueryBuilders.functionScoreQuery(matchQuery))
 
     // Apply filters
     val filteredQuery = buildFilteredQuery(
@@ -287,6 +289,7 @@ class DocumentClient(
       advancedQuery: Option[String] = None)
     : SearchRequestBuilder = {
 
+    // WARN: Sort will totally blow away score if score isn't part of the sort
     val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
 
     val baseRequest = buildBaseRequest(

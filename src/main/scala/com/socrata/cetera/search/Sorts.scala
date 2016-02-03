@@ -44,13 +44,9 @@ object Sorts {
       tags: Option[Set[String]])
     : SortBuilder = {
 
-    (searchQuery, categories, tags) match {
-      // Query
-      case (AdvancedQuery(_) | SimpleQuery(_), _, _) => Sorts.sortScoreDesc
-
+    (searchQuery, searchContext, categories, tags) match {
       // ODN Categories
-      // Q: What happens when we search according to domain_categories? It's not clear
-      case (_, Some(cats), _) if searchContext.isEmpty =>
+      case (NoQuery, None, Some(cats), _) =>
         buildAverageScoreSort(
           CategoriesFieldType.Score.fieldName,
           CategoriesFieldType.Name.rawFieldName,
@@ -58,17 +54,15 @@ object Sorts {
         )
 
       // ODN Tags
-      case (_, _, Some(ts)) if searchContext.isEmpty =>
+      case (NoQuery, None, None, Some(ts)) =>
         buildAverageScoreSort(
           TagsFieldType.Score.fieldName,
           TagsFieldType.Name.rawFieldName,
           ts
         )
 
-      // Default (No query, categories, or tags)
-      case (_, _, _) =>
-        Sorts.sortFieldDesc(PageViewsTotalFieldType.fieldName)
+      // Everything else
+      case _ => Sorts.sortScoreDesc
     }
   }
-
 }
