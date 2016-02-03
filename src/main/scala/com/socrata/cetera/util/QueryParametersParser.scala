@@ -101,11 +101,24 @@ object QueryParametersParser {
       .toMap[CeteraFieldType with Boostable, Float]
   }
 
-  // WARN: regex and dangerous head.toFloat conversion!
-  // TODO: make this sensible and robust
-  def extractDomainBoosts(queryParameters: MultiQueryParams): Map[String, Float] = {
-    val regex = """^boostDomains\[(.*)\]""".r
-    queryParameters.collect { case (regex(key), value) if value.nonEmpty => key -> value.head.toFloat }
+  def prepareDomainBoosts(queryParameters: MultiQueryParams): Map[String, Float] = {
+    val domainExtractor = new FieldExtractor("boostDomains")
+    queryParameters.collect { case (domainExtractor(field), Seq(FloatExtractor(weight))) =>
+      field -> weight
+    }
+  }
+
+  // for extracting `example.com` from `boostDomains[example.com]`
+  class FieldExtractor(val key: String) {
+    def unapply(s: String): Option[String] =
+      if (s.startsWith(key + "[") && s.endsWith("]")) { Some(s.drop(key.length + 1).dropRight(1)) }
+      else { None }
+  }
+
+  object FloatExtractor {
+    def unapply(s: String): Option[Float] =
+      try { Some(s.toFloat) }
+      catch { case _: NumberFormatException => None }
   }
 
   // NOTE: Watch out for case sensitivity in params
@@ -130,7 +143,7 @@ object QueryParametersParser {
           (datatype, validated(boost).value)))
     }
 
-    val domainBoosts = extractDomainBoosts(queryParameters)
+    val domainBoosts = prepareDomainBoosts(queryParameters)
 
     restrictParamFilterType(queryParameters.first(Params.filterType)) match {
       case Right(o) =>

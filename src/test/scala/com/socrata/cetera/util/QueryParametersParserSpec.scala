@@ -263,7 +263,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  test("domain boost defined twice will go with the first definition -- just documenting behavior") {
+  test("domain boost defined twice will be completely ignored -- just documenting behavior") {
     val domainBoosts = Map(
       "boostDomains[example.com]" -> Seq("1.23", "2.34"),
       "boostDomains[data.seattle.gov]" -> Seq("4.56")
@@ -271,7 +271,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
     QueryParametersParser(domainBoosts) match {
       case Right(params) =>
-        params.domainBoosts should be(Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f))
+        params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
   }
