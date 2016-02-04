@@ -1,12 +1,12 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.{BaseQueryBuilder, BoostingQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.types._
 import com.socrata.cetera.{Indices, esDocumentType}
+import com.socrata.cetera.types._
 
 object DocumentClient {
   def apply(
@@ -48,16 +48,6 @@ class DocumentClient(
        """.stripMargin
     )
 
-  // The default catalog when there is no query text present
-  def generateNoQuery(domainBoosts: Map[String, Float]): BaseQueryBuilder = {
-    if (domainBoosts.nonEmpty) {
-      val query = QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery)
-      Boosts.boostDomains(query, domainBoosts)
-    } else {
-      QueryBuilders.matchAllQuery
-    }
-  }
-
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
   // such that one or more of the query terms must be present in at least one of the
@@ -77,7 +67,6 @@ class DocumentClient(
       queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
-      domainBoosts: Map[String, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : BaseQueryBuilder = {
@@ -102,15 +91,14 @@ class DocumentClient(
     // Combine the two queries above into a single Boolean query
     val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
-    // Add datatype boosts and domain boosts (if any). These end up in the should clause.
+    // Add datatype boosts (if any). These end up in the should clause.
     // NOTE: These boosts are normalized (i.e., not absolute weights on final scores).
-    Boosts.boostDatatypes(query, datatypeBoosts)
-    Boosts.boostDomains(query, domainBoosts)
+    Boosts.applyDatatypeBoosts(query, datatypeBoosts)
 
     query
   }
 
-  // NOTE: Advanced queries respect fieldBoosts but no others
+  // NOTE: Advanced queries respect fieldBoosts but not datatypeBoosts
   // Q: Is this expected and desired?
   def generateAdvancedQuery(
       queryString: String,
@@ -192,7 +180,7 @@ class DocumentClient(
     defaultTypeBoosts ++ datatypeBoosts
   }
 
-  def applyMinShouldMatch(
+  def chooseMinShouldMatch(
       minShouldMatch: Option[String],
       searchContext: Option[Domain])
     : Option[String] = {
@@ -215,7 +203,7 @@ class DocumentClient(
   // Called by buildSearchRequest and buildCountRequest
   //
   // * Chooses query type to be used and constructs query with applicable boosts
-  // * Applies scripted scoring functions (not normalized, affecting overall query)
+  // * Applies function scores (typically views and score) with applicable domain boosts
   // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
@@ -234,32 +222,29 @@ class DocumentClient(
 
     // Construct basic match query
     val matchQuery = searchQuery match {
-      case NoQuery => generateNoQuery(domainBoosts)
+      case NoQuery => QueryBuilders.matchAllQuery
       case AdvancedQuery(queryString) => generateAdvancedQuery(queryString, fieldBoosts)
-      case SimpleQuery(queryString) => generateSimpleQuery(
-        queryString,
+      case SimpleQuery(queryString) => generateSimpleQuery(queryString,
         applyDefaultTitleBoost(fieldBoosts),
         applyDefaultDatatypeBoosts(datatypeBoosts),
-        domainBoosts,
-        applyMinShouldMatch(minShouldMatch, searchContext),
-        slop
-      )
+        chooseMinShouldMatch(minShouldMatch, searchContext),
+        slop)
     }
 
-    // Apply any scoring functions
-    val query = SundryBuilders.addFunctionScores(scriptScoreFunctions,
-      QueryBuilders.functionScoreQuery(matchQuery))
+    // Wrap match query in function score query for boosting
+    val query = QueryBuilders.functionScoreQuery(matchQuery)
+    Boosts.applyScoreFunctions(query, scriptScoreFunctions)
+    Boosts.applyDomainBoosts(query, domainBoosts)
+    query.scoreMode("multiply").boostMode("replace")
 
-    // Apply filters
-    val filteredQuery = buildFilteredQuery(
-      only,
+    // Wrap function score query in filtered query for filtering
+    val filteredQuery = buildFilteredQuery(only,
       domains,
       searchContext,
       categories,
       tags,
       domainMetadata,
-      query
-    )
+      query)
 
     val preparedSearch = esClient.client
       .prepareSearch(Indices: _*)
@@ -289,9 +274,6 @@ class DocumentClient(
       advancedQuery: Option[String] = None)
     : SearchRequestBuilder = {
 
-    // WARN: Sort will totally blow away score if score isn't part of the sort
-    val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
-
     val baseRequest = buildBaseRequest(
       searchQuery,
       domains,
@@ -306,6 +288,9 @@ class DocumentClient(
       minShouldMatch,
       slop
     )
+
+    // WARN: Sort will totally blow away score if score isn't part of the sort
+    val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
 
     baseRequest
       .setFrom(offset)

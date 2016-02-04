@@ -90,7 +90,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
       actual should be(expected)
     }
 
-    "order by query score desc when given a simple query" in {
+    "order by score desc when given a simple query" in {
       val expected = Sorts.sortScoreDesc
 
       val searchContext = Domain(
@@ -159,7 +159,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
       actual.toString should be(expectedAsString)
     }
 
-    "order by page score descending for default null query" in {
+    "order by score descending for default null query" in {
       val expected = Sorts.sortScoreDesc
 
       val actual = Sorts.chooseSort(

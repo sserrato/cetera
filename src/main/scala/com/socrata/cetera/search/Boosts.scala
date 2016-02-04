@@ -1,31 +1,47 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
+import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 
-import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainFieldType}
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainFieldType, ScriptScoreFunction}
 
 object Boosts {
-  def boostDatatypes(
+  def applyDatatypeBoosts(
       query: BoolQueryBuilder,
-      datatypeBoosts: Map[Datatype, Float])
-    : BoolQueryBuilder = {
+      datatypeBoosts: Map[Datatype, Float]): Unit = {
 
-    datatypeBoosts.foldLeft(query) {
-      case (q, (datatype, boost)) => q
-        .should(QueryBuilders.termQuery(DatatypeFieldType.fieldName, datatype.singular)
-        .boost(boost))
+    datatypeBoosts.foreach {
+      case (datatype, boost) =>
+        query.should(
+          QueryBuilders.termQuery(
+            DatatypeFieldType.fieldName,
+            datatype.singular
+          ).boost(boost)
+        )
     }
   }
 
-  def boostDomains(
-      query: BoolQueryBuilder,
-      domainBoosts: Map[String, Float])
-    : BoolQueryBuilder = {
+  def applyScoreFunctions(
+      query: FunctionScoreQueryBuilder,
+      scriptScoreFunctions: Set[ScriptScoreFunction])
+    : Unit = {
 
-    domainBoosts.foldLeft(query) {
-      case (q, (domain, boost)) => q
-        .should(QueryBuilders.termQuery(DomainFieldType.rawFieldName, domain)
-        .boost(boost))
+    scriptScoreFunctions.foreach { fn =>
+      query.add(ScoreFunctionBuilders.scriptFunction(fn.script, "expression"))
+    }
+  }
+
+  def applyDomainBoosts(
+      query: FunctionScoreQueryBuilder,
+      domainBoosts: Map[String, Float])
+    : Unit = {
+
+    domainBoosts.foreach {
+      case (domain, weight) =>
+        query.add(
+          FilterBuilders.termFilter(DomainFieldType.rawFieldName, domain),
+          ScoreFunctionBuilders.weightFactorFunction(weight)
+        )
     }
   }
 }

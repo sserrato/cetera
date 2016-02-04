@@ -8,7 +8,7 @@ import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders}
 import com.socrata.cetera.types.{Datatype, TypeDatalenses, TypeDatasets, TypeFilters}
 
 class BoostsSpec extends WordSpec with ShouldMatchers {
-  "boostDatatypes" should {
+  "applyDatatypeBoosts" should {
     "add datatype boosts to the query" in {
       val query = QueryBuilders.boolQuery()
       val datatypeBoosts = Map[Datatype, Float](
@@ -16,6 +16,7 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
         TypeDatalenses -> 2.34f,
         TypeFilters -> 0.98f
       )
+      Boosts.applyDatatypeBoosts(query, datatypeBoosts)
 
       val expectedJson = j"""{
         "bool" : {
@@ -27,53 +28,72 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
         }
       }"""
 
-      val actual = Boosts.boostDatatypes(query, datatypeBoosts)
-      val actualJson = JsonReader.fromString(actual.toString)
-
+      val actualJson = JsonReader.fromString(query.toString)
       actualJson should be (expectedJson)
     }
 
     "return empty bool if called with empty map" in {
       val query = QueryBuilders.boolQuery()
       val datatypeBoosts = Map.empty[Datatype, Float]
+      Boosts.applyDatatypeBoosts(query, datatypeBoosts)
+
       val expectedJson = j"""{"bool" : { } }"""
-      val actual = Boosts.boostDatatypes(query, datatypeBoosts)
-      val actualJson = JsonReader.fromString(actual.toString)
+
+      val actualJson = JsonReader.fromString(query.toString)
       actualJson should be(expectedJson)
     }
   }
 
   "boostDomains" should {
     "add domain cname boosts to the query" in {
-      val query = QueryBuilders.boolQuery()
+      val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
       val domainBoosts = Map[String, Float](
         "example.com" -> 1.23f,
         "data.seattle.gov" -> 4.56f
-        )
+      )
+
+      Boosts.applyDomainBoosts(query, domainBoosts)
 
       val expectedJson = j"""{
-        "bool" : {
-          "should" : [
-            { "term" : { "socrata_id.domain_cname.raw" : { "value" : "example.com", "boost" : 1.23 } } },
-            { "term" : { "socrata_id.domain_cname.raw" : { "value" : "data.seattle.gov", "boost" : 4.56 } } }
-          ]
+        "function_score": {
+          "functions": [
+            {
+              "filter": {
+                "term": {
+                  "socrata_id.domain_cname.raw": "example.com"
+                }
+              },
+              "weight": 1.23
+            },
+            {
+              "filter": {
+                "term": {
+                  "socrata_id.domain_cname.raw": "data.seattle.gov"
+                }
+              },
+              "weight": 4.56
+            }
+          ],
+          "query": {
+            "match_all": {}
+          }
         }
       }"""
 
-      val actual = Boosts.boostDomains(query, domainBoosts)
-      val actualJson = JsonReader.fromString(actual.toString)
+      val actualJson = JsonReader.fromString(query.toString)
 
       actualJson should be (expectedJson)
     }
 
-    "return empty bool if called with empty map" in {
-      val query = QueryBuilders.boolQuery()
+    "do nothing to the query if given no domain boosts" in {
+      val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
       val domainBoosts = Map.empty[String, Float]
-      val expectedJson = j"""{"bool" : { } }"""
 
-      val actual = Boosts.boostDomains(query, domainBoosts)
-      val actualJson = JsonReader.fromString(actual.toString)
-      actualJson should be(expectedJson)
+      val beforeJson = JsonReader.fromString(query.toString)
+      Boosts.applyDomainBoosts(query, domainBoosts)
+      val afterJson = JsonReader.fromString(query.toString)
+
+      afterJson should be(beforeJson)
     }
   }
 }

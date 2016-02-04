@@ -241,7 +241,6 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     }
   }
 
-  // Q: what happens on &one+extra= ?
   // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&one+extra
   test("handle empty query string param value") {
     QueryParametersParser(Map("one extra" -> Seq())) match {

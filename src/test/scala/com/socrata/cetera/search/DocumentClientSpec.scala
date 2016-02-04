@@ -670,8 +670,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                   "term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 } }
                 },
                 {
-                  "term" :
-                    { "datatype" : { "value" : "datalens_map", "boost" : 10.1 } }
+                  "term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 } }
                 }
               ]
           }
@@ -681,7 +680,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query string OR (query AND string)",
         Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
         Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
-        Map.empty[String, Float], // domain boosts are empty for now
         Some("20%"), // minShouldMatch is a String because it can be a percentage
         Some(12) // slop is max num of intervening unmatched positions permitted
       )
@@ -692,26 +690,26 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }
 
-  //////////////////////
-  // applyMinShouldMatch
-  //////////////////////
+  ///////////////////////
+  // chooseMinShouldMatch
+  ///////////////////////
 
-  "applyMinShouldMatch" should {
+  "chooseMinShouldMatch" should {
     val msm = Some("2<-25% 9<-3") // I can be an involved string
     val sc = Domain(false, None, "example.com", Some("Example! (dotcom)"), false, false)
 
-    "apply minShouldMatch if present" in {
-      documentClient.applyMinShouldMatch(msm, None) should be (msm)
-      documentClient.applyMinShouldMatch(msm, Some(sc)) should be (msm)
+    "choose minShouldMatch if present" in {
+      documentClient.chooseMinShouldMatch(msm, None) should be (msm)
+      documentClient.chooseMinShouldMatch(msm, Some(sc)) should be (msm)
     }
 
     // Use case here is increasing search precision on customer domains
-    "apply default MSM value if none is passed in but search context is present" in {
-      documentClient.applyMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
+    "choose default MSM value if none is passed in but search context is present" in {
+      documentClient.chooseMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
     }
 
-    "apply nothing if no MSM value is passed in and no search context is present" in {
-      documentClient.applyMinShouldMatch(None, None) should be (None)
+    "choose nothing if no MSM value is passed in and no search context is present" in {
+      documentClient.chooseMinShouldMatch(None, None) should be (None)
     }
   }
 }
