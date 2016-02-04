@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
+import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient}
 import com.socrata.cetera.services.{CountService, FacetService, SearchService, VersionService}
 import com.socrata.cetera.types.ScriptScoreFunction
@@ -70,11 +71,14 @@ object SearchServer extends App {
     logger.info("ElasticSearchClient initialized on nodes " +
                   esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)
 
+    logger.info("Initializing BalboClient")
+    val balboaClient = new BalboaClient(config.balboa.dataDirectory)
+
     logger.info("Initializing VersionService")
     val versionService = VersionService
 
     logger.info("Initializing SearchService with Elasticsearch TransportClient")
-    val searchService = new SearchService(documentClient, domainClient)
+    val searchService = new SearchService(documentClient, domainClient, balboaClient)
 
     logger.info("Initializing FacetService with Elasticsearch TransportClient")
     val facetService = new FacetService(documentClient)

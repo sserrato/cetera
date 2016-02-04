@@ -84,6 +84,7 @@ trait TestESData {
   val esDomainTemplate: String =
     """{
       | "domain_cname": %s,
+      | "domain_id": %s,
       | "site_title": %s,
       | "organization": %s,
       | "is_customer_domain": %s,
@@ -105,7 +106,7 @@ trait TestESData {
                          socrataIdDatasetId: String,
                          socrataIdDomainCnames: Seq[String],
                          siteTitle: String,
-                         domainId: Seq[Long],
+                         domainId: Int,
                          resourceDescription: String,
                          resourceNbeFxf: String,
                          resourceUpdatedAt: String,
@@ -138,7 +139,7 @@ trait TestESData {
       quoteQualify(socrataIdDatasetId),
       quoteQualify(socrataIdDomainCnames),
       quoteQualify(siteTitle),
-      domainId.mkString(",\n"),
+      domainId.toString,
       quoteQualify(resourceDescription),
       quoteQualify(resourceNbeFxf),
       quoteQualify(resourceUpdatedAt),
@@ -167,9 +168,9 @@ trait TestESData {
     doc
   }
 
-  private def buildEsDomain(domainCname: String, siteTitle: String, organization: String,
+  private def buildEsDomain(domainCname: String, domainId: Int, siteTitle: String, organization: String,
                             isCustomerDomain: Boolean, moderationEnabled: Boolean, routingApprovalEnabled: Boolean) =
-    esDomainTemplate.format(quoteQualify(domainCname), quoteQualify(siteTitle), quoteQualify(organization),
+    esDomainTemplate.format(quoteQualify(domainCname), domainId.toString, quoteQualify(siteTitle), quoteQualify(organization),
                             isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString)
 
   private def buildEsDocByIndex(i: Int): String = {
@@ -178,7 +179,7 @@ trait TestESData {
       socrataIdDatasetIds(i % socrataIdDatasetIds.length),
       socrataIdDomainCnames(i % socrataIdDomainCnames.length),
       siteTitles(i % siteTitles.length),
-      domainIds(i % domainIds.length),
+      i,
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
       defaultResourceUpdatedAt,
@@ -207,6 +208,7 @@ trait TestESData {
 
   private def buildEsDomainByIndex(cname:String, i: Int): String = {
     buildEsDomain(cname,
+                  i,
                   siteTitles(i % siteTitles.length),
                   defaultSocrataIdOrg,
                   isCustomerDomains(i % isCustomerDomains.length),
@@ -226,7 +228,6 @@ trait TestESData {
   val socrataIdDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org").map(Seq(_))
   val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
   val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
-  val domainIds = Seq(1L, 2L, 3L).map(Seq(_))
   val numericIds = 0 to Datatypes.materialized.length
   val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
   val resourceDescriptions = Seq(

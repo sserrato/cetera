@@ -21,6 +21,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers  with TestESData wit
         isCustomerDomain = true,
         organization = Some(""),
         domainCname = "petercetera.net",
+        domainId = 0,
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
         routingApprovalEnabled = true)

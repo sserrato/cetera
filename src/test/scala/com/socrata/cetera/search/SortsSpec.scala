@@ -97,6 +97,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         isCustomerDomain = false,
         organization = Some("SDP"),
         domainCname = "peterschneider.net",
+        domainId = 1,
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
         routingApprovalEnabled = true
