@@ -1,9 +1,8 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.{BaseQueryBuilder, FilterBuilders, MultiMatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
-import org.slf4j.LoggerFactory
 
 import com.socrata.cetera.{Indices, esDocumentType}
 import com.socrata.cetera.types._
@@ -37,16 +36,6 @@ class DocumentClient(
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
     scriptScoreFunctions: Set[ScriptScoreFunction]) {
-
-  val logger = LoggerFactory.getLogger(getClass)
-
-  private def logESRequest(search: SearchRequestBuilder): Unit =
-    logger.info(
-      s"""Elasticsearch request
-         | indices: ${Indices.mkString(",")},
-         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
-       """.stripMargin
-    )
 
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
@@ -129,40 +118,42 @@ class DocumentClient(
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
 
-    import com.socrata.cetera.search.Filters._ // scalastyle:ignore
+    import com.socrata.cetera.search.Filters._ // scalastyle:ignore import.grouping
 
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
-    val odnFilters = List.concat(
-      customerDomainFilter,
-      categoriesFilter(categories),
-      tagsFilter(tags)
-    )
-
-    val domainFilters = List.concat(
-      domainCategoriesFilter(categories),
-      domainTagsFilter(tags),
-      domainMetadataFilter(domainMetadata)
-    )
+    val categoriesAndTags: Seq[QueryBuilder] =
+      if (searchContext.isDefined) {
+        List.concat(
+          domainCategoriesQuery(categories),
+          domainTagsQuery(tags))
+      } else {
+        List.concat(
+          categoriesQuery(categories),
+          tagsQuery(tags))
+      }
 
     val moderated = searchContext.exists(_.moderationEnabled)
 
-    val filters = List.concat(
+    val filters: List[FilterBuilder] = List.concat(
       datatypeFilter(datatypes),
       domainFilter(domains),
       moderationStatusFilter(moderated),
       routingApprovalFilter(searchContext),
-      if (searchContext.isDefined) domainFilters else odnFilters
+      if (searchContext.isDefined) domainMetadataFilter(domainMetadata) else customerDomainFilter
     )
+
+    val categoriesAndTagsQuery =
+      if (categoriesAndTags.nonEmpty) {
+        categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
+      } else { query }
 
     if (filters.nonEmpty) {
       QueryBuilders.filteredQuery(
-        query,
+        categoriesAndTagsQuery,
         FilterBuilders.andFilter(filters.toSeq: _*)
       )
-    } else {
-      query
-    }
+    } else { categoriesAndTagsQuery }
   }
 
   private def applyDefaultTitleBoost(
@@ -231,28 +222,26 @@ class DocumentClient(
         slop)
     }
 
-    // Wrap match query in function score query for boosting
-    val query = QueryBuilders.functionScoreQuery(matchQuery)
-    Boosts.applyScoreFunctions(query, scriptScoreFunctions)
-    Boosts.applyDomainBoosts(query, domainBoosts)
-    query.scoreMode("multiply").boostMode("replace")
-
-    // Wrap function score query in filtered query for filtering
+    // Wrap basic match query in filtered query for filtering
     val filteredQuery = buildFilteredQuery(only,
       domains,
       searchContext,
       categories,
       tags,
       domainMetadata,
-      query)
+      matchQuery)
+
+    // Wrap filtered query in function score query for boosting
+    val query = QueryBuilders.functionScoreQuery(filteredQuery)
+    Boosts.applyScoreFunctions(query, scriptScoreFunctions)
+    Boosts.applyDomainBoosts(query, domainBoosts)
+    query.scoreMode("multiply").boostMode("replace")
 
     val preparedSearch = esClient.client
       .prepareSearch(Indices: _*)
-      .setQuery(filteredQuery)
+      .setQuery(query)
       .setTypes(esDocumentType)
 
-    // TODO: Logging should happen at time of execution
-    logESRequest(preparedSearch)
     preparedSearch
   }
 
@@ -374,8 +363,6 @@ class DocumentClient(
       .addAggregation(filteredAggs)
       .setSize(size)
 
-    // TODO: Logging should happen at time of execution
-    logESRequest(preparedSearch)
     preparedSearch
   }
 }

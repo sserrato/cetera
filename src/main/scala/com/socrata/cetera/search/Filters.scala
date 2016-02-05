@@ -21,30 +21,38 @@ object Filters {
   def domainFilter(domain: String): Option[TermsFilterBuilder] =
     if (domain.nonEmpty) domainFilter(Set(domain)) else None
 
-  def categoriesFilter(categories: Option[Set[String]]): Option[NestedFilterBuilder] =
+  def categoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>
-      FilterBuilders.nestedFilter(
+      QueryBuilders.nestedQuery(
         CategoriesFieldType.fieldName,
-        FilterBuilders.termsFilter(CategoriesFieldType.Name.rawFieldName, cs.toSeq: _*)
+        cs.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
+          b.should(QueryBuilders.matchQuery(CategoriesFieldType.Name.fieldName, q))
+        }
       )
     }
 
-  def tagsFilter(tags: Option[Set[String]]): Option[NestedFilterBuilder] =
+  def tagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
     tags.map { tags =>
-      FilterBuilders.nestedFilter(
+      QueryBuilders.nestedQuery(
         TagsFieldType.fieldName,
-        FilterBuilders.termsFilter(TagsFieldType.Name.rawFieldName, tags.toSeq: _*)
+        tags.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
+          b.should(QueryBuilders.matchQuery(TagsFieldType.Name.fieldName, q))
+        }
       )
     }
 
-  def domainCategoriesFilter(categories: Option[Set[String]]): Option[TermsFilterBuilder] =
+  def domainCategoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>
-      FilterBuilders.termsFilter(DomainCategoryFieldType.rawFieldName, cs.toSeq: _*)
+      cs.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
+        b.should(QueryBuilders.matchQuery(DomainCategoryFieldType.fieldName, q))
+      }
     }
 
-  def domainTagsFilter(tags: Option[Set[String]]): Option[TermsFilterBuilder] =
+  def domainTagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
     tags.map { ts =>
-      FilterBuilders.termsFilter(DomainTagsFieldType.rawFieldName, ts.toSeq: _*)
+      ts.foldLeft(QueryBuilders.boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
+        b.should(QueryBuilders.matchQuery(DomainTagsFieldType.fieldName, q))
+      }
     }
 
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[OrFilterBuilder] =

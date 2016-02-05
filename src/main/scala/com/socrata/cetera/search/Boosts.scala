@@ -8,7 +8,8 @@ import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainFieldType, S
 object Boosts {
   def applyDatatypeBoosts(
       query: BoolQueryBuilder,
-      datatypeBoosts: Map[Datatype, Float]): Unit = {
+      datatypeBoosts
+    : Map[Datatype, Float]): Unit = {
 
     datatypeBoosts.foreach {
       case (datatype, boost) =>

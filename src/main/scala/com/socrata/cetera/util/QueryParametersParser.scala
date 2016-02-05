@@ -153,7 +153,7 @@ object QueryParametersParser {
           queryStringDomainMetadata(queryParameters),
           queryParameters.first(Params.context).map(_.toLowerCase),
           mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)),
-          mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray), _.toLowerCase),
+          mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray)),
           o,
           fieldBoosts,
           datatypeBoosts,

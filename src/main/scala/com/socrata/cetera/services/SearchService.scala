@@ -11,7 +11,7 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
-import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
@@ -129,6 +129,14 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
     })
   }
 
+  private def logESRequest(search: SearchRequestBuilder): Unit =
+    logger.info(
+      s"""Elasticsearch request
+         | indices: ${Indices.mkString(",")},
+         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+       """.stripMargin
+    )
+
   def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
     QueryParametersParser(queryParameters) match {
@@ -138,7 +146,7 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
 
       case Right(params) =>
         val domain = params.searchContext.flatMap(domainClient.find)
-        val res = elasticSearchClient.buildSearchRequest(
+        val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
           params.domainMetadata,
@@ -153,7 +161,11 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
           params.slop,
           params.offset,
           params.limit
-        ).execute.actionGet
+        )
+
+        logESRequest(req)
+
+        val res = req.execute.actionGet
 
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
         val count = res.getHits.getTotalHits

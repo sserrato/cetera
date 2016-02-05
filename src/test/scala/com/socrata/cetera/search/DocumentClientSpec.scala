@@ -175,33 +175,65 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
-  val animlCategoriesFilter = j"""{
+  val animlCategoriesQuery = j"""{
     "nested": {
-        "filter": {
-            "terms": {
-                "animl_annotations.categories.name.raw": [
-                    "Social Services",
-                    "Environment",
-                    "Housing & Development"
-                ]
-            }
-        },
-        "path": "animl_annotations.categories"
+      "query": {
+        "bool": {
+          "should": [
+            { "match": { "animl_annotations.categories.name" : { "query":"Social Services", "type":"boolean"} } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Environment", "type":"boolean"} } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"boolean"} } }
+          ],
+          "minimum_should_match" : "1"
+        }
+      },
+      "path": "animl_annotations.categories"
     }
   }"""
 
-  val animlTagsFilter = j"""{
+  val animlTagsQuery = j"""{
     "nested": {
-        "filter": {
-            "terms": {
-                "animl_annotations.tags.name.raw": [
-                    "taxi",
-                    "art",
-                    "clowns"
-                ]
-            }
-        },
-        "path": "animl_annotations.tags"
+      "query": {
+        "bool": {
+          "should": [
+            { "match": { "animl_annotations.tags.name" : { "query":"taxi", "type":"boolean" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"art", "type":"boolean" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"boolean" } } }
+          ],
+          "minimum_should_match" : "1"
+        }
+      },
+      "path": "animl_annotations.tags"
+    }
+  }"""
+
+  val simpleQuery = j"""{
+    "bool": {
+      "must": [
+        {"match_all": {}},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
+    }
+  }"""
+
+  val complexQuery = j"""{
+    "bool": {
+      "must": [
+        ${boolQuery},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
+    }
+  }"""
+
+  val boostedComplexQuery = j"""{
+    "bool": {
+      "must": [
+        ${boostedBoolQuery},
+        ${animlCategoriesQuery},
+        ${animlTagsQuery}
+      ]
     }
   }"""
 
@@ -211,9 +243,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             ${datatypeDatasetsFilter},
             ${domainFilter},
             ${moderationFilter},
-            ${customerDomainFilter},
-            ${animlCategoriesFilter},
-            ${animlTagsFilter}
+            ${customerDomainFilter}
         ]
     }
   }"""
@@ -246,13 +276,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   "buildBaseRequest" should {
     "construct a default match all query" in {
-      val expected = j"""{
-        "query": {
-          "filtered": {
-            "filter": ${defaultFilter},
-            "query": ${functionScoreQuery(matchAll)}
-          }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${matchAll}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -270,18 +302,21 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         slop = None
       )
       val actual = JsonReader.fromString(request.toString)
+
       actual should be (expected)
       request.request.types should be (Array(esDocumentType))
     }
 
     "construct a match query with terms" in {
-      val expected = j"""{
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": ${functionScoreQuery(boolQuery)}
-            }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${boolQuery}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -305,13 +340,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
 
     "construct a multi match query with boosted fields" in {
-      val expected = j"""{
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": ${functionScoreQuery(boostedBoolQuery)}
-            }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${boostedBoolQuery}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -339,8 +376,16 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // buildCountRequest
   // /////////////////
 
+  // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
   "buildCountRequest" should {
     "construct a default search query with normal aggregation for domains" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${matchAll}
+        }
+      }"""
+
       val expected = j"""{
         "aggregations": {
             "domains": {
@@ -353,12 +398,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 }
             }
         },
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": ${functionScoreQuery(matchAll)}
-            }
-        }
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildCountRequest(
@@ -377,7 +417,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       request.request.searchType should be (COUNT)
     }
 
+    // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
     "construct a filtered match query with nested aggregation for annotations" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${complexQuery}
+        }
+      }"""
+
       val expected = j"""{
         "aggregations": {
             "annotations": {
@@ -394,12 +442,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 }
             }
         },
-        "query": {
-            "filtered": {
-                "filter": ${complexFilter},
-                "query": ${functionScoreQuery(boolQuery)}
-            }
-        }
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildCountRequest(
@@ -498,14 +541,16 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   "buildSearchRequest" should {
     "add from, size, sort and only to a complex base request" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${complexQuery}
+        }
+      }"""
+
       val expected = j"""{
         "from": ${params.offset},
-        "query": {
-            "filtered": {
-                "filter": ${complexFilter},
-                "query": ${functionScoreQuery(boolQuery)}
-            }
-        },
+        "query": ${functionScoreQuery(query)},
         "size": ${params.limit},
         "sort": [ { "_score": {} }
         ]
@@ -535,14 +580,16 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
 
     "sort by average category scores given search context and categories" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${simpleQuery}
+        }
+      }"""
+
       val expected = j"""{
         "from": ${params.offset},
-        "query": {
-            "filtered": {
-                "filter": ${complexFilter},
-                "query": ${functionScoreQuery(matchAll)}
-            }
-        },
+        "query": ${functionScoreQuery(query)},
         "size": ${params.limit},
         "sort": [
             {

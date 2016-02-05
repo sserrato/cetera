@@ -63,37 +63,42 @@
           "properties" : {
             "columns_description" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "columns_name" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "columns_field_name" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "description" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "name" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             }
           },
@@ -101,7 +106,6 @@
         },
         "resource" : {
           "enabled" : false,
-          "index" : "no",
           "type" : "nested",
           "properties" : {
             "page_views" : {
@@ -123,6 +127,9 @@
             "nbe_fxf" : {
               "type" : "string"
             },
+            "obe_fxf" : {
+              "type" : "string"
+            },
             "id" : {
               "type" : "string"
             },
@@ -137,23 +144,26 @@
             },
             "columns_description" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "columns_name" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "columns_field_name" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             }
           }
@@ -166,9 +176,10 @@
             "domain_cname" : {
               "type" : "string",
               "analyzer" : "simple",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "domain_id" : {
@@ -176,16 +187,18 @@
             },
             "organization" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "site_title" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             }
           },
@@ -198,9 +211,11 @@
               "properties" : {
                 "name" : {
                   "type" : "string",
+                  "analyzer": "case_insensitive_en",
+                  "copy_to": [ "fts_analyzed", "fts_raw" ],
                   "fields" : {
-                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
+                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
                   }
                 },
                 "score" : {"type" : "float", "store" : "no", "index" : "not_analyzed"}
@@ -211,9 +226,11 @@
               "properties" : {
                 "name" : {
                   "type" : "string",
+                  "analyzer": "case_insensitive_en",
+                  "copy_to": [ "fts_analyzed", "fts_raw" ],
                   "fields" : {
-                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                    "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
+                    "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
                   }
                 },
                 "score" : {"type" : "float", "store" : "no", "index" : "not_analyzed"}
@@ -223,16 +240,20 @@
         },
         "customer_tags" : {
           "type" : "string",
+          "analyzer": "case_insensitive_en",
+          "copy_to": [ "fts_analyzed", "fts_raw" ],
           "fields": {
-            "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+            "raw" : {"type" : "string", "index" : "not_analyzed"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
           }
         },
         "customer_category" : {
           "type" : "string",
+          "analyzer": "case_insensitive_en",
+          "copy_to": [ "fts_analyzed", "fts_raw" ],
           "fields" : {
-            "raw" : {"type" : "string", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+            "raw" : {"type" : "string", "index" : "not_analyzed"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
           }
         },
         "customer_metadata_flattened" : {
@@ -240,16 +261,18 @@
           "properties" : {
             "key" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             },
             "value" : {
               "type" : "string",
+              "copy_to": [ "fts_analyzed", "fts_raw" ],
               "fields" : {
-                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed", "copy_to" : "fts_raw"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en", "copy_to" : "fts_analyzed"}
+                "raw" : {"type" : "string", "store" : "yes", "index" : "not_analyzed"},
+                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
               }
             }
           }
