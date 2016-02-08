@@ -15,7 +15,8 @@ import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DocumentClient, DomainClient}
+import com.socrata.cetera.metrics.BalboaClient
+import com.socrata.cetera.search.{DocumentClient, Domain, DomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -41,7 +42,9 @@ object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
 
-class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainClient) extends SimpleResource {
+class SearchService(elasticSearchClient: DocumentClient,
+                    domainClient: DomainClient,
+                    balboaClient: BalboaClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   // TODO: cetera-etl rename customer_blah to domain_blah
@@ -137,6 +140,16 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
        """.stripMargin
     )
 
+  def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
+    domain.foreach(d =>
+      query match {
+        case NoQuery => // nothing to log to balboa
+        case SimpleQuery(q) => balboaClient.logQuery(d.domainId, q)
+        case AdvancedQuery(q) => balboaClient.logQuery(d.domainId, q)
+      }
+    )
+  }
+
   def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
     QueryParametersParser(queryParameters) match {
@@ -168,6 +181,9 @@ class SearchService(elasticSearchClient: DocumentClient, domainClient: DomainCli
         val res = req.execute.actionGet
 
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+
+        logSearchTerm(domain, params.searchQuery)
+
         val count = res.getHits.getTotalHits
         val formattedResults: SearchResults[SearchResult] = format(params.showScore, res)
           .copy(resultSetSize = Some(count), timings = Some(timings))

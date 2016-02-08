@@ -3,6 +3,7 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
+import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
@@ -14,7 +15,8 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(client, datatypeBoosts, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
-  val service: SearchService = new SearchService(documentClient, domainClient)
+  val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
+  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()

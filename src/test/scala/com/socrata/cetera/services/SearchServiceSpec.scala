@@ -1,9 +1,12 @@
 package com.socrata.cetera.services
 
+import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
 import scala.collection.JavaConverters._
 
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
+import com.rojoma.simplearm.v2.managed
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -15,6 +18,7 @@ import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera._
+import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 
@@ -22,7 +26,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val client: ElasticSearchClient = new TestESClient("SearchService")
   val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
-  val service: SearchService = new SearchService(documentClient, domainClient)
+  val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
+  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -207,15 +212,35 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
-  val service: SearchService = new SearchService(documentClient, domainClient)
+  val balboaDir: java.io.File = new java.io.File("balboa_test_trash")
+  val balboaClient: BalboaClient = new BalboaClient(balboaDir.getName)
+  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
+
+  def emptyAndRemoveDir(dir: java.io.File): Unit = {
+    if (dir.isDirectory) {
+      dir.listFiles().foreach(f => f.delete())
+    }
+    dir.delete()
+  }
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
+    emptyAndRemoveDir(balboaDir)
   }
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    emptyAndRemoveDir(balboaDir)
+  }
+
+  def wasSearchQueryLogged(filename: String, q: String): Boolean = {
+    val decoder = Charset.forName("UTF-8").newDecoder()
+    decoder.onMalformedInput(CodingErrorAction.IGNORE)
+    for (s <- managed(scala.io.Source.fromFile(filename)(decoder))) {
+      val entries = s.getLines.toList(0)
+      entries.contains(s"datasets-search-$q")
+    }
   }
 
   test("search response contains pretty and perma links") {
@@ -229,6 +254,41 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       r.permalink.string should endWith regex s"/$perma/$dsid"
       r.link.string should endWith regex s"/$pretty/$dsid"
     }
+  }
+
+  test("if a domain is given in the searchContext and a simple query is given, the query should be logged") {
+    val query = "log this query"
+    val params = Map(
+      "domains" -> "opendata-demo.socrata.com,petercetera.net",
+      "search_context" -> "opendata-demo.socrata.com",
+      "q" -> query
+    ).mapValues(Seq(_))
+    service.doSearch(params)._1.results
+    val metricsFile = balboaDir.listFiles()(0)
+    wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
+  }
+
+  test("if a domain is given in the searchContext and an advance query is given, the query should be logged") {
+    val query = "(log this query OR don't) AND (check up on it OR don't)"
+    val params = Map(
+      "domains" -> "opendata-demo.socrata.com,petercetera.net",
+      "search_context" -> "opendata-demo.socrata.com",
+      "q_internal" -> query
+    ).mapValues(Seq(_))
+    service.doSearch(params)._1.results
+    val metricsFile = balboaDir.listFiles()(0)
+    wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
+  }
+
+  test("if there is no searchContext, no query should be logged") {
+    val query = "don't log this query"
+    val params = Map(
+      "domains" -> "opendata-demo.socrata.com,petercetera.net",
+      "q" -> query
+    ).mapValues(Seq(_))
+    service.doSearch(params)._1.results
+    val metricsFile = balboaDir.listFiles()(0)
+    wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(false)
   }
 
   test("search response without a searchContext should have the correct set of documents") {

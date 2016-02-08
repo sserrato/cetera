@@ -12,6 +12,7 @@ import com.socrata.cetera._
 case class Domain(isCustomerDomain: Boolean,
                   organization: Option[String],
                   domainCname: String,
+                  domainId: Int,
                   siteTitle: Option[String],
                   moderationEnabled: Boolean,
                   routingApprovalEnabled: Boolean)

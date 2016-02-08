@@ -743,7 +743,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   "chooseMinShouldMatch" should {
     val msm = Some("2<-25% 9<-3") // I can be an involved string
-    val sc = Domain(false, None, "example.com", Some("Example! (dotcom)"), false, false)
+    val sc = Domain(false, None, "example.com", 1, Some("Example! (dotcom)"), false, false)
 
     "choose minShouldMatch if present" in {
       documentClient.chooseMinShouldMatch(msm, None) should be (msm)

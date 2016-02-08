@@ -6,11 +6,12 @@ crossScalaVersions := Seq("2.10.4", scalaVersion.value)
 
 resolvers ++= Seq(
   "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
-  "socrata internal maven" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
-  "socrata maven" at "https://repository-socrata-oss.forge.cloudbees.com/release",
-  "socrata maven-snap" at "https://repository-socrata-oss.forge.cloudbees.com/snapshot",
+  "Artifactory release" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
+  "Artifactory snapshot" at "https://repo.socrata.com/artifactory/simple/libs-snapshot-local",
+  "Cloudbees release" at "https://repository-socrata-oss.forge.cloudbees.com/release",
+  "Cloudbees snapshot" at "https://repository-socrata-oss.forge.cloudbees.com/snapshot",
   Classpaths.sbtPluginReleases,
-  Resolver.url("socrata ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns)
+  Resolver.url("Artifactory ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns)
 )
 
 val rojomaDependencies = Seq(
@@ -21,7 +22,8 @@ val rojomaDependencies = Seq(
 val socrataDependencies = Seq(
   "com.socrata" %% "socrata-http-client" % "3.5.0",
   "com.socrata" %% "socrata-http-jetty" % "3.5.0",
-  "com.socrata" %% "socrata-thirdparty-utils" % "4.0.12"
+  "com.socrata" %% "socrata-thirdparty-utils" % "4.0.12",
+  "com.socrata" %% "balboa-client" % "0.16.15"
 ).map { _.excludeAll(ExclusionRule(organization = "com.rojoma")) }
 
 val loggingDependencies = Seq(
