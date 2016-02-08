@@ -62,18 +62,24 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
         ColumnNameFieldType -> 10.0,
         ColumnDescriptionFieldType -> 10.0,
         ColumnFieldNameFieldType -> 10.0,
+
         TitleFieldType -> 9.0,
         DescriptionFieldType -> 8.0)
 
-    val vqps = qpp(Map("boostColumns" -> "10.0", "boostTitle" -> "9.0", "boostDesc" -> "8.0").mapValues(Seq(_)))
+    val vqps = qpp(
+      Map(
+        "boostColumns" -> "10.0", // should produce 3 boosts: name, description, field_name
+
+        "boostTitle" -> "9.0",
+        "boostDesc" -> "8.0"
+      ).mapValues(Seq(_)))
 
     vqps match {
       case Left(_) => fail("a ValidatedQueryParameters should be returned")
-      case Right(_) =>
+      case Right(params) =>
+        params.fieldBoosts should be (expectedFieldBoosts)
+        params.datatypeBoosts should be (Map())
     }
-
-    vqps.right.get.fieldBoosts should be (expectedFieldBoosts)
-    vqps.right.get.datatypeBoosts should be (Map())
   }
 
   test("datatype boosts are not treated as custom metadata key-value pairs") {
@@ -171,21 +177,25 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("domain metadata excludes known parameters") {
-    val knownEnumParams = Map("only" -> Seq("calendar",
-      "chart",
-      "datalens",
-      "dataset",
-      "file",
-      "filter",
-      "form",
-      "map",
-      "href",
-      "pulse",
-      "story",
-      "link",
-      "datalens_chart",
-      "datalens_map",
-      "tabular_map"))
+    val knownEnumParams = Map(
+      "only" -> Seq(
+        "calendar",
+        "chart",
+        "datalens",
+        "dataset",
+        "file",
+        "filter",
+        "form",
+        "map",
+        "href",
+        "pulse",
+        "story",
+        "link",
+        "datalens_chart",
+        "datalens_map",
+        "tabular_map"
+      )
+    )
 
     val knownNumericParams = List(
       "boostColumns",
@@ -215,9 +225,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "search_context",
       "domains",
       "categories",
-      "categories[]",
       "tags",
-      "tags[]",
       "q",
       "q_internal",
       "min_should_match",
@@ -226,10 +234,40 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "function_score"
     ).map(p => p -> Seq(p)).toMap
 
-    QueryParametersParser(knownEnumParams ++ knownNumericParams ++ knownStringParams) match {
+    val knownArrayParams = List(
+      "categories[]",
+      "tags[]"
+    ).map(p => p -> Seq(p)).toMap
+
+    // This is how they show up from socrata-http
+    val domainBoostExamples = List(
+      "boostDomains[example.com]",
+      "boostDomains[data.seattle.gov]",
+      "boostDomains[xyz]",
+      "boostDomains[]"
+    ).map(p => p -> Seq("1.23"))
+
+    QueryParametersParser(
+      knownEnumParams ++
+        knownNumericParams ++
+        knownStringParams ++
+        knownArrayParams ++
+        domainBoostExamples
+    ) match {
       case Right(params) =>
         params.domainMetadata shouldNot be('defined)
       case _ => fail()
+    }
+  }
+
+  // just documenting that we do not support boostDomains without the []
+  test ("boostDomains without [] gets interpreted as custom metadata") {
+    QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34"))) match {
+      case Right(params) => params.domainMetadata match {
+        case Some(metadata) => metadata should be(Set("boostDomains" -> "1.23", "pants" -> "2.34"))
+        case None => fail("expected to see boostDomains show up in metadata")
+      }
+      case Left(e) => fail(e.toString)
     }
   }
 
@@ -256,8 +294,9 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts) match {
-      case Right(params) =>
-        params.domainBoosts should be(Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f))
+      case Right(params) => params.domainBoosts should be(
+        Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f)
+      )
       case _ => fail()
     }
   }
@@ -269,8 +308,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts) match {
-      case Right(params) =>
-        params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
+      case Right(params) => params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
   }
@@ -284,8 +322,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts) match {
-      case Right(params) =>
-        params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
+      case Right(params) => params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
   }
@@ -296,9 +333,64 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts) match {
-      case Right(params) =>
-        params.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
+      case Right(params) => params.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
       case _ => fail()
     }
+  }
+
+  test("domain boost params are not interpreted as custom metadata fields") {
+    val params = Map(
+      Params.context -> Seq("example.com"),
+      Params.boostDomains + "[example.com]" -> Seq("1.23")
+    )
+
+    QueryParametersParser(params) match {
+      case Right(p) => p.domainBoosts should be(Map("example.com" -> 1.23f))
+      case _ => fail()
+    }
+  }
+
+  // just documenting current if not-quite-ideal behavior
+  test("boostDomains without [] is not supported and gets interpreted as metadata") {
+    val params = Map(
+      Params.context -> Seq("example.com"),
+      Params.boostDomains + "example.com" -> Seq("1.23"),
+      Params.boostDomains -> Seq("1.23")
+    )
+
+    QueryParametersParser(params) match {
+      case Right(p) => p.domainBoosts should be(Map.empty[String, Float])
+      case _ => fail()
+    }
+  }
+}
+
+class ParamsSpec extends FunSuiteLike with Matchers {
+  test("isCatalogKey can recognize string keys") {
+    val keys = Seq("search_context", "only", "domains", "slop", "boostMaps")
+    keys.foreach { key =>
+      Params.isCatalogKey(key) should be (true)
+      Params.isCatalogKey(key.reverse) should be (false)
+     }
+  }
+
+  test("isCatalogKey can recognize array keys") {
+    val keys = Seq("categories[]", "tags[]")
+    keys.foreach { key =>
+      Params.isCatalogKey(key) should be (true)
+      Params.isCatalogKey("phony_" + key) should be (false)
+    }
+  }
+
+  test("isCatalogKey can recognize hashmap keys like boostDomains[]") {
+    val keys = Seq("boostDomains[example.com]", "boostDomains[data.seattle.gov]")
+    keys.foreach { key =>
+      Params.isCatalogKey(key) should be (true)
+      Params.isCatalogKey("phony_" + key) should be (false)
+    }
+  }
+
+  test("isCatalogKey does not recognize boostDomains without []") {
+    Params.isCatalogKey("boostDomains") should be (false)
   }
 }

@@ -102,7 +102,7 @@ object QueryParametersParser {
   }
 
   def prepareDomainBoosts(queryParameters: MultiQueryParams): Map[String, Float] = {
-    val domainExtractor = new FieldExtractor("boostDomains")
+    val domainExtractor = new FieldExtractor(Params.boostDomains)
     queryParameters.collect { case (domainExtractor(field), Seq(FloatExtractor(weight))) =>
       field -> weight
     }
@@ -222,12 +222,12 @@ object Params {
       Datatype(typeNameFromBoostParam(boostParam.toLowerCase)))
 
   // field boosting parameters
-  val boostColumns = "boostColumns"
-  val boostDescription = "boostDesc"
-  val boostTitle = "boostTitle"
+  val boostColumns = boostParamPrefix + "Columns"
+  val boostDescription = boostParamPrefix + "Desc"
+  val boostTitle = boostParamPrefix + "Title"
 
   // e.g., boostDomains[example.com]=1.23&boostDomains[data.seattle.gov]=4.56
-  val boostDomains = "boostDomains[]"
+  val boostDomains = boostParamPrefix + "Domains"
 
   val minMatch = "min_should_match"
   val slop = "slop"
@@ -238,21 +238,26 @@ object Params {
   val scanLength = "limit"
   val scanOffset = "offset"
 
-  // HEY! when adding/removing parameters update this list.
-  private val keys = List(
+
+  ///////////////////////
+  // Explicit Param Lists
+  ///////////////////////
+
+  // HEY! when adding/removing parameters update `keys` or `mapKeys` as appropriate.
+  // These are used to distinguish catalog keys from custom metadata fields
+
+  // If your param is a simple key/value pair, add it here
+  private val stringKeys = Set(
     context,
     filterDomains,
     filterCategories,
-    filterCategoriesArray,
     filterTags,
-    filterTagsArray,
     filterType,
     queryAdvanced,
     querySimple,
     boostColumns,
     boostDescription,
     boostTitle,
-    boostDomains,
     minMatch,
     slop,
     showFeatureValues,
@@ -260,7 +265,28 @@ object Params {
     functionScore,
     scanLength,
     scanOffset
-  ) ++ datatypeBoostParams
+  ) ++ datatypeBoostParams.toSet
 
-  def remaining(qs: MultiQueryParams): MultiQueryParams = qs.filterKeys(key => !keys.contains(key))
+  // If your param is an array like tags[]=fun&tags[]=ice+cream
+  private val arrayKeys = Set(
+    filterCategoriesArray,
+    filterTagsArray
+  )
+
+  // If your param is a hashmap like boostDomains[example.com]=1.23, add it here
+  private val mapKeys = Set(
+    boostDomains
+  )
+
+  // For example: search_context, tags[], boostDomains[example.com]
+  def isCatalogKey(key: String): Boolean = {
+    stringKeys.contains(key) ||
+      arrayKeys.contains(key) ||
+      key.endsWith("]") && mapKeys.contains(key.split('[').head)
+  }
+
+  // Remaining keys are treated as custom metadata fields and filtered on
+  def remaining(qs: MultiQueryParams): MultiQueryParams = {
+    qs.filterKeys { key => !isCatalogKey(key) }
+  }
 }
