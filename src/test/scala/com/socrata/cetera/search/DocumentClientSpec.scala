@@ -1,5 +1,6 @@
 package com.socrata.cetera.search
 
+import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
@@ -24,7 +25,18 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   val client = new TestESClient("esclientspec")  // Remember to close() me!!
   val defaultMinShouldMatch = Some("37%")
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, defaultMinShouldMatch, Set.empty)
+  val scriptScoreFunctions = Set(
+    ScriptScoreFunction.getScriptFunction("views"),
+    ScriptScoreFunction.getScriptFunction("score")
+  ).flatMap { fn => fn }
+
+  val documentClient: DocumentClient = DocumentClient(
+    esClient = client,
+    defaultTypeBoosts = Map.empty,
+    defaultTitleBoost = None,
+    defaultMinShouldMatch = defaultMinShouldMatch,
+    scriptScoreFunctions = scriptScoreFunctions
+  )
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -43,6 +55,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       DescriptionFieldType -> 1.1f
     ),
     datatypeBoosts = Map.empty,
+    domainBoosts = Map.empty[String, Float],
     minShouldMatch = None,
     slop = None,
     showScore = false,
@@ -203,6 +216,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       ]
     }
   }"""
+
   val complexQuery = j"""{
     "bool": {
       "must": [
@@ -212,6 +226,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       ]
     }
   }"""
+
   val boostedComplexQuery = j"""{
     "bool": {
       "must": [
@@ -233,21 +248,43 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  val matchAll = j"""{ "match_all" : {} }"""
+
+  def functionScoreQuery(query: JValue) = j"""{
+    "function_score" : {
+      "query" : ${query},
+      "functions" : [
+        {
+          "script_score" : {
+            "script" : "1 + doc[\"page_views.page_views_total_log\"].value",
+            "lang" : "expression"
+          }
+        },
+        {
+          "script_score" :
+          { "script" : "_score", "lang" : "expression" }
+        }
+      ],
+      "score_mode" : "multiply",
+      "boost_mode" : "replace"
+    }
+  }"""
+
   ///////////////////
   // buildBaseRequest
   ///////////////////
 
   "buildBaseRequest" should {
     "construct a default match all query" in {
-      val expected = j"""{
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": {
-                    "match_all": {}
-                }
-            }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${matchAll}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -260,22 +297,26 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
       val actual = JsonReader.fromString(request.toString)
+
       actual should be (expected)
       request.request.types should be (Array(esDocumentType))
     }
 
     "construct a match query with terms" in {
-      val expected = j"""{
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": ${boolQuery}
-            }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${boolQuery}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -288,6 +329,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -298,13 +340,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
 
     "construct a multi match query with boosted fields" in {
-      val expected = j"""{
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": ${boostedBoolQuery}
-            }
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${boostedBoolQuery}
         }
+      }"""
+
+      val expected = j"""{
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildBaseRequest(
@@ -317,6 +361,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = params.fieldBoosts,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -331,8 +376,16 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // buildCountRequest
   // /////////////////
 
+  // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
   "buildCountRequest" should {
     "construct a default search query with normal aggregation for domains" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${defaultFilter},
+          "query": ${matchAll}
+        }
+      }"""
+
       val expected = j"""{
         "aggregations": {
             "domains": {
@@ -345,14 +398,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 }
             }
         },
-        "query": {
-            "filtered": {
-                "filter": ${defaultFilter},
-                "query": {
-                    "match_all": {}
-                }
-            }
-        }
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildCountRequest(
@@ -371,7 +417,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       request.request.searchType should be (COUNT)
     }
 
+    // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
     "construct a filtered match query with nested aggregation for annotations" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${complexQuery}
+        }
+      }"""
+
       val expected = j"""{
         "aggregations": {
             "annotations": {
@@ -388,12 +442,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 }
             }
         },
-        "query": {
-            "filtered": {
-                "filter": ${complexFilter},
-                "query": ${complexQuery}
-            }
-        }
+        "query": ${functionScoreQuery(query)}
       }"""
 
       val request = documentClient.buildCountRequest(
@@ -492,19 +541,18 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   "buildSearchRequest" should {
     "add from, size, sort and only to a complex base request" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${complexQuery}
+        }
+      }"""
+
       val expected = j"""{
         "from": ${params.offset},
-        "query": {
-            "filtered": {
-                "filter": ${complexFilter},
-                "query": ${complexQuery}
-            }
-        },
+        "query": ${functionScoreQuery(query)},
         "size": ${params.limit},
-        "sort": [
-            {
-                "_score": {}
-            }
+        "sort": [ { "_score": {} }
         ]
       }"""
 
@@ -518,6 +566,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
@@ -530,15 +579,17 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
     }
 
-    "sort by categories score when query term is missing but cat filter is present" in {
+    "sort by average category scores given search context and categories" in {
+      val query = j"""{
+        "filtered": {
+          "filter": ${complexFilter},
+          "query": ${simpleQuery}
+        }
+      }"""
+
       val expected = j"""{
         "from": ${params.offset},
-        "query": {
-            "filtered": {
-                "query": ${simpleQuery},
-                "filter": ${complexFilter}
-            }
-        },
+        "query": ${functionScoreQuery(query)},
         "size": ${params.limit},
         "sort": [
             {
@@ -569,6 +620,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
+        domainBoosts = Map.empty[String, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
@@ -631,58 +683,44 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "generateSimpleQuery" should {
     "produce anything but a simple query" in {
       val expectedJson = j"""{
-        "bool": {
-            "must": {
-                "multi_match": {
-                    "fields": [
-                        "fts_analyzed",
-                        "fts_raw",
-                        "domain_cname"
-                    ],
-                    "minimum_should_match": "20%",
-                    "query": "query string OR (query AND string)",
-                    "type": "cross_fields"
-                }
-            },
-            "should": [
+        "bool" :
+          {
+            "must" :
+              {
+                "multi_match" :
+                  {
+                    "query" : "query string OR (query AND string)",
+                    "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                    "type" : "cross_fields",
+                    "minimum_should_match" : "20%"
+                  }
+              },
+            "should" :
+              [
                 {
-                    "multi_match": {
-                        "fields": [
-                            "fts_analyzed",
-                            "fts_raw",
-                            "domain_cname",
-                            "indexed_metadata.description^7.77",
-                            "indexed_metadata.name^8.88"
+                  "multi_match" :
+                    {
+                      "query" : "query string OR (query AND string)",
+                      "fields" :
+                        [
+                          "fts_analyzed",
+                          "fts_raw",
+                          "domain_cname",
+                          "indexed_metadata.description^7.77",
+                          "indexed_metadata.name^8.88"
                         ],
-                        "query": "query string OR (query AND string)",
-                        "slop": 12,
-                        "type": "phrase"
+                      "type" : "phrase",
+                      "slop" : 12
                     }
                 },
                 {
-                    "bool": {
-                        "should": [
-                            {
-                                "term": {
-                                    "datatype": {
-                                        "boost": 9.99,
-                                        "value": "datalens"
-                                    }
-                                }
-                            },
-                            {
-                                "term": {
-                                    "datatype": {
-                                        "boost": 10.1,
-                                        "value": "datalens_map"
-                                    }
-                                }
-                            }
-                        ]
-                    }
+                  "term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 } }
+                },
+                {
+                  "term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 } }
                 }
-            ]
-        }
+              ]
+          }
       }"""
 
       val actual = documentClient.generateSimpleQuery(
@@ -699,26 +737,26 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }
 
-  //////////////////////
-  // applyMinShouldMatch
-  //////////////////////
+  ///////////////////////
+  // chooseMinShouldMatch
+  ///////////////////////
 
-  "applyMinShouldMatch" should {
+  "chooseMinShouldMatch" should {
     val msm = Some("2<-25% 9<-3") // I can be an involved string
     val sc = Domain(false, None, "example.com", 1, Some("Example! (dotcom)"), false, false)
 
-    "apply minShouldMatch if present" in {
-      documentClient.applyMinShouldMatch(msm, None) should be (msm)
-      documentClient.applyMinShouldMatch(msm, Some(sc)) should be (msm)
+    "choose minShouldMatch if present" in {
+      documentClient.chooseMinShouldMatch(msm, None) should be (msm)
+      documentClient.chooseMinShouldMatch(msm, Some(sc)) should be (msm)
     }
 
     // Use case here is increasing search precision on customer domains
-    "apply default MSM value if none is passed in but search context is present" in {
-      documentClient.applyMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
+    "choose default MSM value if none is passed in but search context is present" in {
+      documentClient.chooseMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
     }
 
-    "apply nothing if no MSM value is passed in and no search context is present" in {
-      documentClient.applyMinShouldMatch(None, None) should be (None)
+    "choose nothing if no MSM value is passed in and no search context is present" in {
+      documentClient.chooseMinShouldMatch(None, None) should be (None)
     }
   }
 }

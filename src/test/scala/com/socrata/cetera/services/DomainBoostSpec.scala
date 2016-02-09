@@ -8,7 +8,7 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
 
-class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
+class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val boostedDatatype = TypeCharts
   val datatypeBoosts =  Map[Datatype, Float](boostedDatatype -> 10F)
 
@@ -25,6 +25,46 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+  }
+
+  // blue.org and annabelle.island.net get filtered
+  val domain_cnames = Seq("petercetera.net", "opendata-demo.socrata.com")
+
+  test("domain boost of 2 should produce top result") {
+    domain_cnames.foreach { domain =>
+      val (results, _) = service.doSearch(Map(s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
+      results.results.head.metadata("domain") should be(JString(domain))
+    }
+  }
+
+  test("domain boost of 0.5 should not produce top result") {
+    domain_cnames.foreach { domain =>
+      val (results, _) = service.doSearch(Map(s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)))
+      results.results.head.metadata("domain") shouldNot be(JString(domain))
+    }
+  }
+
+  test("domain boosts are not mistaken for custom metadata") {
+    domain_cnames.foreach { domain =>
+      val (results, _) = service.doSearch(
+        Map(s"""boostDomains[${domain}]""" -> "2.34",
+            "boostDomains[]" -> "3.45", // if I were custom metadata, I would not match any documents
+            Params.context -> domain).mapValues(Seq(_))
+      )
+      results.results.size should be > 0
+    }
+  }
+
+  // just documenting behavior; this may not be ideal behavior
+  test("boostDomains with no [] is treated as custom metadata") {
+    domain_cnames.foreach { domain =>
+      val (results, _) = service.doSearch(
+        Map(s"""boostDomains[${domain}]""" -> "2.34",
+            "boostDomains" -> "3.45", // interpreted as custom metadata field which doesn't match any documents
+            Params.context -> domain).mapValues(Seq(_))
+      )
+      results.results.size should be(0)
+    }
   }
 
   test("datatype boost - increases score when datatype matches") {

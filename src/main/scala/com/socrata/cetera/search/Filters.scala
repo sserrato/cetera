@@ -7,7 +7,7 @@ import com.socrata.cetera.types._
 object Filters {
   def datatypeFilter(datatypes: Option[Seq[String]]): Option[TermsFilterBuilder] =
     datatypes.map { ts =>
-      val validatedDatatypes = ts.map(t => Datatype(t).map(_.singular)).flatten
+      val validatedDatatypes = ts.flatMap(t => Datatype(t).map(_.singular))
       FilterBuilders.termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
     }
 

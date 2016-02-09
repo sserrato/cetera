@@ -14,6 +14,7 @@ case class ValidatedQueryParameters(
   only: Option[Seq[String]],
   fieldBoosts: Map[CeteraFieldType with Boostable, Float],
   datatypeBoosts: Map[Datatype, Float],
+  domainBoosts: Map[String, Float],
   minShouldMatch: Option[String],
   slop: Option[Int],
   showScore: Boolean,
@@ -100,6 +101,26 @@ object QueryParametersParser {
       .toMap[CeteraFieldType with Boostable, Float]
   }
 
+  def prepareDomainBoosts(queryParameters: MultiQueryParams): Map[String, Float] = {
+    val domainExtractor = new FieldExtractor(Params.boostDomains)
+    queryParameters.collect { case (domainExtractor(field), Seq(FloatExtractor(weight))) =>
+      field -> weight
+    }
+  }
+
+  // for extracting `example.com` from `boostDomains[example.com]`
+  class FieldExtractor(val key: String) {
+    def unapply(s: String): Option[String] =
+      if (s.startsWith(key + "[") && s.endsWith("]")) { Some(s.drop(key.length + 1).dropRight(1)) }
+      else { None }
+  }
+
+  object FloatExtractor {
+    def unapply(s: String): Option[Float] =
+      try { Some(s.toFloat) }
+      catch { case _: NumberFormatException => None }
+  }
+
   // NOTE: Watch out for case sensitivity in params
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
@@ -122,6 +143,8 @@ object QueryParametersParser {
           (datatype, validated(boost).value)))
     }
 
+    val domainBoosts = prepareDomainBoosts(queryParameters)
+
     restrictParamFilterType(queryParameters.first(Params.filterType)) match {
       case Right(o) =>
         Right(ValidatedQueryParameters(
@@ -134,6 +157,7 @@ object QueryParametersParser {
           o,
           fieldBoosts,
           datatypeBoosts,
+          domainBoosts,
           queryParameters.first(Params.minMatch).flatMap { p => MinShouldMatch.fromParam(query, p) },
           queryParameters.typedFirst[Int](Params.slop).map(validated), // Check for slop
           queryParameters.contains(Params.showScore), // just a flag
@@ -198,9 +222,12 @@ object Params {
       Datatype(typeNameFromBoostParam(boostParam.toLowerCase)))
 
   // field boosting parameters
-  val boostColumns = "boostColumns"
-  val boostDescription = "boostDesc"
-  val boostTitle = "boostTitle"
+  val boostColumns = boostParamPrefix + "Columns"
+  val boostDescription = boostParamPrefix + "Desc"
+  val boostTitle = boostParamPrefix + "Title"
+
+  // e.g., boostDomains[example.com]=1.23&boostDomains[data.seattle.gov]=4.56
+  val boostDomains = boostParamPrefix + "Domains"
 
   val minMatch = "min_should_match"
   val slop = "slop"
@@ -211,14 +238,20 @@ object Params {
   val scanLength = "limit"
   val scanOffset = "offset"
 
-  // HEY! when adding/removing parameters update this list.
-  private val keys = List(
+
+  ///////////////////////
+  // Explicit Param Lists
+  ///////////////////////
+
+  // HEY! when adding/removing parameters update `keys` or `mapKeys` as appropriate.
+  // These are used to distinguish catalog keys from custom metadata fields
+
+  // If your param is a simple key/value pair, add it here
+  private val stringKeys = Set(
     context,
     filterDomains,
     filterCategories,
-    filterCategoriesArray,
     filterTags,
-    filterTagsArray,
     filterType,
     queryAdvanced,
     querySimple,
@@ -232,7 +265,28 @@ object Params {
     functionScore,
     scanLength,
     scanOffset
-  ) ++ datatypeBoostParams
+  ) ++ datatypeBoostParams.toSet
 
-  def remaining(qs: MultiQueryParams): MultiQueryParams = qs.filterKeys(key => !keys.contains(key))
+  // If your param is an array like tags[]=fun&tags[]=ice+cream
+  private val arrayKeys = Set(
+    filterCategoriesArray,
+    filterTagsArray
+  )
+
+  // If your param is a hashmap like boostDomains[example.com]=1.23, add it here
+  private val mapKeys = Set(
+    boostDomains
+  )
+
+  // For example: search_context, tags[], boostDomains[example.com]
+  def isCatalogKey(key: String): Boolean = {
+    stringKeys.contains(key) ||
+      arrayKeys.contains(key) ||
+      key.endsWith("]") && mapKeys.contains(key.split('[').head)
+  }
+
+  // Remaining keys are treated as custom metadata fields and filtered on
+  def remaining(qs: MultiQueryParams): MultiQueryParams = {
+    qs.filterKeys { key => !isCatalogKey(key) }
+  }
 }
