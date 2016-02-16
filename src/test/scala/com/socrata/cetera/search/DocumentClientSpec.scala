@@ -59,7 +59,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     slop = None,
     showScore = false,
     offset = 10,
-    limit = 20
+    limit = 20,
+    sortOrder = None
   )
 
   val shouldMatch = j"""{

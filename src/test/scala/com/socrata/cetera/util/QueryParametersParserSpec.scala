@@ -194,6 +194,15 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
         "datalens_chart",
         "datalens_map",
         "tabular_map"
+      ),
+
+      "order" -> Seq(
+        "relevance",
+        "page_views_last_month",
+        "page_views_last_week",
+        "page_views_total",
+        "created_at",
+        "updated_at"
       )
     )
 
