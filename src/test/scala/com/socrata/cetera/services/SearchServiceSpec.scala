@@ -24,7 +24,7 @@ import com.socrata.cetera.types._
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient("SearchService")
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
@@ -210,7 +210,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
   val balboaDir: java.io.File = new java.io.File("balboa_test_trash")
   val balboaClient: BalboaClient = new BalboaClient(balboaDir.getName)

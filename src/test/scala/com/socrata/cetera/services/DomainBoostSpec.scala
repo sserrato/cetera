@@ -10,10 +10,9 @@ import com.socrata.cetera.util.Params
 
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val boostedDatatype = TypeCharts
-  val datatypeBoosts =  Map[Datatype, Float](boostedDatatype -> 10F)
 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, datatypeBoosts, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
@@ -70,7 +69,8 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
   test("datatype boost - increases score when datatype matches") {
     val (results, _) = service.doSearch(Map(
       Params.querySimple -> "best",
-      Params.showScore -> "true"
+      Params.showScore -> "true",
+      "boostCharts" -> "10"
     ).mapValues(Seq(_)))
     val oneBoosted = results.results.find(_.resource.dyn.`type`.! == JString(boostedDatatype.singular)).head
     val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(boostedDatatype.singular)).head

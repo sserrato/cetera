@@ -10,19 +10,13 @@ import com.socrata.cetera.types._
 object DocumentClient {
   def apply(
       esClient: ElasticSearchClient,
-      defaultTypeBoosts: Map[String, Float],
       defaultTitleBoost: Option[Float],
       defaultMinShouldMatch: Option[String],
       scriptScoreFunctions: Set[ScriptScoreFunction])
     : DocumentClient = {
 
-    val datatypeBoosts = defaultTypeBoosts.flatMap { case (k, v) =>
-      Datatype(k).map(datatype => (datatype, v))
-    }
-
     new DocumentClient(
       esClient,
-      datatypeBoosts,
       defaultTitleBoost,
       defaultMinShouldMatch,
       scriptScoreFunctions
@@ -32,7 +26,6 @@ object DocumentClient {
 
 class DocumentClient(
     esClient: ElasticSearchClient,
-    defaultTypeBoosts: Map[Datatype, Float],
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
     scriptScoreFunctions: Set[ScriptScoreFunction]) {
@@ -167,10 +160,6 @@ class DocumentClient(
       .getOrElse(fieldBoosts)
   }
 
-  private def applyDefaultDatatypeBoosts(datatypeBoosts: Map[Datatype, Float]) = {
-    defaultTypeBoosts ++ datatypeBoosts
-  }
-
   def chooseMinShouldMatch(
       minShouldMatch: Option[String],
       searchContext: Option[Domain])
@@ -217,7 +206,7 @@ class DocumentClient(
       case AdvancedQuery(queryString) => generateAdvancedQuery(queryString, fieldBoosts)
       case SimpleQuery(queryString) => generateSimpleQuery(queryString,
         applyDefaultTitleBoost(fieldBoosts),
-        applyDefaultDatatypeBoosts(datatypeBoosts),
+        datatypeBoosts,
         chooseMinShouldMatch(minShouldMatch, searchContext),
         slop)
     }

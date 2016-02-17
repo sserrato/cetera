@@ -60,7 +60,6 @@ object SearchServer extends App {
 
     val documentClient = DocumentClient(
       esClient,
-      config.elasticSearch.typeBoosts.getOrElse(Map.empty),
       config.elasticSearch.titleBoost,
       config.elasticSearch.minShouldMatch,
       config.elasticSearch.functionScoreScripts.flatMap(fnName =>

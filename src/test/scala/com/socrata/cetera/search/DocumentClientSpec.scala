@@ -32,7 +32,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   val documentClient: DocumentClient = DocumentClient(
     esClient = client,
-    defaultTypeBoosts = Map.empty,
     defaultTitleBoost = None,
     defaultMinShouldMatch = defaultMinShouldMatch,
     scriptScoreFunctions = scriptScoreFunctions

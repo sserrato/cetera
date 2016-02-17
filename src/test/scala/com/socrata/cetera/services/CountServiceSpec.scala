@@ -11,7 +11,7 @@ import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient("CountService")
-  val documentClient: DocumentClient = DocumentClient(client, Map.empty, None, None, Set.empty)
+  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
   val service: CountService = new CountService(documentClient, domainClient)
 
