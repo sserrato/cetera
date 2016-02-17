@@ -2,6 +2,7 @@ package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
 
+import com.socrata.cetera.search.Sorts
 import com.socrata.cetera.types._
 
 // These are validated input parameters but aren't supposed to know anything about ES
@@ -61,14 +62,7 @@ object QueryParametersParser {
     if (allowedSortOrders.contains(a)) Some(SortOrderString(a)) else None
   }
 
-  private val allowedSortOrders = Set[String](
-    "relevance",
-    "page_views_last_month",
-    "page_views_last_week",
-    "page_views_total",
-    "created_at",
-    "updated_at"
-  )
+  private val allowedSortOrders = Sorts.paramSortMap.keySet
 
   // If both are specified, prefer the advanced query over the search query
   private def pickQuery(advanced: Option[String], simple: Option[String]): QueryType =
@@ -99,6 +93,23 @@ object QueryParametersParser {
         case Some(d) => Right(Some(d.names))
       }
     }.getOrElse(Right(None))
+
+  // for extracting `example.com` from `boostDomains[example.com]`
+  class FieldExtractor(val key: String) {
+    def unapply(s: String): Option[String] =
+      if (s.startsWith(key + "[") && s.endsWith("]")) { Some(s.drop(key.length + 1).dropRight(1)) }
+      else { None }
+  }
+
+  object FloatExtractor {
+    def unapply(s: String): Option[Float] =
+      try { Some(s.toFloat) }
+      catch { case _: NumberFormatException => None }
+  }
+
+  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] = {
+    queryParameters.typedFirst[SortOrderString](Params.sortOrder).map(validated(_).value)
+  }
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
     apply(req.multiQueryParams)
@@ -209,24 +220,6 @@ object QueryParametersParser {
 
   //
   //////////////////
-
-
-  // for extracting `example.com` from `boostDomains[example.com]`
-  class FieldExtractor(val key: String) {
-    def unapply(s: String): Option[String] =
-      if (s.startsWith(key + "[") && s.endsWith("]")) { Some(s.drop(key.length + 1).dropRight(1)) }
-      else { None }
-  }
-
-  object FloatExtractor {
-    def unapply(s: String): Option[Float] =
-      try { Some(s.toFloat) }
-      catch { case _: NumberFormatException => None }
-  }
-
-  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] = {
-    queryParameters.typedFirst[SortOrderString](Params.sortOrder).map(validated(_).value)
-  }
 
   ////////
   // APPLY

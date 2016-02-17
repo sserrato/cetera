@@ -36,6 +36,16 @@ object Sorts {
       )
   }
 
+  // Map of param to sorts on ES fields
+  val paramSortMap = Map[String, SortBuilder](
+    "relevance" -> sortScoreDesc,
+    "page_views_last_week" -> sortFieldDesc("page_views_last_week"),
+    "page_views_last_month" -> sortFieldDesc("page_views_last_month"),
+    "page_views_last_year" -> sortFieldDesc("page_views_last_year"),
+    "created_at" -> sortFieldDesc("created_at"),
+    "updated_at" -> sortFieldDesc("updatedAt")
+  )
+
   // First pass logic is very simple. query >> categories >> tags >> default
   def chooseSort(
       searchQuery: QueryType,

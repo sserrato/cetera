@@ -570,7 +570,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
-        limit = params.limit
+        limit = params.limit,
+        sortOrder = params.sortOrder
       )
 
       val actual = JsonReader.fromString(request.toString)
@@ -624,7 +625,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
-        limit = params.limit
+        limit = params.limit,
+        sortOrder = params.sortOrder
       )
 
       val actual = JsonReader.fromString(request.toString)

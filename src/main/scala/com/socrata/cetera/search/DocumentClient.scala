@@ -248,7 +248,8 @@ class DocumentClient(
       minShouldMatch: Option[String],
       slop: Option[Int],
       offset: Int,
-      limit: Int)
+      limit: Int,
+      sortOrder: Option[String])
     : SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
