@@ -248,8 +248,7 @@ class DocumentClient(
       minShouldMatch: Option[String],
       slop: Option[Int],
       offset: Int,
-      limit: Int,
-      advancedQuery: Option[String] = None)
+      limit: Int)
     : SearchRequestBuilder = {
 
     val baseRequest = buildBaseRequest(
