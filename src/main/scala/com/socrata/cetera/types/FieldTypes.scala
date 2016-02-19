@@ -145,7 +145,7 @@ case object DomainMetadataFieldType extends Mapable with Rawable {
 /////////////
 // Boostables
 
-case object TitleFieldType extends Boostable with Rawable with Sortable {
+case object TitleFieldType extends Boostable with Rawable {
   val fieldName: String = "indexed_metadata.name"
 }
 

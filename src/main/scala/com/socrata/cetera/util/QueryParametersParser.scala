@@ -28,10 +28,7 @@ case class ValidatedQueryParameters(
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
 
-case class LimitError(override val message: String) extends ParseError
-case class OffsetError(override val message: String) extends ParseError
 case class OnlyError(override val message: String) extends ParseError
-case class SortOrderError(override val message: String) extends ParseError
 
 // Parses and validates
 object QueryParametersParser {
@@ -107,9 +104,8 @@ object QueryParametersParser {
       catch { case _: NumberFormatException => None }
   }
 
-  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] = {
+  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
     queryParameters.typedFirst[SortOrderString](Params.sortOrder).map(validated(_).value)
-  }
 
   def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
     apply(req.multiQueryParams)

@@ -372,6 +372,15 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
   }
+
+  test("sort order can be parsed") {
+    val sortOrder = Map("order" -> Seq("page_views_total"))
+
+    QueryParametersParser(sortOrder) match {
+      case Right(params) => params.sortOrder should be(Some("page_views_total"))
+      case _ => fail()
+    }
+  }
 }
 
 class ParamsSpec extends FunSuiteLike with Matchers {
@@ -401,5 +410,9 @@ class ParamsSpec extends FunSuiteLike with Matchers {
 
   test("isCatalogKey does not recognize boostDomains without []") {
     Params.isCatalogKey("boostDomains") should be (false)
+  }
+
+  test("isCatalogKey recognized sort order") {
+    Params.isCatalogKey("order") should be (true)
   }
 }
