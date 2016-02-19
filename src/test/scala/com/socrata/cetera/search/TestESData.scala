@@ -31,6 +31,7 @@ trait TestESData {
       |   "description": %s,
       |   "nbe_fxf": %s,
       |   "updatedAt": %s,
+      |   "createdAt": %s,
       |   "type": %s,
       |   "id": %s,
       |   "columns": {
@@ -110,6 +111,7 @@ trait TestESData {
                          resourceDescription: String,
                          resourceNbeFxf: String,
                          resourceUpdatedAt: String,
+                         resourceCreatedAt: String,
                          resourceId: String,
                          resourceColumns: Seq[String],
                          resourceName: String,
@@ -143,6 +145,7 @@ trait TestESData {
       quoteQualify(resourceDescription),
       quoteQualify(resourceNbeFxf),
       quoteQualify(resourceUpdatedAt),
+      quoteQualify(resourceCreatedAt),
       quoteQualify(datatype),
       quoteQualify(resourceId),
       quoteQualify(resourceColumns),
@@ -183,6 +186,7 @@ trait TestESData {
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
       defaultResourceUpdatedAt,
+      defaultResourceCreatedAt,
       resourceIds(i % resourceIds.length),
       defaultResourceColumns,
       resourceNames(i % resourceNames.length),
@@ -218,6 +222,7 @@ trait TestESData {
 
   val defaultSocrataIdOrg = ""
   val defaultResourceUpdatedAt = DateTime.now().toString
+  val defaultResourceCreatedAt = DateTime.now().toString
   val defaultResourceColumns = Nil
   val defaultAaCategories = Map("Personal" -> 1F)
   val defaultAaTags = Map("Happy" -> 0.65F, "Accident" -> 0.35F)

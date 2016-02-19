@@ -173,19 +173,26 @@ case object DatatypeFieldType extends Boostable {
 //////////////
 // For sorting
 
-// most accessed
 case object PageViewsTotalFieldType extends CeteraFieldType with Sortable {
   val fieldName: String = "page_views.page_views_total"
 }
 
-// recently updated
-// (not currently returned in payload to end user, probably should be)
-case object UpdatedAtFieldType extends CeteraFieldType with Sortable {
-  val fieldName: String = "updatedAt"
+case object PageViewsLastMonthFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "page_views.page_views_last_month"
 }
 
-// frequently updated
-// (not currently returned in payload to end user, probably should be)
-case object UpdateFrequencyFieldType extends CeteraFieldType with Sortable {
-  val fieldName: String = "update_freq"
+case object PageViewsLastWeekFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "page_views.page_views_last_week"
+}
+
+case object UpdatedAtFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "updated_at" // notice the snake_case, long story
+}
+
+case object CreatedAtFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "created_at" // notice the snake_case, long story
+}
+
+case object NameFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "indexed_metadata.name.raw"
 }

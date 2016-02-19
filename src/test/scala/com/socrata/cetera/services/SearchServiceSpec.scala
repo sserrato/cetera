@@ -423,4 +423,22 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
   }
+
+  test("sorting by name works") {
+    val params = Map("order" -> Seq("name"))
+    val (results, _) = service.doSearch(params)
+    val firstResult = results.results.head.resource.dyn("name").? match {
+      case Right(n) => n should be (JString(resourceNames.sorted.head))
+      case Left(_) => fail("resource had no name!")
+    }
+  }
+
+  test("sorting by name DESC works") {
+    val params = Map("order" -> Seq("name DESC"))
+    val (results, _) = service.doSearch(params)
+    val firstResult = results.results.head.resource.dyn("name").? match {
+      case Right(n) => n should be (JString(resourceNames.sorted.last))
+      case Left(_) => fail("resource had no name!")
+    }
+  }
 }

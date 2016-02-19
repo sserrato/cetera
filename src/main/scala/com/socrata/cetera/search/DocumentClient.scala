@@ -268,7 +268,11 @@ class DocumentClient(
     )
 
     // WARN: Sort will totally blow away score if score isn't part of the sort
-    val sort = Sorts.chooseSort(searchQuery, searchContext, categories, tags)
+    // "Relevance" without a query can mean different things, so chooseSort decides
+    val sort = sortOrder match {
+      case Some(so) if so != "relevance" => Sorts.paramSortMap.get(so).get // will raise if invalid param got through
+      case _ => Sorts.chooseSort(searchQuery, searchContext, categories, tags)
+    }
 
     baseRequest
       .setFrom(offset)
