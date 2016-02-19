@@ -20,4 +20,15 @@ class FieldTypesSpec extends FunSuiteLike with Matchers {
 
     TitleFieldType.rawFieldName should be("indexed_metadata.name.raw")
   }
+
+  test("sortable field names are as expected") {
+    PageViewsTotalFieldType.fieldName should be ("page_views.page_views_total")
+    PageViewsLastMonthFieldType.fieldName should be ("page_views.page_views_last_month")
+    PageViewsLastWeekFieldType.fieldName should be ("page_views.page_views_last_week")
+
+    UpdatedAtFieldType.fieldName should be ("updated_at") // snake_case
+    CreatedAtFieldType.fieldName should be ("created_at") // snake_case
+
+    NameFieldType.fieldName should be ("indexed_metadata.name.raw")
+  }
 }

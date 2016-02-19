@@ -173,7 +173,8 @@ class SearchService(elasticSearchClient: DocumentClient,
           params.minShouldMatch,
           params.slop,
           params.offset,
-          params.limit
+          params.limit,
+          params.sortOrder
         )
 
         logESRequest(req)

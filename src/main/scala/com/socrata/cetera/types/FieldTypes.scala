@@ -15,6 +15,9 @@ sealed trait Boostable extends CeteraFieldType
 // A field that we allow to be be counted (e.g., how many documents of a given tag do we have?)
 sealed trait Countable extends CeteraFieldType
 
+// A field that we allow to be sorted on
+sealed trait Sortable extends CeteraFieldType
+
 // Used for nested fields like arrays or json blobs
 sealed trait NestedField extends CeteraFieldType {
   protected val path: String
@@ -170,7 +173,26 @@ case object DatatypeFieldType extends Boostable {
 //////////////
 // For sorting
 
-case object PageViewsTotalFieldType extends CeteraFieldType {
+case object PageViewsTotalFieldType extends CeteraFieldType with Sortable {
   val fieldName: String = "page_views.page_views_total"
 }
 
+case object PageViewsLastMonthFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "page_views.page_views_last_month"
+}
+
+case object PageViewsLastWeekFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "page_views.page_views_last_week"
+}
+
+case object UpdatedAtFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "updated_at" // notice the snake_case, long story
+}
+
+case object CreatedAtFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "created_at" // notice the snake_case, long story
+}
+
+case object NameFieldType extends CeteraFieldType with Sortable {
+  val fieldName: String = "indexed_metadata.name.raw"
+}
