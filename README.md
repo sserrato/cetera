@@ -33,9 +33,6 @@ Examples (running locally):
 
 See the [Apiary API spec](http://docs.cetera.apiary.io/#) for more detail.
 
-Any other url gives an error message.
-
-
 # Elasticsearch setup
 
 Cetera, in development use, assumes an ElasticSearch setup as follows:
