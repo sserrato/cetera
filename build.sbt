@@ -52,9 +52,6 @@ fullClasspath in Test <+= baseDirectory map { d => Attributed.blank(d / "configs
 
 de.johoop.jacoco4sbt.JacocoPlugin.jacoco.settings
 
-// Disable code uglifier
-com.socrata.sbtplugins.StylePlugin.StyleKeys.styleFailOnError in Compile := false
-
 initialize := {
   val jvRequired = "1.8"
   val jvCurrent = sys.props("java.specification.version")

@@ -116,7 +116,7 @@ object QueryParametersParser {
   //
   // Prepare means parse and validate
 
-  def prepareSearchQuery(queryParameters: MultiQueryParams) = {
+  def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType = {
     pickQuery(
       queryParameters.get(Params.queryAdvanced).flatMap(_.headOption),
       queryParameters.get(Params.querySimple).flatMap(_.headOption)
@@ -130,19 +130,19 @@ object QueryParametersParser {
     }
   }
 
-  def prepareSearchContext(queryParameters: MultiQueryParams) = {
+  def prepareSearchContext(queryParameters: MultiQueryParams): Option[String] = {
     queryParameters.first(Params.context).map(_.toLowerCase)
   }
 
-  def prepareCategories(queryParameters: MultiQueryParams) = {
+  def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] = {
     mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray))
   }
 
-  def prepareTags(queryParameters: MultiQueryParams) = {
+  def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] = {
     mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray))
   }
 
-  def prepareOnly(queryParameters: MultiQueryParams) = {
+  def prepareOnly(queryParameters: MultiQueryParams): Either[OnlyError, Option[Seq[String]]] = {
     restrictParamFilterType(queryParameters.first(Params.filterType))
   }
 
@@ -187,28 +187,28 @@ object QueryParametersParser {
   }
 
   // Yes we compute searchQuery twice because this is a smell
-  def prepareMinShouldMatch(queryParameters: MultiQueryParams) = {
+  def prepareMinShouldMatch(queryParameters: MultiQueryParams): Option[String] = {
     val searchQuery = prepareSearchQuery(queryParameters)
     queryParameters.first(Params.minMatch).flatMap { p =>
       MinShouldMatch.fromParam(searchQuery, p)
     }
   }
 
-  def prepareSlop(queryParameters: MultiQueryParams) = {
+  def prepareSlop(queryParameters: MultiQueryParams): Option[Int] = {
     queryParameters.typedFirst[Int](Params.slop).map(validated)
   }
 
-  def prepareShowScore(queryParameters: MultiQueryParams) = {
+  def prepareShowScore(queryParameters: MultiQueryParams): Boolean = {
     queryParameters.contains(Params.showScore)
   }
 
-  def prepareOffset(queryParameters: MultiQueryParams) = {
+  def prepareOffset(queryParameters: MultiQueryParams): Int = {
     validated(
       queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))
     ).value
   }
 
-  def prepareLimit(queryParameters: MultiQueryParams) = {
+  def prepareLimit(queryParameters: MultiQueryParams): Int = {
     validated(
       queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))
     ).value
@@ -224,30 +224,9 @@ object QueryParametersParser {
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
   def apply(queryParameters: MultiQueryParams): Either[Seq[ParseError], ValidatedQueryParameters] = {
-
     // NOTE! We don't have to run most of these if just any of them fail validation
 
-    val searchQuery = prepareSearchQuery(queryParameters)
-    val domains = prepareDomains(queryParameters)
-    val domainMetadata = prepareDomainMetadata(queryParameters)
-    val searchContext = prepareSearchContext(queryParameters)
-    val categories = prepareCategories(queryParameters)
-    val tags = prepareTags(queryParameters)
-
     val only = prepareOnly(queryParameters)
-
-    val fieldBoosts = prepareFieldBoosts(queryParameters)
-    val datatypeBoosts = prepareDatatypeBoosts(queryParameters)
-    val domainBoosts = prepareDomainBoosts(queryParameters)
-    val minShouldMatch = prepareMinShouldMatch(queryParameters)
-
-    val slop = prepareSlop(queryParameters)
-    val showScore = prepareShowScore(queryParameters)
-
-    val offset = prepareOffset(queryParameters)
-    val limit = prepareLimit(queryParameters)
-
-    val sortOrder = prepareSortOrder(queryParameters)
 
     // TODO reorder semantically (searchContext before domainMetadata)
     // Add params to the match to provide helpful error messages
@@ -255,22 +234,22 @@ object QueryParametersParser {
       case Right(o) =>
         Right(
           ValidatedQueryParameters(
-          searchQuery,
-          domains,
-          domainMetadata,
-          searchContext,
-          categories,
-          tags,
-          o,
-          fieldBoosts,
-          datatypeBoosts,
-          domainBoosts,
-          minShouldMatch,
-          slop,
-          showScore,
-          offset,
-          limit,
-          sortOrder
+            prepareSearchQuery(queryParameters),
+            prepareDomains(queryParameters),
+            prepareDomainMetadata(queryParameters),
+            prepareSearchContext(queryParameters),
+            prepareCategories(queryParameters),
+            prepareTags(queryParameters),
+            o,
+            prepareFieldBoosts(queryParameters),
+            prepareDatatypeBoosts(queryParameters),
+            prepareDomainBoosts(queryParameters),
+            prepareMinShouldMatch(queryParameters),
+            prepareSlop(queryParameters),
+            prepareShowScore(queryParameters),
+            prepareOffset(queryParameters),
+            prepareLimit(queryParameters),
+            prepareSortOrder(queryParameters)
           )
         )
       case Left(e) => Left(Seq(e))

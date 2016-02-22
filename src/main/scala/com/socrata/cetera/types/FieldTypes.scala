@@ -1,5 +1,7 @@
 package com.socrata.cetera.types
 
+// scalastyle:ignore number.of.types
+
 /////////////////////////////////
 // Sealed Traits for Cetera Types
 
