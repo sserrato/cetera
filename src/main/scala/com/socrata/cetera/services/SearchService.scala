@@ -132,14 +132,6 @@ class SearchService(elasticSearchClient: DocumentClient,
     })
   }
 
-  private def logESRequest(search: SearchRequestBuilder): Unit =
-    logger.info(
-      s"""Elasticsearch request
-         | indices: ${Indices.mkString(",")},
-         | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
-       """.stripMargin
-    )
-
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
     domain.foreach(d =>
       query match {
@@ -177,7 +169,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           params.sortOrder
         )
 
-        logESRequest(req)
+        logger.info(LogHelper.formatEsRequest(Indices, req))
 
         val res = req.execute.actionGet
 

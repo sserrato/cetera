@@ -7,6 +7,7 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.util.LogHelper
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Domain(isCustomerDomain: Boolean,
@@ -27,8 +28,11 @@ class DomainClient(val esClient: ElasticSearchClient) {
   val baseRequest = esClient.client.prepareSearch(Indices: _*)
 
   def find(cname: String): Option[Domain] = {
-    val query = baseRequest.setQuery(QueryBuilders.idsQuery(esDomainType).addIds(cname))
-    val res = query.execute.actionGet
+    val search = baseRequest
+      .setTypes("domain")
+      .setQuery(QueryBuilders.matchPhraseQuery("domain_cname", cname))
+    logger.info(LogHelper.formatEsRequest(Indices, search))
+    val res = search.execute.actionGet
     val hits = res.getHits.hits
     hits.length match {
       case 0 => None

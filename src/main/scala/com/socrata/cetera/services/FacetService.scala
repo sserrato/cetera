@@ -50,6 +50,7 @@ class FacetService(documentClient: DocumentClient) {
     val startMs = Timings.now()
 
     val request = documentClient.buildFacetRequest(cname)
+    logger.info(LogHelper.formatEsRequest(Indices, request))
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
       .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]

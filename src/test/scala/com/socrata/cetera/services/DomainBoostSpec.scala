@@ -62,7 +62,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
             "boostDomains" -> "3.45", // interpreted as custom metadata field which doesn't match any documents
             Params.context -> domain).mapValues(Seq(_))
       )
-      results.results.size should be(0)
+      results.results should contain theSameElementsAs List.empty
     }
   }
 

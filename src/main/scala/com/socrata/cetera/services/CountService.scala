@@ -51,7 +51,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
 
       case Right(params) =>
         val domain = params.searchContext.flatMap(domainClient.find)
-        val res = documentClient.buildCountRequest(
+        val search = documentClient.buildCountRequest(
           field,
           params.searchQuery,
           params.domains,
@@ -59,7 +59,9 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
           params.categories,
           params.tags,
           params.only
-        ).execute.actionGet
+        )
+        logger.info(LogHelper.formatEsRequest(Indices, search))
+        val res = search.execute.actionGet
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)
         val counts = extract(json) match {
