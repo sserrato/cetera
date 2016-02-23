@@ -1,6 +1,7 @@
 package com.socrata.cetera.util
 
 import com.socrata.http.server.HttpRequest
+import org.elasticsearch.action.search.SearchRequestBuilder
 
 object LogHelper {
   // WARN: changing this will likely break Sumo (regex-based log parser)
@@ -13,5 +14,11 @@ object LogHelper {
       request.servletRequest.getRemoteHost,
       s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
     ).mkString(" -- ")
+  }
+
+  def formatEsRequest(indices: List[String], search: SearchRequestBuilder): String = {
+    s"""Elasticsearch request - indices: ${indices.mkString(",")},
+        | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+     """.stripMargin.trim
   }
 }

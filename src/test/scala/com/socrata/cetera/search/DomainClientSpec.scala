@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-class DomainClientSpec extends WordSpec with ShouldMatchers  with TestESData with BeforeAndAfterAll {
+class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient("domainClient")
   val domainClient: DomainClient = new DomainClient(client)
 
@@ -15,8 +15,8 @@ class DomainClientSpec extends WordSpec with ShouldMatchers  with TestESData wit
     client.close()
   }
 
-  "getDomain" should {
-    "return the right domain if it exists" in {
+  "find" should {
+    "return the domain if it exists : petercetera.net" in {
       val expectedDomain = Domain(
         isCustomerDomain = true,
         organization = Some(""),
@@ -26,14 +26,25 @@ class DomainClientSpec extends WordSpec with ShouldMatchers  with TestESData wit
         moderationEnabled = false,
         routingApprovalEnabled = true)
       val actualDomain = domainClient.find("petercetera.net")
+      actualDomain.get should be(expectedDomain)
+    }
 
+    "return the domain if it exists : opendata-demo.socrata.com" in {
+      val expectedDomain = Domain(
+        isCustomerDomain = true,
+        organization = Some(""),
+        domainCname = "opendata-demo.socrata.com",
+        domainId = 1,
+        siteTitle = Some("And other things"),
+        moderationEnabled = true,
+        routingApprovalEnabled = false)
+      val actualDomain = domainClient.find("opendata-demo.socrata.com")
       actualDomain.get should be(expectedDomain)
     }
 
     "return None if the domain does not exist" in {
       val expectedDomain = None
       val actualDomain = domainClient.find("hellcat.com")
-
       actualDomain should be(expectedDomain)
     }
   }
