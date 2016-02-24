@@ -1,7 +1,6 @@
 package com.socrata.cetera.services
 
-import java.nio.charset.Charset
-import java.nio.charset.CodingErrorAction
+import java.nio.charset.{Charset, CodingErrorAction}
 import scala.collection.JavaConverters._
 
 import com.rojoma.json.v3.ast.{JString, JValue}
@@ -35,6 +34,11 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
+  val domainCnames = Map(
+    0 -> "socrata.com",
+    1 -> "first-socrata.com",
+    2 -> "second-socrata.com")
+
   val searchResponse = {
     val shardTarget = new SearchShardTarget("1", IndexCatalog, 1)
     val score = 0.12345f
@@ -42,9 +46,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     val resource = "\"resource\":{\"name\": \"Just A Test\", \"I'm\":\"OK\",\"you're\":\"so-so\"}"
 
     val datasetSocrataId =
-      "\"socrata_id\":{\"domain_cname\":[\"socrata.com\"],\"dataset_id\":\"four-four\"}"
+      "\"socrata_id\":{\"domain_id\":[0],\"dataset_id\":\"four-four\"}"
     val pageSocrataId =
-      "\"socrata_id\":{\"domain_cname\":[\"first-socrata.com\", \"second-socrata.com\"],\"dataset_id\":\"four-four\",\"page_id\":\"fore-fore\"}"
+      "\"socrata_id\":{\"domain_id\":[1,2],\"dataset_id\":\"four-four\",\"page_id\":\"fore-fore\"}"
 
     val datasetDatatype = "\"datatype\":\"dataset\""
     val datasetViewtype = "\"viewtype\":\"\""
@@ -84,9 +88,17 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   }
 
   test("extract and format resources from SearchResponse") {
+    val domain = Domain(
+      isCustomerDomain = true,
+      Some("Temp Org"),
+      "tempuri.org",
+      1,
+      Some("Title"),
+      moderationEnabled = false,
+      routingApprovalEnabled = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
-    val searchResults = service.format(showScore = false, searchResponse)
+    val searchResults = service.format(domainCnames, showScore = false, searchResponse)
 
     searchResults.resultSetSize should be (None) // not yet added
     searchResults.timings should be (None) // not yet added
@@ -99,7 +111,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     datasetResponse.resource should be (j"""${resource}""")
     datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
-    datasetResponse.metadata.get("domain") match {
+    datasetResponse.metadata.get(esDomainType) match {
       case Some(domain) => domain should be (JString("socrata.com"))
       case None => fail("metadata.domain field missing")
     }
@@ -108,7 +120,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     pageResponse.resource should be (j"""${resource}""")
     pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
-    pageResponse.metadata.get("domain") match {
+    pageResponse.metadata.get(esDomainType) match {
       case Some(domain) => domain should be (JString("second-socrata.com"))
       case None => fail("metadata.domain field missing")
     }
@@ -248,7 +260,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       val dsid = r.resource.dyn.id.!.asInstanceOf[JString].string
 
       val perma = "(d|stories/s|view)"
-      val alphanum = "[\\p{L}\\p{N}]+" // all of the test data have proper categories and names
+      val alphanum = "[\\p{L}\\p{N}\\-]+" // all of the test data have proper categories and names
       val pretty = s"$alphanum/$alphanum"
 
       r.permalink.string should endWith regex s"/$perma/$dsid"
@@ -296,66 +308,77 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     // creating data in TestESData will need to change so the test
     // data is more comprehensive and running these sorts of tests
     // is easier
-    val res = service.doSearch(Map.empty)._1.results
     /*
-      Test Data
-      fxf-0: rejected view on unmoderated customer domain
-      fxf-1: approved view on moderated customer domain
-      fxf-2: pending view on unmoderated non-customer domain
-      fxf-3: default view on unmoderated customer domain
-      fxf-4: not_moderated view on moderated customer domain
-      fxf-5: rejected view on unmoderated non-customer domain
-      fxf-6: approved view on unmoderated customer domain
-      fxf-7: pending view on moderated customer domain
-      fxf-8: default view on unmoderated non-customer domain
-      fxf-9: not_moderated view on unmoderated customer domain
-      fxf-10: rejected view on moderated customer domain
+      Test Data domains -> documents
+      id  cname                     cust  mod   r&a
+      0   petercetera.net           t     f     f
+        documents
+        fxf     def mod r&a visible
+        fxf-0   f   f   0   t
+        fxf-4   f   n   2   t
+        fxf-8   t   n   3   t
+        zeta-1  f   t   0   t       (mod=t anomaly)
+      1   opendata-demo.socrata.com f     t     f (not customer domain)
+        fxf     def mod r&a visible
+        fxf-1   f   t   2   f / t
+        fxf-5   f   f   3   f / f
+        fxf-9   f   n   0   f / f
+      2   blue.org                  t     f     t
+        fxf     def mod r&a visible
+        fxf-2   f   n   3   f
+        fxf-6   f   t   0   f
+        fxf-10  f   f   2   t
+      3   annabelle.island.net      t     t     t
+        fxf     def mod r&a visible
+        fxf-3   t   n   0   f
+        fxf-7   f   n   2   f
+        zeta-2  f   t   2,3 t
      */
-    val expectedFxfs = Set("fxf-1", "fxf-3", "fxf-4", "fxf-6", "fxf-9")
-    res.length should be(expectedFxfs.size)
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002")
     // this shows that:
-    //   * without a searchContext, not-moderated views on moderated domains will show up
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
     //   * that non-customer domains don't show up
-    res.foreach { r =>
-      val id = r.resource.dyn.id.!.asInstanceOf[JString].string
-      expectedFxfs.contains(id) should be(true)
-    }
+    val (res, _) = service.doSearch(Map.empty)
+    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
   test("not_moderated data federated to a moderated domain should not be in the response") {
-    // the domain params will limit us to fxfs 0,1,3,4,6,7,9 and 10
+    // the domain params will limit us to fxfs 0,4,8 and 1,5,9
     val params = Map(
       "domains" -> "opendata-demo.socrata.com,petercetera.net",
       "search_context" -> "opendata-demo.socrata.com"
     ).mapValues(Seq(_))
-    // we should not include fxfs 0,4,7,9 or 10
-    val expectedFxfs = Set("fxf-1", "fxf-3", "fxf-6")
+    // of those fxfs, only show: fxf-1 is approved and fxf-8 is a default view
+    val expectedFxfs = Set("fxf-1", "fxf-8")
     val res = service.doSearch(params)._1.results
-    res.length should be(expectedFxfs.size)
-
-    res.foreach { r =>
-      val id = r.resource.dyn.id.!.asInstanceOf[JString].string
-      expectedFxfs.contains(id) should be(true)
-    }
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("if a domain has routing and approval, only datasets approved by that domain should show up") {
-    // the domain params will limit us to fxfs 0, 2, 3, 5, 6, 8, 9
+  test("if a domain has routing & approval, only parent domain approved datasets should show up") {
+    // the domain params will limit us to fxfs 2,6,10
     val params = Map(
-      "domains" -> "blue.org,petercetera.net",
-      "search_context" -> "petercetera.net"
+      "domains" -> "blue.org"
     ).mapValues(Seq(_))
-    // we should not include fxfs 0, 2, 5, *8*
-    val expectedFxfs = Set("fxf-3", "fxf-6", "fxf-9")
+    // only these fxfs are approved by parent domain:
+    val expectedFxfs = Set("fxf-10")
     val res = service.doSearch(params)._1.results
-    res.length should be(expectedFxfs.size)
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
 
-    res.foreach { r =>
-      val id = r.resource.dyn.id.!.asInstanceOf[JString].string
-      expectedFxfs.contains(id) should be(true)
-    }
+  test("if a search context has routing & approval, only datasets approved by that domain too should show up") {
+    val params = Map(
+      "domains" -> "blue.org,annabelle.island.net",
+      "search_context" -> "blue.org"
+    ).mapValues(Seq(_))
+    // only these fxfs are approved by search context AND parent domain:
+    val expectedFxfs = Set("fxf-10", "zeta-0002")
+    val res = service.doSearch(params)._1.results
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
   test("categories filter should be case insensitive") {
@@ -427,8 +450,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("sorting by name works") {
     val params = Map("order" -> Seq("name"))
     val (results, _) = service.doSearch(params)
+    val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.head
     val firstResult = results.results.head.resource.dyn("name").? match {
-      case Right(n) => n should be (JString(resourceNames.sorted.head))
+      case Right(n) => n should be (JString(expected))
       case Left(_) => fail("resource had no name!")
     }
   }
@@ -436,8 +460,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("sorting by name DESC works") {
     val params = Map("order" -> Seq("name DESC"))
     val (results, _) = service.doSearch(params)
+    val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.last
     val firstResult = results.results.head.resource.dyn("name").? match {
-      case Right(n) => n should be (JString(resourceNames.sorted.last))
+      case Right(n) => n should be (JString(expected))
       case Left(_) => fail("resource had no name!")
     }
   }

@@ -6,7 +6,7 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.esDocumentType
+import com.socrata.cetera.{TestESClient, esDocumentType}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ValidatedQueryParameters
 
@@ -67,8 +67,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "multi_match": {
         "fields": [
             "fts_analyzed",
-            "fts_raw",
-            "domain_cname"
+            "fts_raw"
         ],
         "query": "search query terms",
         "type": "phrase"
@@ -80,7 +79,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "fields": [
             "fts_analyzed",
             "fts_raw",
-            "domain_cname",
              "indexed_metadata.name^2.2",
              "indexed_metadata.description^1.1"
         ],
@@ -95,8 +93,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             "multi_match": {
                 "fields": [
                     "fts_analyzed",
-                    "fts_raw",
-                    "domain_cname"
+                    "fts_raw"
                 ],
                 "query": "search query terms",
                 "type": "cross_fields"
@@ -112,8 +109,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             "multi_match": {
                 "fields": [
                     "fts_analyzed",
-                    "fts_raw",
-                    "domain_cname"
+                    "fts_raw"
                 ],
                 "query": "search query terms",
                 "type": "cross_fields"
@@ -124,36 +120,77 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val moderationFilter = j"""{
-    "not": {
-        "filter": {
-            "terms": {
-                "moderation_status": [
-                    "pending",
-                    "rejected"
-                ]
-            }
+    "bool": {
+      "should": [
+        {"term": {"is_default_view": true}},
+        {"term": {"is_moderation_approved": true}},
+        {
+          "bool": {
+            "must": [
+              {"has_parent": {
+                "parent_type": "domain",
+                "filter": {
+                  "not": {
+                    "filter": {
+                      "term": {"moderation_enabled": true}
+                    }
+                  }
+                }
+              }},
+              {"not": {"filter": {"term": {"datatype": "datalens"} } } }
+            ]
+          }
         }
+      ]
+    }
+  }"""
+
+  val routingApprovalFilter = j"""{
+    "bool": {
+      "must": {
+        "bool": {
+          "should": [
+            {
+              "has_parent": {
+                "parent_type": "domain",
+                "filter": {
+                  "not": {
+                    "filter": {
+                      "term": {"routing_approval_enabled": true}
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "script": {"script" : "doc['approving_domain_ids'].values.contains(doc['socrata_id.domain_id'].value)"}
+            }
+          ]
+        }
+      }
     }
   }"""
 
   val customerDomainFilter = j"""{
-    "not": {
-        "filter": {
-            "terms": {
-                "is_customer_domain": [
-                    "false"
-                ]
-            }
+    "has_parent": {
+      "parent_type": "domain",
+      "filter": {
+        "not": {
+          "filter": {
+            "term": { "is_customer_domain": false }
+          }
         }
+      }
     }
   }"""
 
   val defaultFilter = j"""{
     "and": {
-        "filters": [
-            ${moderationFilter},
-            ${customerDomainFilter}
-        ]
+      "filters": [
+        ${moderationFilter},
+        ${routingApprovalFilter},
+        ${customerDomainFilter}
+      ]
     }
   }"""
 
@@ -166,12 +203,17 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val domainFilter = j"""{
-    "terms": {
-        "socrata_id.domain_cname.raw": [
+    "has_parent": {
+      "parent_type": "domain",
+      "filter": {
+        "terms": {
+          "domain_cname.raw": [
             "www.example.com",
             "test.example.com",
             "socrata.com"
-        ]
+          ]
+        }
+      }
     }
   }"""
 
@@ -243,6 +285,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             ${datatypeDatasetsFilter},
             ${domainFilter},
             ${moderationFilter},
+            ${routingApprovalFilter},
             ${customerDomainFilter}
         ]
     }
@@ -378,46 +421,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
   "buildCountRequest" should {
-    "construct a default search query with normal aggregation for domains" in {
-      val query = j"""{
-        "filtered": {
-          "filter": ${defaultFilter},
-          "query": ${matchAll}
-        }
-      }"""
-
-      val expected = j"""{
-        "aggregations": {
-            "domains": {
-                "terms": {
-                    "field": "socrata_id.domain_cname.raw",
-                    "order": {
-                        "_count": "desc"
-                    },
-                    "size": 0
-                }
-            }
-        },
-        "query": ${functionScoreQuery(query)}
-      }"""
-
-      val request = documentClient.buildCountRequest(
-        field = DomainFieldType,
-        searchQuery = NoQuery,
-        domains = Set.empty[String],
-        searchContext = None,
-        categories = None,
-        tags = None,
-        only = None
-      )
-
-      val actual = JsonReader.fromString(request.toString)
-
-      actual should be (expected)
-      request.request.searchType should be (COUNT)
-    }
-
-    // NOTE: ultimately, the functionScoreQuery does not belong in aggregations
     "construct a filtered match query with nested aggregation for annotations" in {
       val query = j"""{
         "filtered": {
@@ -475,8 +478,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  "aggregations" : {
         |    "domain_filter" : {
         |      "filter" : {
-        |        "terms" : {
-        |          "socrata_id.domain_cname.raw" : [ "${cname}" ]
+        |        "has_parent" : {
+        |          "filter" : {
+        |            "terms" : {
+        |              "domain_cname.raw" : [ "${cname}" ]
+        |            }
+        |          },
+        |          "parent_type" : "domain"
         |        }
         |      },
         |      "aggregations" : {
@@ -643,20 +651,47 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "generateAdvancedQuery" should {
     "produce an advanced query with field boosts applied" in {
       val expectedJson = j"""{
-        "query_string": {
-            "auto_generate_phrase_queries": true,
-            "fields": [
-                "fts_analyzed",
-                "fts_raw",
-                "domain_cname",
-                "indexed_metadata.name^6.66",
-                "indexed_metadata.columns_description^1.11",
-                "indexed_metadata.columns_field_name^2.22",
-                "indexed_metadata.columns_name^3.33",
-                "datatype^4.44",
-                "indexed_metadata.description^5.55"
-            ],
-            "query": "any old query string"
+        "bool": {
+          "should": [
+            {
+              "query_string": {
+                "auto_generate_phrase_queries": true,
+                "fields": [
+                  "fts_analyzed",
+                  "fts_raw",
+                  "indexed_metadata.name^6.66",
+                  "indexed_metadata.columns_description^1.11",
+                  "indexed_metadata.columns_field_name^2.22",
+                  "indexed_metadata.columns_name^3.33",
+                  "datatype^4.44",
+                  "indexed_metadata.description^5.55"
+                ],
+                "query": "any old query string"
+              }
+            },
+            {
+              "has_parent": {
+                "parent_type": "domain",
+                "query": {
+                  "query_string": {
+                    "auto_generate_phrase_queries": true,
+                    "fields": [
+                      "fts_analyzed",
+                      "fts_raw",
+                      "domain_cname",
+                      "indexed_metadata.name^6.66",
+                      "indexed_metadata.columns_description^1.11",
+                      "indexed_metadata.columns_field_name^2.22",
+                      "indexed_metadata.columns_name^3.33",
+                      "datatype^4.44",
+                      "indexed_metadata.description^5.55"
+                    ],
+                    "query": "any old query string"
+                  }
+                }
+              }
+            }
+          ]
         }
       }"""
 
@@ -692,7 +727,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 "multi_match" :
                   {
                     "query" : "query string OR (query AND string)",
-                    "fields" : [ "fts_analyzed", "fts_raw", "domain_cname" ],
+                    "fields" : [ "fts_analyzed", "fts_raw" ],
                     "type" : "cross_fields",
                     "minimum_should_match" : "20%"
                   }
@@ -707,7 +742,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                         [
                           "fts_analyzed",
                           "fts_raw",
-                          "domain_cname",
                           "indexed_metadata.description^7.77",
                           "indexed_metadata.name^8.88"
                         ],

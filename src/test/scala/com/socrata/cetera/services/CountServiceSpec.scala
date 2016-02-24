@@ -5,12 +5,13 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient, TestESClient}
-import com.socrata.cetera.types.Count
+import com.socrata.cetera.{TestESData, TestESClient}
+import com.socrata.cetera.search._
+import com.socrata.cetera.types._
 import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient("CountService")
+  val client: ElasticSearchClient = new TestESClient("CountServiceSpec")
   val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
   val service: CountService = new CountService(documentClient, domainClient)
@@ -104,6 +105,45 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
 
   ignore("timings") {}
   ignore("query parameters parser - errors") {}
-  ignore("count request") {}
 
+}
+
+
+class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
+  val client: ElasticSearchClient = new TestESClient("CountServiceSpecWithTestESData")
+  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
+  val domainClient: DomainClient = new DomainClient(client)
+  val service: CountService = new CountService(documentClient, domainClient)
+
+  override protected def beforeAll(): Unit = {
+    bootstrapData()
+  }
+
+  override protected def afterAll(): Unit = {
+    client.close()
+  }
+
+  test("categories count request") {
+    val expectedResults = List(Count("Personal", 4))
+    val (res, _) = service.doAggregate(CategoriesFieldType, Map.empty)
+    res.results should contain theSameElementsAs expectedResults
+  }
+
+  test("tags count request") {
+    val expectedResults = List(Count("Happy", 4), Count("Accident", 4))
+    val (res, _) = service.doAggregate(TagsFieldType, Map.empty)
+    res.results should contain theSameElementsAs expectedResults
+  }
+
+  test("domain categories count request") {
+    val expectedResults = List(Count("Alpha", 3), Count("Gamma", 1), Count("Fun", 2))
+    val (res, _) = service.doAggregate(DomainCategoryFieldType, Map.empty)
+    res.results should contain theSameElementsAs expectedResults
+  }
+
+  test("domain tags count request") {
+    val expectedResults = List(Count("Alpha", 3), Count("Gamma", 1), Count("Fun", 2))
+    val (res, _) = service.doAggregate(DomainTagsFieldType, Map.empty)
+    res.results should contain theSameElementsAs expectedResults
+  }
 }

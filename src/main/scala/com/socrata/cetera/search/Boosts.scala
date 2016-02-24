@@ -3,7 +3,8 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 
-import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainFieldType, ScriptScoreFunction}
+import com.socrata.cetera._
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainCnameFieldType, ScriptScoreFunction}
 
 object Boosts {
   def applyDatatypeBoosts(
@@ -40,7 +41,9 @@ object Boosts {
     domainBoosts.foreach {
       case (domain, weight) =>
         query.add(
-          FilterBuilders.termFilter(DomainFieldType.rawFieldName, domain),
+          FilterBuilders.hasParentFilter(esDomainType,
+            FilterBuilders.termFilter(DomainCnameFieldType.rawFieldName, domain)
+          ),
           ScoreFunctionBuilders.weightFactorFunction(weight)
         )
     }

@@ -15,7 +15,7 @@ import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient}
-import com.socrata.cetera.services.{CountService, FacetService, SearchService, VersionService}
+import com.socrata.cetera.services._
 import com.socrata.cetera.types.ScriptScoreFunction
 
 // $COVERAGE-OFF$ jetty wiring
@@ -76,13 +76,16 @@ object SearchServer extends App {
     logger.info("Initializing VersionService")
     val versionService = VersionService
 
-    logger.info("Initializing SearchService with Elasticsearch TransportClient")
+    logger.info("Initializing SearchService with document, domain and balboa clients")
     val searchService = new SearchService(documentClient, domainClient, balboaClient)
 
-    logger.info("Initializing FacetService with Elasticsearch TransportClient")
+    logger.info("Initializing FacetService with document client")
     val facetService = new FacetService(documentClient)
 
-    logger.info("Initializing CountService with Elasticsearch TransportClient")
+    logger.info("Initializing DomainCountService with domain client")
+    val domainCountService = new DomainCountService(domainClient)
+
+    logger.info("Initializing CountService with document and domain clients")
     val countService = new CountService(documentClient, domainClient)
 
     logger.info("Initializing router with services")
@@ -90,6 +93,7 @@ object SearchServer extends App {
       versionService.Service,
       searchService.Service,
       facetService.Service,
+      domainCountService.Service,
       countService.Service
     )
 

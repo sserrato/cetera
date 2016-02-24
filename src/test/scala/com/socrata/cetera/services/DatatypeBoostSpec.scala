@@ -3,13 +3,15 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
+import com.socrata.cetera.{TestESData, TestESClient}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
 
 class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val boostedDatatype = TypeCharts
+  val boostedDatatype = TypeCalendars
+  val boostedDatatypeQueryString = "boost" + boostedDatatype.plural.capitalize
 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(client, None, None, Set.empty)
@@ -28,9 +30,9 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
 
   test("datatype boost - increases score when datatype matches") {
     val (results, _) = service.doSearch(Map(
-      Params.querySimple -> "best",
+      Params.querySimple -> "one",
       Params.showScore -> "true",
-      "boostCharts" -> "10"
+      boostedDatatypeQueryString -> "10"
     ).mapValues(Seq(_)))
     val oneBoosted = results.results.find(_.resource.dyn.`type`.! == JString(boostedDatatype.singular)).head
     val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(boostedDatatype.singular)).head

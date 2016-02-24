@@ -2,8 +2,8 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
+import org.elasticsearch.index.query.QueryBuilders
 import org.scalatest.{ShouldMatchers, WordSpec}
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders}
 
 import com.socrata.cetera.types.{Datatype, TypeDatalenses, TypeDatasets, TypeFilters}
 
@@ -59,16 +59,18 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
           "functions": [
             {
               "filter": {
-                "term": {
-                  "socrata_id.domain_cname.raw": "example.com"
+                "has_parent": {
+                  "parent_type": "domain",
+                  "filter": { "term": { "domain_cname.raw": "example.com" } }
                 }
               },
               "weight": 1.23
             },
             {
               "filter": {
-                "term": {
-                  "socrata_id.domain_cname.raw": "data.seattle.gov"
+                "has_parent": {
+                  "parent_type": "domain",
+                  "filter": { "term": { "domain_cname.raw": "data.seattle.gov" } }
                 }
               },
               "weight": 4.56

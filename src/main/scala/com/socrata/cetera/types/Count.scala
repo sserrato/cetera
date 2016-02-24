@@ -1,6 +1,6 @@
 package com.socrata.cetera.types
 
-import com.rojoma.json.v3.ast.JValue
+import com.rojoma.json.v3.ast.{JNumber, JString, JValue}
 import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.interpolation._
 
@@ -15,5 +15,9 @@ object Count {
         }"""
       }
     }
+  }
+
+  def apply(thing: String, count: Int): Count = {
+    Count(JString(thing), JNumber(count))
   }
 }

@@ -4,7 +4,7 @@ import org.scalatest.{FunSuiteLike, Matchers}
 
 class FieldTypesSpec extends FunSuiteLike with Matchers {
   test("raw field pathing via traits") {
-    DomainFieldType.rawFieldName should be("socrata_id.domain_cname.raw")
+    DomainCnameFieldType.rawFieldName should be("domain_cname.raw")
 
     CategoriesFieldType.rawFieldName should be("animl_annotations.categories.raw")
     CategoriesFieldType.Name.rawFieldName should be("animl_annotations.categories.name.raw")

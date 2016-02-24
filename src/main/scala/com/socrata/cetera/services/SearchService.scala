@@ -11,7 +11,8 @@ import com.socrata.http.server.implicits._
 import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
+import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.search.SearchHits
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
@@ -81,11 +82,15 @@ class SearchService(elasticSearchClient: DocumentClient,
   private def updateFreq(j: JValue): Option[(String,JValue)] =
     j.dyn.update_freq.?.fold(_ => None, r => Option(("update_freq", r)))
 
-  // TODO: When production mapping changes domain_cname back to array, and add back .last.asInstanceOf[JArray]
-  private def cname(j: JValue): String = j.dyn.socrata_id.domain_cname.! match {
-    case JString(string) => string
-    case JArray(elems) => elems.lastOption.getOrElse(throw new NoSuchElementException).asInstanceOf[JString].string
-    case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
+  private def cname(domainCnames: Map[Int,String], j: JValue): String = {
+    val id: Option[Int] = j.dyn.socrata_id.domain_id.! match {
+      case jn: JNumber => Option(jn.toInt)
+      case JArray(elems) => elems.lastOption.map(_.asInstanceOf[JNumber].toInt)
+      case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
+    }
+    id.flatMap { i =>
+      domainCnames.get(i)
+    }.getOrElse("") // if no domain was found, default to blank string
   }
 
   private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
@@ -103,14 +108,30 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
-  def format(showScore: Boolean,
+  private def domainCnames(searchContext: Option[Domain],
+                           params: ValidatedQueryParameters,
+                           hits: SearchHits): Map[Int, String] = {
+    List.concat(
+      searchContext.map { d => d.domainId -> d.domainCname },
+      params.domains.flatMap(domainClient.find).map { d => d.domainId -> d.domainCname },
+      hits.hits.flatMap { h =>
+        val i = JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
+          case jn: JNumber => jn.toInt
+          case _ => throw new scala.NoSuchElementException
+        }
+        domainClient.fetch(i).map { d => i -> d.domainCname }
+      }
+    ).groupBy { case (i: Int, c: String) => i }.map(_._2.head) // deduplicate by id and create map
+  }
+
+  def format(domainCnames: Map[Int,String], showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
       val links = SearchService.links(
-        cname(json),
+        cname(domainCnames, json),
         datatype(json),
         viewtype(json),
         datasetId(json).getOrElse(throw new NoSuchElementException),
@@ -125,7 +146,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           domainCategory(json),
           domainTags(json),
           domainMetadata(json)),
-        Map("domain" -> JString(cname(json))) ++ score,
+        Map(esDomainType -> JString(cname(domainCnames, json))) ++ score,
         links.getOrElse("permalink", JString("")),
         links.getOrElse("link", JString(""))
       )
@@ -144,18 +165,20 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
+
     QueryParametersParser(queryParameters) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.find)
+        val searchContext = params.searchContext.flatMap(domainClient.find)
+
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           params.domains,
           params.domainMetadata,
-          domain,
+          searchContext,
           params.categories,
           params.tags,
           params.only,
@@ -175,10 +198,13 @@ class SearchService(elasticSearchClient: DocumentClient,
 
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
 
-        logSearchTerm(domain, params.searchQuery)
+        logSearchTerm(searchContext, params.searchQuery)
 
         val count = res.getHits.getTotalHits
-        val formattedResults: SearchResults[SearchResult] = format(params.showScore, res)
+
+        val cnames = domainCnames(searchContext, params, res.getHits)
+
+        val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
           .copy(resultSetSize = Some(count), timings = Some(timings))
 
         (formattedResults, timings)

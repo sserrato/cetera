@@ -5,7 +5,7 @@ import com.socrata.http.server.responses.NotFound
 import com.socrata.http.server.routing.SimpleRouteContext.{Route, Routes}
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
-import com.socrata.cetera.HeaderAclAllowOriginAll
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses.jsonError
 
@@ -15,6 +15,7 @@ class Router(
     versionResource: => HttpService,
     catalogResource: => HttpService,
     facetResource: String => HttpService,
+    domainCountResource: => HttpService,
     countResource: CeteraFieldType with Countable with Rawable => HttpService) {
 
   val routes = Routes(
@@ -26,8 +27,8 @@ class Router(
     Route("/catalog/v1", catalogResource),
 
     // document counts for queries grouped by domain
-    Route("/catalog/domains", countResource(DomainFieldType)),
-    Route("/catalog/v1/domains", countResource(DomainFieldType)),
+    Route("/catalog/domains", domainCountResource),
+    Route("/catalog/v1/domains", domainCountResource),
 
     // facets by domain
     Route("/catalog/domains/{String}/facets", facetResource),
@@ -43,7 +44,11 @@ class Router(
 
     // document counts for queries grouped by domain_category
     Route("/catalog/domain_categories", countResource(DomainCategoryFieldType)),
-    Route("/catalog/v1/domain_categories", countResource(DomainCategoryFieldType))
+    Route("/catalog/v1/domain_categories", countResource(DomainCategoryFieldType)),
+
+    // document counts for queries grouped by domain_tags
+    Route("/catalog/domain_tags", countResource(DomainTagsFieldType)),
+    Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType))
   )
 
   def route(req: HttpRequest): HttpResponse =

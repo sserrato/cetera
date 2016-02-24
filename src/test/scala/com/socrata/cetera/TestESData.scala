@@ -1,4 +1,4 @@
-package com.socrata.cetera.search
+package com.socrata.cetera
 
 import scala.io.Source
 
@@ -7,7 +7,7 @@ import com.rojoma.json.v3.util.JsonUtil
 import org.elasticsearch.common.joda.time.DateTime
 import org.scalatest.exceptions.TestCanceledException
 
-import com.socrata.cetera._
+import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
 
 trait TestESData {
@@ -17,15 +17,8 @@ trait TestESData {
   private val esDocTemplate: String =
     """{
       | "socrata_id": {
-      |   "organization": %s,
       |   "dataset_id": %s,
-      |   "domain_cname": [
-      |     %s
-      |   ],
-      |   "site_title": %s,
-      |   "domain_id": [
-      |     %s
-      |   ]
+      |   "domain_id": %s
       | },
       | "resource": {
       |   "description": %s,
@@ -50,7 +43,6 @@ trait TestESData {
       | "datatype": %s,
       | "viewtype": %s,
       | "popularity": %s,
-      | "is_customer_domain": %s,
       | "indexed_metadata": {
       |   "name": %s,
       |   "description": %s,
@@ -67,8 +59,9 @@ trait TestESData {
       | "customer_metadata_flattened": [
       |   %s
       | ],
-      | "moderation_status": %s,
-      | "approving_domains": [
+      | "is_default_view": %s,
+      | "is_moderation_approved": %s,
+      | "approving_domain_ids": [
       |   %s
       | ],
       | "page_views": {
@@ -103,10 +96,7 @@ trait TestESData {
     """{ "key": "%s", "value": "%s" }""".format(kvp._1, kvp._2)
   }.mkString(",\n")
 
-  private def buildEsDoc(socrataIdOrg: String,
-                         socrataIdDatasetId: String,
-                         socrataIdDomainCnames: Seq[String],
-                         siteTitle: String,
+  private def buildEsDoc(socrataIdDatasetId: String,
                          domainId: Int,
                          resourceDescription: String,
                          resourceNbeFxf: String,
@@ -120,27 +110,21 @@ trait TestESData {
                          datatype: String,
                          viewtype: String,
                          popularity: Float,
-                         isCustomerDomain: Boolean,
                          indexedMetadataName: String,
                          indexedMetadataDescription: String,
                          indexedMetadataColumnsFieldNames: Seq[String],
                          indexedMetadataColumnsDescriptions: Seq[String],
                          indexedMetadataColumnsNames: Seq[String],
                          customerMetadataFlattened: Map[String,String],
-                         moderationStatus: String,
-                         approvingDomains: Seq[String],
+                         isDefaultView: Boolean,
+                         isModerationApproved: Option[Boolean],
+                         approvingDomainIds: Seq[Int],
                          pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
                          updateFreq: Long): String = {
     val doc = esDocTemplate.format(
-      socrataIdOrg match {
-        case s: String if s.nonEmpty => quoteQualify(s)
-        case _ => "null"
-      },
       quoteQualify(socrataIdDatasetId),
-      quoteQualify(socrataIdDomainCnames),
-      quoteQualify(siteTitle),
       domainId.toString,
       quoteQualify(resourceDescription),
       quoteQualify(resourceNbeFxf),
@@ -155,15 +139,15 @@ trait TestESData {
       quoteQualify(datatype),
       quoteQualify(viewtype),
       popularity.toString,
-      isCustomerDomain.toString,
       quoteQualify(indexedMetadataName),
       quoteQualify(indexedMetadataDescription),
       quoteQualify(indexedMetadataColumnsFieldNames),
       quoteQualify(indexedMetadataColumnsDescriptions),
       quoteQualify(indexedMetadataColumnsNames),
       quoteQualifyMap(customerMetadataFlattened),
-      quoteQualify(moderationStatus),
-      quoteQualify(approvingDomains),
+      isDefaultView.toString,
+      isModerationApproved.map(_.toString).getOrElse("null"),
+      approvingDomainIds.mkString(","),
       pageViewsTotal,
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
@@ -178,11 +162,8 @@ trait TestESData {
 
   private def buildEsDocByIndex(i: Int): String = {
     buildEsDoc(
-      defaultSocrataIdOrg,
       socrataIdDatasetIds(i % socrataIdDatasetIds.length),
-      socrataIdDomainCnames(i % socrataIdDomainCnames.length),
-      siteTitles(i % siteTitles.length),
-      i,
+      i % domainCnames.length,
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
       defaultResourceUpdatedAt,
@@ -195,15 +176,15 @@ trait TestESData {
       Datatypes.materialized(i % Datatypes.materialized.length).singular,
       "",
       popularities(i % popularities.length),
-      isCustomerDomains(i % isCustomerDomains.length),
       imNames(i % imNames.length),
       imDescriptions(i % imDescriptions.length),
       defaultImColumnsFieldNames,
       defaultImColumnsDescriptions,
       defaultImColumnNames,
       domainMetadata(i % domainMetadata.length),
-      moderationStatuses(i % moderationStatuses.length),
-      approvingDomains(i % approvingDomains.length),
+      isDefaultViews(i % isDefaultViews.length),
+      isModerationApproveds(i % isModerationApproveds.length),
+      approvingDomainIds(i % approvingDomainIds.length),
       pageViewsTotal(i % pageViewsTotal.length),
       domainCategories(i % domainCategories.length),
       domainTags(i % domainTags.length),
@@ -220,7 +201,13 @@ trait TestESData {
                   hasRoutingApproval(i % hasRoutingApproval.length))
   }
 
+  val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
+  val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
   val defaultSocrataIdOrg = ""
+  val isCustomerDomains = Seq(true, false, true, true)
+  val isDomainModerated = Seq(false, true, false, true)
+  val hasRoutingApproval = Seq(false, false, true, true)
+
   val defaultResourceUpdatedAt = DateTime.now().toString
   val defaultResourceCreatedAt = DateTime.now().toString
   val defaultResourceColumns = Nil
@@ -230,9 +217,6 @@ trait TestESData {
   val defaultImColumnsDescriptions = Nil
   val defaultImColumnNames = Nil
 
-  val socrataIdDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org").map(Seq(_))
-  val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
-  val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
   val numericIds = 0 to Datatypes.materialized.length
   val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
   val resourceDescriptions = Seq(
@@ -244,14 +228,13 @@ trait TestESData {
   val resourceIds = socrataIdDatasetIds
   val resourceNames = Seq("One", "Two", "Three", "Four")
   val popularities = Seq(0.1F, 0.42F, 1F, 42F)
-  val isCustomerDomains = Seq(true, true, false)
-  val isDomainModerated = Seq(false, true, false)
-  val hasRoutingApproval = Seq(true, false, true)
   val imNames = resourceNames
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
-  val moderationStatuses = Seq("rejected", "approved", "pending", "default_view", "not_moderated")
+  val isModerationApproveds = Seq(Some(false), Some(true), None, None, None)
+  val isDefaultViews = Seq(false, false, false, true, false)
   val approvingDomains = Seq("petercetera.net", "blue.org", "annabelle.island.demo").map(Seq(_))
+  val approvingDomainIds = Seq(Seq(0), Seq(2), Seq(3))
   val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
@@ -266,13 +249,18 @@ trait TestESData {
     sj.dyn.settings.!.toString()
   }
 
-  private def datatypeMappings: String = {
+  private def datatypeMappings(datatype: String): String = {
     val s = Source.fromInputStream(getClass.getResourceAsStream("/base.json")).getLines().mkString("\n")
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
       case Right(j) => j
     }
-    sj.dyn.mappings.!.toString()
+    val mappings = sj.dyn.mappings
+    val typeMapping = datatype match {
+      case s: String if s == "domain" => mappings.domain
+      case s: String if s == "document" => mappings.document
+    }
+    typeMapping.!.toString()
   }
 
   def bootstrapSettings(): Unit = {
@@ -280,7 +268,13 @@ trait TestESData {
       .setSettings(indexSettings)
       .execute.actionGet
     client.client.admin().indices().preparePutMapping(testSuiteName)
-      .setType(esDocumentType).setSource(datatypeMappings)
+      .setType(esDomainType)
+      .setSource(datatypeMappings(esDomainType))
+      .setIgnoreConflicts(true)
+      .execute.actionGet
+    client.client.admin().indices().preparePutMapping(testSuiteName)
+      .setType(esDocumentType)
+      .setSource(datatypeMappings(esDocumentType))
       .setIgnoreConflicts(true)
       .execute.actionGet
     Indices.foreach { alias =>
@@ -292,16 +286,46 @@ trait TestESData {
 
   def bootstrapData(): Unit = {
     bootstrapSettings()
+    domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
+      client.client.prepareIndex(testSuiteName, esDomainType)
+        .setSource(buildEsDomainByIndex(cname, i))
+        .setId(i.toString)
+        .setRefresh(true)
+        .execute.actionGet
+    }
     Datatypes.materialized.zipWithIndex.foreach { case (datatype: Materialized, i: Int) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
+        .setParent((i % domainCnames.length).toString)
         .setSource(buildEsDocByIndex(i))
         .setRefresh(true)
         .execute.actionGet
     }
-    domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
-    client.client.prepareIndex(testSuiteName, esDomainType)
-        .setSource(buildEsDomainByIndex(cname, i))
-        .setId(cname)
+    // TODO: more refined test document creation
+    Seq(
+      (0, buildEsDoc(
+        "zeta-0001", 0,
+        "a stale moderation status", "zeta-0001", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0001", Seq.empty, "", Map.empty, Map.empty,
+        TypeDatasets.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isDefaultView = false, Some(true), Seq(0),
+        "42", "Fun", Seq.empty, 0L
+      )),
+      (3, buildEsDoc(
+        "zeta-0002", 3,
+        "full routing & approval", "zeta-0002", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0002", Seq.empty, "", Map.empty, Map.empty,
+        TypeDatasets.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isDefaultView = false, Some(true), Seq(2,3),
+        "42", "Fun", Seq.empty, 0L
+      ))
+    ).foreach { case (domain, doc) =>
+      client.client.prepareIndex(testSuiteName, esDocumentType)
+        .setParent(domain.toString)
+        .setSource(doc)
         .setRefresh(true)
         .execute.actionGet
     }

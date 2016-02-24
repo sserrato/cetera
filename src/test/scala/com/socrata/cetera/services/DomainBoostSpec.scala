@@ -1,16 +1,14 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.ast.{JNumber, JString}
+import com.rojoma.json.v3.ast.JString
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
+import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
-import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
 
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val boostedDatatype = TypeCharts
-
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(client, None, None, Set.empty)
   val domainClient: DomainClient = new DomainClient(client)
@@ -26,20 +24,19 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
     client.close()
   }
 
-  // blue.org and annabelle.island.net get filtered
-  val activeDomainCnames = Seq("petercetera.net", "opendata-demo.socrata.com")
+  val activeDomainCnames = Seq("petercetera.net", "blue.org")
 
   test("domain boost of 2 should produce top result") {
     activeDomainCnames.foreach { domain =>
-      val (results, _) = service.doSearch(Map(s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
-      results.results.head.metadata("domain") should be(JString(domain))
+      val (results, _) = service.doSearch(Map("show_score" -> "true", s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
+      results.results.head.metadata(esDomainType) should be(JString(domain))
     }
   }
 
   test("domain boost of 0.5 should not produce top result") {
     activeDomainCnames.foreach { domain =>
       val (results, _) = service.doSearch(Map(s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)))
-      results.results.head.metadata("domain") shouldNot be(JString(domain))
+      results.results.head.metadata(esDomainType) shouldNot be(JString(domain))
     }
   }
 
@@ -64,26 +61,5 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
       )
       results.results should contain theSameElementsAs List.empty
     }
-  }
-
-  test("datatype boost - increases score when datatype matches") {
-    val (results, _) = service.doSearch(Map(
-      Params.querySimple -> "best",
-      Params.showScore -> "true",
-      "boostCharts" -> "10"
-    ).mapValues(Seq(_)))
-    val oneBoosted = results.results.find(_.resource.dyn.`type`.! == JString(boostedDatatype.singular)).head
-    val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(boostedDatatype.singular)).head
-
-    val datalensScore: Float = oneBoosted.metadata("score") match {
-      case n: JNumber => n.toFloat
-      case _ => fail()
-    }
-    val otherScore: Float = oneOtherThing.metadata("score") match {
-      case n: JNumber => n.toFloat
-      case _ => fail()
-    }
-
-    datalensScore should be > otherScore
   }
 }
