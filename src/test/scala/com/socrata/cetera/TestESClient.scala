@@ -1,10 +1,12 @@
-package com.socrata.cetera.search
+package com.socrata.cetera
 
 import java.io.File
 import java.nio.file.Files
 
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.node.NodeBuilder._
+
+import com.socrata.cetera.search.ElasticSearchClient
 
 class TestESClient(val clusterName: String) extends ElasticSearchClient("local", 0, "useless") {
 
@@ -14,6 +16,11 @@ class TestESClient(val clusterName: String) extends ElasticSearchClient("local",
     .put("client.transport.sniff", false)
     .put("discovery.zen.ping.multicast.enabled", false)
     .put("path.data", tempDataDir.toString)
+    .put("script.groovy.sandbox.enabled", true)
+    .put("script.inline", true)
+    .put("script.indexed", true)
+    .put("script.file", true)
+    .put("script.search", true)
     .build
   val node = nodeBuilder().settings(testSettings).local(true).node()
 

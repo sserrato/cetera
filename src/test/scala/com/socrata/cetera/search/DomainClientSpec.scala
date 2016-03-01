@@ -2,6 +2,8 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.{TestESData, TestESClient}
+
 class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient("domainClient")
   val domainClient: DomainClient = new DomainClient(client)
@@ -24,14 +26,14 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         domainId = 0,
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
-        routingApprovalEnabled = true)
+        routingApprovalEnabled = false)
       val actualDomain = domainClient.find("petercetera.net")
       actualDomain.get should be(expectedDomain)
     }
 
     "return the domain if it exists : opendata-demo.socrata.com" in {
       val expectedDomain = Domain(
-        isCustomerDomain = true,
+        isCustomerDomain = false,
         organization = Some(""),
         domainCname = "opendata-demo.socrata.com",
         domainId = 1,

@@ -4,7 +4,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
-import com.socrata.cetera.{Indices, esDocumentType}
+import com.socrata.cetera._
 import com.socrata.cetera.types._
 
 object DocumentClient {
@@ -57,13 +57,13 @@ class DocumentClient(
     val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
 
     // Apply minShouldMatch if present
-    minShouldMatch.foreach(SundryBuilders.addMinMatchConstraint(matchTerms, _))
+    minShouldMatch.foreach(min => SundryBuilders.applyMinMatchConstraint(matchTerms, min))
 
     // Query #2: phrase (should)
     val matchPhrase = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.PHRASE)
 
     // If no slop is specified, we do not set a default
-    slop.foreach(SundryBuilders.addSlopParam(matchPhrase, _))
+    slop.foreach(SundryBuilders.applySlopParam(matchPhrase, _))
 
     // Add any optional field boosts to "should" match clause
     fieldBoosts.foreach { case (field, weight) =>
@@ -87,18 +87,27 @@ class DocumentClient(
       fieldBoosts: Map[CeteraFieldType with Boostable, Float])
     : BaseQueryBuilder = {
 
-    val query = QueryBuilders
+    val documentQuery = QueryBuilders
       .queryStringQuery(queryString)
-      .field("fts_analyzed")
-      .field("fts_raw")
-      .field("domain_cname")
+      .field(FullTextSearchAnalyzedFieldType.fieldName)
+      .field(FullTextSearchRawFieldType.fieldName)
       .autoGeneratePhraseQueries(true)
 
-      fieldBoosts.foreach { case (field, weight) =>
-        query.field(field.fieldName, weight)
+    val domainQuery = QueryBuilders
+      .queryStringQuery(queryString)
+      .field(FullTextSearchAnalyzedFieldType.fieldName)
+      .field(FullTextSearchRawFieldType.fieldName)
+      .field(DomainCnameFieldType.fieldName)
+      .autoGeneratePhraseQueries(true)
+
+    fieldBoosts.foreach { case (field, weight) =>
+        documentQuery.field(field.fieldName, weight)
+        domainQuery.field(field.fieldName, weight)
       }
 
-      query
+    QueryBuilders.boolQuery()
+      .should(documentQuery)
+      .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
   private def buildFilteredQuery(

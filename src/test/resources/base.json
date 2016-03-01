@@ -1,6 +1,9 @@
 {
   "mappings" : {
     "document" : {
+      "_parent" : {
+        "type" : "domain"
+      },
       "properties" : {
         "fts_analyzed" : {
           "type": "string",
@@ -11,13 +14,8 @@
           "type": "string",
           "index": "not_analyzed"
         },
-        "is_customer_domain" : {
-          "type" : "boolean",
-          "index": "not_analyzed"
-        },
-        "approving_domains" : {
-          "type" : "string",
-          "index": "not_analyzed"
+        "approving_domain_ids" : {
+          "type" : "long"
         },
         "datatype" : {
           "type" : "string",
@@ -27,15 +25,23 @@
           "type" : "string",
           "index": "not_analyzed"
         },
-        "moderation_status" : {
-          "type" : "string",
-          "index": "not_analyzed"
+        "is_moderation_approved" : {
+          "type" : "boolean"
+        },
+        "is_default_view" : {
+          "type" : "boolean"
         },
         "popularity" : {
           "type" : "float"
         },
         "update_freq" : {
           "type" : "float"
+        },
+        "updated_at" : {
+            "type" : "date"
+        },
+        "created_at" : {
+            "type" : "date"
         },
         "page_views" : {
           "properties": {
@@ -134,7 +140,10 @@
               "type" : "string"
             },
             "updatedAt" : {
-              "type" : "string"
+              "type" : "date"
+            },
+            "createdAt" : {
+              "type" : "date"
             },
             "type" : {
               "type" : "string"
@@ -173,33 +182,8 @@
             "dataset_id" : {
               "type" : "string"
             },
-            "domain_cname" : {
-              "type" : "string",
-              "analyzer" : "simple",
-              "copy_to": [ "fts_analyzed", "fts_raw" ],
-              "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
-              }
-            },
             "domain_id" : {
               "type" : "long"
-            },
-            "organization" : {
-              "type" : "string",
-              "copy_to": [ "fts_analyzed", "fts_raw" ],
-              "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
-              }
-            },
-            "site_title" : {
-              "type" : "string",
-              "copy_to": [ "fts_analyzed", "fts_raw" ],
-              "fields" : {
-                "raw" : {"type" : "string", "index" : "not_analyzed"},
-                "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
-              }
             }
           },
           "type" : "object"
@@ -281,29 +265,51 @@
     },
     "domain": {
       "properties" : {
-        "domain_cname" : {
+        "fts_analyzed" : {
+          "type": "string",
+          "index": "analyzed",
+          "analyzer": "snowball_en"
+        },
+        "fts_raw" : {
           "type": "string",
           "index": "not_analyzed"
+        },
+        "domain_cname" : {
+          "type" : "string",
+          "analyzer" : "simple",
+          "copy_to": [ "fts_analyzed", "fts_raw" ],
+          "fields" : {
+            "raw" : {"type" : "string", "index" : "not_analyzed"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
+          }
+        },
+        "domain_id" : {
+          "type": "long"
         },
         "site_title" : {
-          "type": "string",
-          "index": "not_analyzed"
+          "type" : "string",
+          "copy_to": [ "fts_analyzed", "fts_raw" ],
+          "fields" : {
+            "raw" : {"type" : "string", "index" : "not_analyzed"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
+          }
         },
         "organization" : {
-          "type": "string",
-          "index": "not_analyzed"
+          "type" : "string",
+          "copy_to": [ "fts_analyzed", "fts_raw" ],
+          "fields" : {
+            "raw" : {"type" : "string", "index" : "not_analyzed"},
+            "analyzed" : {"type" : "string", "index" : "analyzed", "analyzer" : "snowball_en"}
+          }
         },
         "is_customer_domain" : {
-          "type": "boolean",
-          "index": "not_analyzed"
+          "type": "boolean"
         },
         "moderation_enabled" : {
-          "type": "boolean",
-          "index": "not_analyzed"
+          "type": "boolean"
         },
         "routing_approval_enabled" : {
-          "type" : "boolean",
-          "index": "not_analyzed"
+          "type" : "boolean"
         }
       }
     }

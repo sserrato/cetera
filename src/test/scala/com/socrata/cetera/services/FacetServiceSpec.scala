@@ -2,6 +2,7 @@ package com.socrata.cetera.services
 
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
+import com.socrata.cetera.{TestESData, TestESClient}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Datatypes
 

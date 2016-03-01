@@ -1,10 +1,10 @@
-package com.socrata.cetera.search
+package com.socrata.cetera
 
 import scala.collection.JavaConverters._
 
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera._
+import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
 
 class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
@@ -51,7 +51,7 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
 
   test("test docs are bootstrapped") {
     val res = client.client.prepareSearch().execute.actionGet
-    val numDocs = Datatypes.materialized.length
+    val numDocs = Datatypes.materialized.length + 2
     val numDomains = domainCnames.length
     res.getHits.getTotalHits should be(numDocs + numDomains)
   }

@@ -31,6 +31,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
       "aggregations" -> FirstOf(
         PObject("domains" -> PObject("buckets" -> buckets)),
         PObject("domain_categories" -> PObject("buckets" -> buckets)),
+        PObject("domain_tags" -> PObject("buckets" -> buckets)),
         PObject("annotations" -> PObject("names" -> PObject("buckets" -> buckets)))))
 
     pattern.matches(body).right.map(buckets)
@@ -78,10 +79,11 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   // $COVERAGE-OFF$ jetty wiring
   def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
     implicit val cEncode = field match {
-      case DomainFieldType => Count.encode("domain")
+      case DomainCnameFieldType => Count.encode(esDomainType)
       case CategoriesFieldType => Count.encode("category")
       case TagsFieldType => Count.encode("tag")
       case DomainCategoryFieldType => Count.encode("domain_category")
+      case DomainTagsFieldType => Count.encode("domain_tag")
     }
 
     try {

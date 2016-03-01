@@ -54,6 +54,17 @@ sealed trait Mapable extends CeteraFieldType {
   val Value: NestedField
 }
 
+///////////////////
+// Full Text Search
+case object FullTextSearchAnalyzedFieldType extends CeteraFieldType {
+  val fieldName: String = "fts_analyzed"
+}
+case object FullTextSearchRawFieldType extends CeteraFieldType {
+  val fieldName: String = "fts_raw"
+}
+case object DomainCnameFieldType extends CeteraFieldType with Countable with Rawable {
+  val fieldName: String = "domain_cname"
+}
 
 ////////////////////
 // Categories & Tags
@@ -92,15 +103,6 @@ case object DomainCategoryFieldType extends Countable with Rawable {
 }
 
 
-////////////////
-// Domain CNames
-
-// Stores the domain cname associated with a document
-case object DomainFieldType extends Countable with Rawable {
-  val fieldName: String = "socrata_id.domain_cname"
-}
-
-
 /////////////////////
 // Catalog Visibility
 
@@ -108,12 +110,28 @@ case object IsCustomerDomainFieldType extends CeteraFieldType {
   val fieldName: String = "is_customer_domain"
 }
 
-case object ModerationStatusFieldType extends CeteraFieldType {
-  val fieldName: String = "moderation_status"
+case object IsModerationEnabledFieldType extends CeteraFieldType {
+  val fieldName: String = "moderation_enabled"
 }
 
-case object ApprovingDomainsFieldType extends CeteraFieldType {
-  val fieldName: String = "approving_domains"
+case object IsRoutingApprovalEnabledFieldType extends CeteraFieldType {
+  val fieldName: String = "routing_approval_enabled"
+}
+
+case object IsDefaultViewFieldType extends CeteraFieldType {
+  val fieldName: String = "is_default_view"
+}
+
+case object IsModerationApprovedFieldType extends CeteraFieldType {
+  val fieldName: String = "is_moderation_approved"
+}
+
+case object ApprovingDomainIdsFieldType extends CeteraFieldType {
+  val fieldName: String = "approving_domain_ids"
+}
+
+case object SocrataIdDomainIdFieldType extends CeteraFieldType {
+  val fieldName: String = "socrata_id.domain_id"
 }
 
 
@@ -122,7 +140,7 @@ case object ApprovingDomainsFieldType extends CeteraFieldType {
 
 // TODO: cetera-etl rename customer_tags to domain_tags
 // Domain tags are customer-defined tags (which surface as topics in the front end).
-case object DomainTagsFieldType extends Rawable {
+case object DomainTagsFieldType extends Countable with Rawable {
   val fieldName: String = "customer_tags"
 }
 
