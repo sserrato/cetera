@@ -162,9 +162,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 }
               }
             },
-            {
-              "script": {"script" : "doc['approving_domain_ids'].values.contains(doc['socrata_id.domain_id'].value)"}
-            }
+            { "term": {"is_approved_by_parent_domain": true} }
           ]
         }
       }

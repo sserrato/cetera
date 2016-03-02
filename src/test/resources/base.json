@@ -17,6 +17,9 @@
         "approving_domain_ids" : {
           "type" : "long"
         },
+        "is_approved_by_parent_domain" : {
+          "type" : "boolean"
+        },
         "datatype" : {
           "type" : "string",
           "index": "not_analyzed"
