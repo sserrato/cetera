@@ -64,6 +64,7 @@ trait TestESData {
       | "approving_domain_ids": [
       |   %s
       | ],
+      | "is_approved_by_parent_domain": %s,
       | "page_views": {
       |   "page_views_total": %s
       | },
@@ -119,6 +120,7 @@ trait TestESData {
                          isDefaultView: Boolean,
                          isModerationApproved: Option[Boolean],
                          approvingDomainIds: Seq[Int],
+                         isApprovedByParentDomain: Boolean,
                          pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
@@ -148,6 +150,7 @@ trait TestESData {
       isDefaultView.toString,
       isModerationApproved.map(_.toString).getOrElse("null"),
       approvingDomainIds.mkString(","),
+      isApprovedByParentDomain.toString,
       pageViewsTotal,
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
@@ -161,9 +164,11 @@ trait TestESData {
                             isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString)
 
   private def buildEsDocByIndex(i: Int): String = {
+    val domainId = i % domainCnames.length
+    val domainApprovalIds = approvingDomainIds(i % approvingDomainIds.length)
     buildEsDoc(
       socrataIdDatasetIds(i % socrataIdDatasetIds.length),
-      i % domainCnames.length,
+      domainId,
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
       defaultResourceUpdatedAt,
@@ -184,7 +189,8 @@ trait TestESData {
       domainMetadata(i % domainMetadata.length),
       isDefaultViews(i % isDefaultViews.length),
       isModerationApproveds(i % isModerationApproveds.length),
-      approvingDomainIds(i % approvingDomainIds.length),
+      domainApprovalIds,
+      domainApprovalIds.contains(domainId),
       pageViewsTotal(i % pageViewsTotal.length),
       domainCategories(i % domainCategories.length),
       domainTags(i % domainTags.length),
@@ -309,7 +315,7 @@ trait TestESData {
         TypeDatasets.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
-        isDefaultView = false, Some(true), Seq(0),
+        isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
         "42", "Fun", Seq.empty, 0L
       )),
       (3, buildEsDoc(
@@ -319,7 +325,7 @@ trait TestESData {
         TypeDatasets.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
-        isDefaultView = false, Some(true), Seq(2,3),
+        isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
         "42", "Fun", Seq.empty, 0L
       ))
     ).foreach { case (domain, doc) =>

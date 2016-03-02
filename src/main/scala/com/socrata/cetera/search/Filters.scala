@@ -159,8 +159,7 @@ object Filters {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
     val domainId = prefix + SocrataIdDomainIdFieldType.fieldName
     val approvingDomainIds = prefix + ApprovingDomainIdsFieldType.fieldName
-    val documentIsApprovedByParentDomain =
-      scriptFilter(s"doc['$approvingDomainIds'].values.contains(doc['$domainId'].value)")
+    val documentIsApprovedByParentDomain = termFilter(prefix + "is_approved_by_parent_domain", true)
     val documentRAVisible = boolFilter()
       .should(parentDomainIsNotRA)
       .should(documentIsApprovedByParentDomain)

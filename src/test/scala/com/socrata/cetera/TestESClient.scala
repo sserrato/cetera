@@ -16,11 +16,6 @@ class TestESClient(val clusterName: String) extends ElasticSearchClient("local",
     .put("client.transport.sniff", false)
     .put("discovery.zen.ping.multicast.enabled", false)
     .put("path.data", tempDataDir.toString)
-    .put("script.groovy.sandbox.enabled", true)
-    .put("script.inline", true)
-    .put("script.indexed", true)
-    .put("script.file", true)
-    .put("script.search", true)
     .build
   val node = nodeBuilder().settings(testSettings).local(true).node()
 
