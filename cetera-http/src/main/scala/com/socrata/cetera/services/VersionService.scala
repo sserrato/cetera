@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 class VersionService
 object VersionService {
   lazy val logger = LoggerFactory.getLogger(classOf[VersionService])
-  lazy val version = buildinfo.BuildInfo
+  lazy val version = com.socrata.cetera.BuildInfo
 
   // $COVERAGE-OFF$ jetty wiring
   object Service extends SimpleResource {
