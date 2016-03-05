@@ -79,7 +79,7 @@ object SearchServer extends App {
     val searchService = new SearchService(documentClient, domainClient, balboaClient)
 
     logger.info("Initializing FacetService with document client")
-    val facetService = new FacetService(documentClient)
+    val facetService = new FacetService(documentClient, domainClient)
 
     logger.info("Initializing DomainCountService with domain client")
     val domainCountService = new DomainCountService(domainClient)

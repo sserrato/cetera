@@ -50,5 +50,11 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
       val actualDomain = domainClient.find("hellcat.com")
       actualDomain should be(expectedDomain)
     }
+
+    "return None if searching for blank string" in {
+      val expectedDomain = None
+      val actualDomain = domainClient.find("")
+      actualDomain should be(expectedDomain)
+    }
   }
 }

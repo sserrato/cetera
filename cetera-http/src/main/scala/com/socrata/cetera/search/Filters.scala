@@ -14,17 +14,10 @@ object Filters {
       termsFilter(DatatypeFieldType.fieldName, validatedDatatypes: _*)
     }
 
-  def domainFilter(domains: Set[String]): Option[FilterBuilder] =
-    if (domains.nonEmpty) {
-      Some(hasParentFilter(esDomainType,
-        termsFilter(DomainCnameFieldType.rawFieldName, domains.toSeq: _*)
-      ))
-    } else {
-      None
-    }
+  def domainIdFilter(domainIds: Set[Int]): Option[FilterBuilder] =
+    if (domainIds.nonEmpty) Some(termsFilter(SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)) else None
 
-  def domainFilter(domain: String): Option[FilterBuilder] =
-    if (domain.nonEmpty) domainFilter(Set(domain)) else None
+  def domainIdFilter(domainId: Int): Option[FilterBuilder] = domainIdFilter(Set(domainId))
 
   def categoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>

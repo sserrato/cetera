@@ -2,15 +2,15 @@ package com.socrata.cetera.services
 
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.{TestESData, TestESClient}
 import com.socrata.cetera.search._
-import com.socrata.cetera.types.Datatypes
+import com.socrata.cetera.types.{Datatypes, FacetCount, ValueCount}
+import com.socrata.cetera.{TestESClient, TestESData}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
-  val service: FacetService = new FacetService(documentClient)
+  val service: FacetService = new FacetService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -22,22 +22,27 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
   }
 
   test("retrieve all domain facets") {
-    val (facets, timings) = service.doAggregate("")
+    val (datatypes, categories, tags, facets) = domainCnames.map { cname =>
+      val (facets, timings) = service.doAggregate(cname)
+      timings.searchMillis should be('defined)
 
-    timings.searchMillis should be('defined)
+      val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
+      val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
+      val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
+      (datatypes, categories, tags, facets)
+    }.foldLeft((Seq.empty[ValueCount], Seq.empty[ValueCount], Seq.empty[ValueCount], Seq.empty[FacetCount])) {
+      (b, x) => (b._1 ++ x._1, b._2 ++ x._2, b._3 ++ x._3, b._4 ++ x._4)
+    }
 
-    val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
     Datatypes.materialized.foreach { dt =>
       datatypes.find(_.value == dt.singular) should be('defined)
     }
 
-    val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
     categories.find(_.value == "") shouldNot be('defined)
     domainCategories.distinct.filter(_.nonEmpty).foreach { cat =>
       categories.find(_.value == cat) should be('defined)
     }
 
-    val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
     tags.find(_.value == "") shouldNot be('defined)
     domainTags.flatten.distinct.filter(_.nonEmpty).foreach { tag =>
       tags.find(_.value == tag) should be('defined)

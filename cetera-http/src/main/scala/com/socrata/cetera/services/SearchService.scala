@@ -173,10 +173,11 @@ class SearchService(elasticSearchClient: DocumentClient,
 
       case Right(params) =>
         val searchContext = params.searchContext.flatMap(domainClient.find)
+        val domainIds = params.domains.flatMap(cname => domainClient.find(cname).map(_.domainId))
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
-          params.domains,
+          domainIds,
           params.domainMetadata,
           searchContext,
           params.categories,

@@ -51,12 +51,13 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.find)
+        val searchContext = params.searchContext.flatMap(domainClient.find)
+        val domainIds = params.domains.flatMap(cname => domainClient.find(cname).map(_.domainId))
         val search = documentClient.buildCountRequest(
           field,
           params.searchQuery,
-          params.domains,
-          domain,
+          domainIds,
+          searchContext,
           params.categories,
           params.tags,
           params.only

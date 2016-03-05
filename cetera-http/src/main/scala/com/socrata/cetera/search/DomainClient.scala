@@ -53,3 +53,5 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       .setSearchType("count")
   }
 }
+
+class DomainNotFound(cname: String) extends NoSuchElementException(cname)

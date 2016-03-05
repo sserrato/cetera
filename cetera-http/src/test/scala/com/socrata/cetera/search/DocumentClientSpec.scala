@@ -47,6 +47,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     client.close() // Important!!
   }
 
+  val domainIds = Set(1, 2, 3)
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
     domains = Set("www.example.com", "test.example.com", "socrata.com"),
@@ -207,17 +208,12 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val domainFilter = j"""{
-    "has_parent": {
-      "parent_type": "domain",
-      "filter": {
-        "terms": {
-          "domain_cname.raw": [
-            "www.example.com",
-            "test.example.com",
-            "socrata.com"
-          ]
-        }
-      }
+    "terms": {
+      "socrata_id.domain_id": [
+        1,
+        2,
+        3
+      ]
     }
   }"""
 
@@ -336,7 +332,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domains = Set.empty[String],
+        domainIds = Set.empty[Int],
         searchContext = None,
         categories = None,
         tags = None,
@@ -368,7 +364,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty[String],
+        domainIds = Set.empty[Int],
         searchContext = None,
         categories = None,
         tags = None,
@@ -400,7 +396,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty[String],
+        domainIds = Set.empty[Int],
         searchContext = None,
         categories = None,
         tags = None,
@@ -455,7 +451,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
-        domains = params.domains,
+        domainIds = domainIds,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -476,19 +472,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // TODO: Make this a JSON comparison
   "buildFacetRequest" should {
     "build a faceted request" in {
-      val cname = "example.com"
+      val domainId = 42
       val expectedAsString = s"""{
         |  "size" : 0,
         |  "aggregations" : {
         |    "domain_filter" : {
         |      "filter" : {
-        |        "has_parent" : {
-        |          "filter" : {
-        |            "terms" : {
-        |              "domain_cname.raw" : [ "${cname}" ]
-        |            }
-        |          },
-        |          "parent_type" : "domain"
+        |        "terms" : {
+        |          "socrata_id.domain_id" : [ ${domainId} ]
         |        }
         |      },
         |      "aggregations" : {
@@ -536,14 +527,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  }
         |}""".stripMargin
 
-      val actual = documentClient.buildFacetRequest(cname)
+      val actual = documentClient.buildFacetRequest(Some(domainId))
 
       actual.toString should be(expectedAsString)
-    }
-
-    "throw when cname is a null string" in {
-      val cname: String = null // scalastyle:ignore
-      a [NullPointerException] should be thrownBy documentClient.buildFacetRequest(cname)
     }
   }
 
@@ -570,7 +556,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
-        domains = params.domains,
+        domainIds = domainIds,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -625,7 +611,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
-        domains = params.domains,
+        domainIds = domainIds,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
