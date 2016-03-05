@@ -68,10 +68,12 @@ object Filters {
       )
     }
 
-  def customerDomainFilter: Option[FilterBuilder] =
-    Some(hasParentFilter(esDomainType,
-      notFilter(termFilter(IsCustomerDomainFieldType.fieldName, false))
-    ))
+  def isCustomerDomainFilter: FilterBuilder =
+    notFilter(termFilter(IsCustomerDomainFieldType.fieldName, false))
+
+  def documentInDomainIdsFilter(domainIds: Seq[Int]): Option[FilterBuilder] = {
+    Some(termsFilter(SocrataIdDomainIdFieldType.fieldName, domainIds: _*))
+  }
 
   /**
     * Filter to only show documents that have passed the view moderation workflow.

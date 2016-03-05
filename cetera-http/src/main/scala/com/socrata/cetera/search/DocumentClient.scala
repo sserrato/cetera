@@ -9,6 +9,7 @@ import com.socrata.cetera.types._
 
 class DocumentClient(
     esClient: ElasticSearchClient,
+    domainClient: DomainClient,
     indexAliasName: String,
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
@@ -123,10 +124,10 @@ class DocumentClient(
 
     val filters: List[FilterBuilder] = List.concat(
       datatypeFilter(datatypes),
-      domainIdFilter(domainIds),
+      domainIdFilter(combinedDomainIds(searchContext, domainIds)),
       moderationStatusFilter(moderated),
       routingApprovalFilter(searchContext),
-      if (searchContext.isDefined) domainMetadataFilter(domainMetadata) else customerDomainFilter
+      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))
     )
 
     val categoriesAndTagsQuery =
@@ -140,6 +141,14 @@ class DocumentClient(
         FilterBuilders.andFilter(filters.toSeq: _*)
       )
     } else { categoriesAndTagsQuery }
+  }
+
+  private def combinedDomainIds(searchContext: Option[Domain], domainIds: Set[Int]): Set[Int] = {
+    (searchContext, domainIds) match {
+      case (_, ds) if ds.nonEmpty => ds
+      case (Some(context), _) => Set(context.domainId)
+      case (_, _) => domainClient.odnSearch.map(_.domainId).toSet
+    }
   }
 
   private def applyDefaultTitleBoost(

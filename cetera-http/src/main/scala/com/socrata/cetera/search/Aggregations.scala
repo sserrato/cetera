@@ -24,7 +24,6 @@ object Aggregations {
               .filter("visible") // "visible" is an agg of documents matching the following filter
               .filter(
                 FilterBuilders.boolFilter()
-                  .must(Filters.customerDomainFilter.get)
                   .must(Filters.moderationStatusFilter().get)
                   .must(Filters.routingApprovalFilter(None, isDomainAgg = true).get)
               )

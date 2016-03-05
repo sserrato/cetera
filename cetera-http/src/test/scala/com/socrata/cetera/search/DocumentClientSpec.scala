@@ -6,9 +6,9 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.{TestESClient, esDocumentType}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchBootstrap, ValidatedQueryParameters}
+import com.socrata.cetera.{TestESClient, esDocumentType}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness
@@ -31,8 +31,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     ScriptScoreFunction.getScriptFunction("score")
   ).flatMap { fn => fn }
 
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(
     esClient = client,
+    domainClient,
     indexAliasName = testSuiteName,
     defaultTitleBoost = None,
     defaultMinShouldMatch = defaultMinShouldMatch,
@@ -176,16 +178,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
-  val customerDomainFilter = j"""{
-    "has_parent": {
-      "parent_type": "domain",
-      "filter": {
-        "not": {
-          "filter": {
-            "term": { "is_customer_domain": false }
-          }
-        }
-      }
+  val domainFilter = j"""{
+    "terms": {
+      "socrata_id.domain_id": [
+        1,
+        2,
+        3
+      ]
     }
   }"""
 
@@ -193,8 +192,17 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "and": {
       "filters": [
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${customerDomainFilter}
+        ${routingApprovalFilter}
+      ]
+    }
+  }"""
+
+  val defaultFilterPlusDomainIds = j"""{
+    "and": {
+      "filters": [
+        ${domainFilter},
+        ${moderationFilter},
+        ${routingApprovalFilter}
       ]
     }
   }"""
@@ -204,16 +212,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "datatype": [
             "dataset"
         ]
-    }
-  }"""
-
-  val domainFilter = j"""{
-    "terms": {
-      "socrata_id.domain_id": [
-        1,
-        2,
-        3
-      ]
     }
   }"""
 
@@ -254,6 +252,17 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         {"match_all": {}},
         ${animlCategoriesQuery},
+        ${animlTagsQuery},
+        ${domainFilter}
+      ]
+    }
+  }"""
+
+  val simpleQueryWithoutDomainFilter = j"""{
+    "bool": {
+      "must": [
+        {"match_all": {}},
+        ${animlCategoriesQuery},
         ${animlTagsQuery}
       ]
     }
@@ -285,8 +294,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             ${datatypeDatasetsFilter},
             ${domainFilter},
             ${moderationFilter},
-            ${routingApprovalFilter},
-            ${customerDomainFilter}
+            ${routingApprovalFilter}
         ]
     }
   }"""
@@ -321,7 +329,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "construct a default match all query" in {
       val query = j"""{
         "filtered": {
-          "filter": ${defaultFilter},
+          "filter": ${defaultFilterPlusDomainIds},
           "query": ${matchAll}
         }
       }"""
@@ -332,7 +340,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domainIds = Set.empty[Int],
+        domainIds = Set(1, 2, 3),
         searchContext = None,
         categories = None,
         tags = None,
@@ -582,7 +590,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val query = j"""{
         "filtered": {
           "filter": ${complexFilter},
-          "query": ${simpleQuery}
+          "query": ${simpleQueryWithoutDomainFilter}
         }
       }"""
 

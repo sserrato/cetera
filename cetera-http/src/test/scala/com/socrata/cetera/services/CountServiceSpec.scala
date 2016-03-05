@@ -14,7 +14,7 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
   val testSuiteName = getClass.getSimpleName.toLowerCase
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val service: CountService = new CountService(documentClient, domainClient)
 
   override protected def afterAll(): Unit = {
@@ -113,7 +113,7 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
 class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val service: CountService = new CountService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {

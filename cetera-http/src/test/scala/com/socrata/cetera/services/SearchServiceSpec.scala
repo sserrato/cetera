@@ -25,7 +25,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val testSuiteName: String = getClass.getSimpleName.toLowerCase
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
@@ -224,7 +224,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaDir: java.io.File = new java.io.File("balboa_test_trash")
   val balboaClient: BalboaClient = new BalboaClient(balboaDir.getName)
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)

@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, QueryType}
-import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
@@ -23,7 +23,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   def find(cname: String): Option[Domain] = {
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.matchPhraseQuery(DomainCnameFieldType.fieldName, cname))
-    logger.info(LogHelper.formatEsRequest(search))
+    logger.debug(LogHelper.formatEsRequest(search))
     val res = search.execute.actionGet
     val hits = res.getHits.hits
     hits.length match {
@@ -40,6 +40,16 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     }
   }
 
+  def odnSearch: Seq[Domain] = {
+    val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
+      .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), Filters.isCustomerDomainFilter))
+    logger.debug(LogHelper.formatEsRequest(search))
+    val res = search.execute.actionGet
+    res.getHits.hits.flatMap { h =>
+      Domain(h.getSourceAsString)
+    }
+  }
+
   def buildCountRequest(
       searchQuery: QueryType,
       domains: Set[String],
@@ -49,6 +59,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
+      .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), Filters.isCustomerDomainFilter))
       .addAggregation(Aggregations.domains)
       .setSearchType("count")
   }

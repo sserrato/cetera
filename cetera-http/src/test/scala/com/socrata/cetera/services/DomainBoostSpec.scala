@@ -11,7 +11,7 @@ import com.socrata.cetera.util.Params
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
@@ -28,7 +28,11 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
 
   test("domain boost of 2 should produce top result") {
     activeDomainCnames.foreach { domain =>
-      val (results, _) = service.doSearch(Map("show_score" -> "true", s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
+      val (results, _) = service.doSearch(Map(
+        Params.showScore -> "true",
+        Params.context -> domain,
+        Params.filterDomains -> activeDomainCnames.mkString(","),
+        s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
       results.results.head.metadata(esDomainType) should be(JString(domain))
     }
   }
