@@ -39,7 +39,11 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
 
   test("domain boost of 0.5 should not produce top result") {
     activeDomainCnames.foreach { domain =>
-      val (results, _) = service.doSearch(Map(s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)))
+      val (results, _) = service.doSearch(Map(
+        Params.showScore -> "true",
+        Params.context -> domain,
+        Params.filterDomains -> activeDomainCnames.mkString(","),
+        s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)))
       results.results.head.metadata(esDomainType) shouldNot be(JString(domain))
     }
   }

@@ -196,7 +196,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
-      domainBoosts: Map[String, Float],
+      domainIdBoosts: Map[Int, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : SearchRequestBuilder = {
@@ -224,7 +224,7 @@ class DocumentClient(
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
     Boosts.applyScoreFunctions(query, scriptScoreFunctions)
-    Boosts.applyDomainBoosts(query, domainBoosts)
+    Boosts.applyDomainBoosts(query, domainIdBoosts)
     query.scoreMode("multiply").boostMode("replace")
 
     val preparedSearch = esClient.client
@@ -245,7 +245,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
-      domainBoosts: Map[String, Float],
+      domainIdBoosts: Map[Int, Float],
       minShouldMatch: Option[String],
       slop: Option[Int],
       offset: Int,
@@ -263,7 +263,7 @@ class DocumentClient(
       only,
       fieldBoosts,
       datatypeBoosts,
-      domainBoosts,
+      domainIdBoosts,
       minShouldMatch,
       slop
     )
