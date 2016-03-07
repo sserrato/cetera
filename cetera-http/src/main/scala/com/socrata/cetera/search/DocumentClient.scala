@@ -5,6 +5,7 @@ import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
 import com.socrata.cetera._
+import com.socrata.cetera.search.DocumentAggregations._
 import com.socrata.cetera.search.DocumentFilters._
 import com.socrata.cetera.types._
 
@@ -292,7 +293,7 @@ class DocumentClient(
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
 
-    val aggregation = Aggregations.chooseAggregation(field)
+    val aggregation = chooseAggregation(field)
 
     val baseRequest = buildBaseRequest(
       searchQuery,

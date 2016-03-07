@@ -7,6 +7,7 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.search.DomainAggregations._
 import com.socrata.cetera.search.DomainFilters._
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, QueryType}
 import com.socrata.cetera.util.LogHelper
@@ -59,13 +60,25 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       tags: Option[Set[String]],
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
-    val domainsFilter = {
-      val ds = (searchContext.toSet ++ domainCnames.flatMap(find)).map(_.domainId)
-      if (ds.nonEmpty) domainIds(ds) else isCustomerDomainFilter
+    val (domainsFilter, domainsAggregation) = {
+      val ds = searchContext.toSet ++ domainCnames.flatMap(find)
+      val dsFilter = if (ds.nonEmpty) domainIds(ds.map(_.domainId)) else isCustomerDomainFilter
+      val dsAggregation =
+        if (ds.nonEmpty) {
+          val domainIdsModerated = ds.filter(_.moderationEnabled).map(_.domainId).toSeq
+          val domainIdsUnmoderated = ds.filterNot(_.moderationEnabled).map(_.domainId).toSeq
+          domains(searchContext.exists(_.moderationEnabled), domainIdsModerated, domainIdsUnmoderated)
+        } else {
+          val customerDomains = odnSearch
+          val customerDomainIdsModerated = customerDomains.filter(_.moderationEnabled).map(_.domainId)
+          val customerDomainIdsUnmoderated = customerDomains.filterNot(_.moderationEnabled).map(_.domainId)
+          domains(searchContextIsMod = false, customerDomainIdsModerated, customerDomainIdsUnmoderated)
+        }
+      (dsFilter, dsAggregation)
     }
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainsFilter))
-      .addAggregation(Aggregations.domains)
+      .addAggregation(domainsAggregation)
       .setSearchType("count")
   }
 }

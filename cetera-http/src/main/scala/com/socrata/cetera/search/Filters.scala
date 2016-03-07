@@ -85,7 +85,9 @@ object DocumentFilters {
     * @param searchContextIsModerated is the catalog search context view moderated?
     * @return composable filter builder
     */
-  def moderationStatusFilter(searchContextIsModerated: Boolean = false): Option[FilterBuilder] = {
+  def moderationStatusFilter(searchContextIsModerated: Boolean = false,
+                             moderatedDomainIds: Seq[Int] = Seq.empty,
+                             unmoderatedDomainIds: Seq[Int] = Seq.empty): Option[FilterBuilder] = {
     val documentIsDefault = termFilter(IsDefaultViewFieldType.fieldName, true)
     val documentIsAccepted = termFilter(IsModerationApprovedFieldType.fieldName, true)
 
