@@ -23,6 +23,9 @@ object DocumentFilters {
   def domainIdFilter(domainId: Int, aggPrefix: String = ""): Option[FilterBuilder] =
     domainIdsFilter(Set(domainId), aggPrefix)
 
+  def isApprovedByParentDomainFilter(aggPrefix: String = ""): Option[FilterBuilder] =
+    Some(termFilter(aggPrefix + "is_approved_by_parent_domain", true))
+
   def categoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>
       nestedQuery(
@@ -144,27 +147,25 @@ object DocumentFilters {
     * @param isDomainAgg is the search an aggregation on domains
     * @return composable filter builder
     */
-  def routingApprovalFilter(searchContext: Option[Domain], isDomainAgg: Boolean = false): Option[FilterBuilder] = {
+  def routingApprovalFilter(searchContext: Option[Domain],
+                            raOffDomainIds: Set[Int],
+                            isDomainAgg: Boolean = false): FilterBuilder = {
+    val prefix = if (isDomainAgg) esDocumentType + "." else ""
+
     val documentIsApprovedBySearchContext = searchContext.flatMap { d =>
       if (d.routingApprovalEnabled) {
         Some(termsFilter(ApprovingDomainIdsFieldType.fieldName, d.domainId))
       } else { None }
     }
 
-    // TODO: refactor out has_parent filters
-    val parentDomainIsNotRA = hasParentFilter(esDomainType, DomainFilters.isRoutingApprovalDisabledFilter)
-    val prefix = if (isDomainAgg) esDocumentType + "." else ""
-    val domainId = prefix + SocrataIdDomainIdFieldType.fieldName
-    val approvingDomainIds = prefix + ApprovingDomainIdsFieldType.fieldName
-    val documentIsApprovedByParentDomain = termFilter(prefix + "is_approved_by_parent_domain", true)
     val documentRAVisible = boolFilter()
-      .should(parentDomainIsNotRA)
-      .should(documentIsApprovedByParentDomain)
+    domainIdsFilter(raOffDomainIds, prefix).foreach(documentRAVisible.should)
+    isApprovedByParentDomainFilter(prefix).foreach(documentRAVisible.should)
 
     val filter = boolFilter()
-    documentIsApprovedBySearchContext.foreach(filter.must(_))
+    documentIsApprovedBySearchContext.foreach(filter.must)
     filter.must(documentRAVisible)
-    Some(filter)
+    filter
   }
 }
 
@@ -174,7 +175,4 @@ object DomainFilters {
   // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
   def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)
   def isCustomerDomainFilter: FilterBuilder = notFilter(isNotCustomerDomainFilter)
-
-  def isRoutingApprovalEnabledFilter: FilterBuilder = termFilter(IsRoutingApprovalEnabledFieldType.fieldName, true)
-  def isRoutingApprovalDisabledFilter: FilterBuilder = notFilter(isRoutingApprovalEnabledFilter)
 }

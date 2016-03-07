@@ -100,7 +100,7 @@ class DocumentClient(
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      domainIds: Set[Int],
+      queryDomainIds: Set[Int],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -121,19 +121,15 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
-    val contextMod = searchContext.exists(_.moderationEnabled)
-    val domains = domainIds.flatMap(i => domainClient.fetch(i)) match {
-      case ds: Set[Domain] if ds.nonEmpty => ds
-      case _ => domainClient.odnSearch.toSet
-    }
-    val mod = domains.filter(_.moderationEnabled).map(_.domainId)
-    val unmod = domains.filterNot(_.moderationEnabled).map(_.domainId)
+    val contextModerated = searchContext.exists(_.moderationEnabled)
+    val (domainIds, moderatedDomainIds, unmoderatedDomainIds, routingApprovalDisabledDomainIds) =
+      domainClient.calculateIdsAndModRAStatuses(domainClient.fetchOrAllCustomerDomains(queryDomainIds))
 
     val filters: List[FilterBuilder] = List.concat(
       datatypeFilter(datatypes),
       domainIdsFilter(domainIds),
-      Some(moderationStatusFilter(contextMod, mod, unmod)),
-      routingApprovalFilter(searchContext),
+      Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
+      Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
       searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))
     )
 

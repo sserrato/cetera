@@ -51,6 +51,27 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     }
   }
 
+  def fetchOrAllCustomerDomains(domainIds: Set[Int]): Set[Domain] =
+    domainIds.flatMap(fetch) match {
+      case ds: Set[Domain] if ds.nonEmpty => ds
+      case _ => odnSearch.toSet
+    }
+
+  def findOrAllCustomerDomains(domainCnames: Set[String]): Set[Domain] =
+    domainCnames.flatMap(find) match {
+      case ds: Set[Domain] if ds.nonEmpty => ds
+      case _ => odnSearch.toSet
+    }
+
+  // (pre-)calculate domain moderation and R+A status
+  def calculateIdsAndModRAStatuses(domains: Set[Domain]): (Set[Int], Set[Int], Set[Int], Set[Int]) = {
+    val ids = domains.map(_.domainId)
+    val mod = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
+    val unmod = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
+    val raOff = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
+    (ids, mod, unmod, raOff)
+  }
+
   def buildCountRequest(
       searchQuery: QueryType,
       domainCnames: Set[String],
@@ -61,19 +82,9 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     : SearchRequestBuilder = {
     val (domainsFilter, domainsAggregation) = {
       val contextMod = searchContext.exists(_.moderationEnabled)
-      val ds = searchContext.toSet ++ domainCnames.flatMap(find)
-      val dsFilter = if (ds.nonEmpty) domainIds(ds.map(_.domainId)) else isCustomerDomainFilter
-      val dsAggregation =
-        if (ds.nonEmpty) {
-          val domainIdsModerated = ds.filter(_.moderationEnabled).map(_.domainId)
-          val domainIdsUnmoderated = ds.filterNot(_.moderationEnabled).map(_.domainId)
-          domains(contextMod, domainIdsModerated, domainIdsUnmoderated)
-        } else {
-          val customerDomains = odnSearch
-          val customerDomainIdsModerated = customerDomains.filter(_.moderationEnabled).map(_.domainId).toSet
-          val customerDomainIdsUnmoderated = customerDomains.filterNot(_.moderationEnabled).map(_.domainId).toSet
-          domains(contextMod, customerDomainIdsModerated, customerDomainIdsUnmoderated)
-        }
+      val (ids, mod, unmod, raOff) = calculateIdsAndModRAStatuses(findOrAllCustomerDomains(domainCnames))
+      val dsFilter = if (ids.nonEmpty) domainIds(ids) else isCustomerDomainFilter
+      val dsAggregation = domains(contextMod, mod, unmod, raOff)
       (dsFilter, dsAggregation)
     }
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)

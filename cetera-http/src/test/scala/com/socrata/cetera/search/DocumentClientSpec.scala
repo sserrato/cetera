@@ -141,21 +141,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
       "must": {
         "bool": {
-          "should": [
-            {
-              "has_parent": {
-                "parent_type": "domain",
-                "filter": {
-                  "not": {
-                    "filter": {
-                      "term": {"routing_approval_enabled": true}
-                    }
-                  }
-                }
-              }
-            },
-            { "term": {"is_approved_by_parent_domain": true} }
-          ]
+          "should": { "term": {"is_approved_by_parent_domain": true} }
         }
       }
     }
@@ -275,7 +261,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "and": {
         "filters": [
             ${datatypeDatasetsFilter},
-            ${domainFilter},
             ${moderationFilter},
             ${routingApprovalFilter}
         ]
@@ -312,7 +297,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "construct a default match all query" in {
       val query = j"""{
         "filtered": {
-          "filter": ${defaultFilterPlusDomainIds},
+          "filter": ${defaultFilter},
           "query": ${matchAll}
         }
       }"""
@@ -421,6 +406,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val expected = j"""{
+        "query": ${query},
         "aggregations": {
             "annotations": {
                 "aggregations": {
