@@ -121,12 +121,18 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
-    val moderated = searchContext.exists(_.moderationEnabled)
+    val contextMod = searchContext.exists(_.moderationEnabled)
+    val domains = domainIds.flatMap(i => domainClient.fetch(i)) match {
+      case ds: Set[Domain] if ds.nonEmpty => ds
+      case _ => domainClient.odnSearch.toSet
+    }
+    val mod = domains.filter(_.moderationEnabled).map(_.domainId)
+    val unmod = domains.filterNot(_.moderationEnabled).map(_.domainId)
 
     val filters: List[FilterBuilder] = List.concat(
       datatypeFilter(datatypes),
-      domainIdFilter(combinedDomainIds(searchContext, domainIds)),
-      moderationStatusFilter(moderated),
+      domainIdsFilter(domainIds),
+      Some(moderationStatusFilter(contextMod, mod, unmod)),
       routingApprovalFilter(searchContext),
       searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))
     )
@@ -142,14 +148,6 @@ class DocumentClient(
         FilterBuilders.andFilter(filters.toSeq: _*)
       )
     } else { categoriesAndTagsQuery }
-  }
-
-  private def combinedDomainIds(searchContext: Option[Domain], domainIds: Set[Int]): Set[Int] = {
-    (searchContext, domainIds) match {
-      case (_, ds) if ds.nonEmpty => ds
-      case (Some(context), _) => Set(context.domainId)
-      case (_, _) => domainClient.odnSearch.map(_.domainId).toSet
-    }
   }
 
   private def applyDefaultTitleBoost(

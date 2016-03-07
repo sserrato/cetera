@@ -312,7 +312,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     /*
       Test Data domains -> documents
       id  cname                     cust  mod   r&a
-      0   petercetera.net           t     f     f
+      0   petercetera.net           t     f     f (not moderated, 1 default view)
         documents
         fxf     def mod r&a visible
         fxf-0   f   f   0   t
@@ -324,7 +324,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         fxf-1   f   t   2   f / t
         fxf-5   f   f   3   f / f
         fxf-9   f   n   0   f / f
-      2   blue.org                  t     f     t
+      2   blue.org                  t     f     t (not moderated, 0 default views)
         fxf     def mod r&a visible
         fxf-2   f   n   3   f
         fxf-6   f   t   0   f

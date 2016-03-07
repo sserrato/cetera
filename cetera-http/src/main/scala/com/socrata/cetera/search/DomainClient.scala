@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.io.JsonReader
-import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchType}
 import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
@@ -15,9 +15,8 @@ import com.socrata.cetera.util.LogHelper
 class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
 
-  def fetch(id: Int): Option[Domain] = fetch(id.toString)
-  def fetch(id: String): Option[Domain] = {
-    val res = esClient.client.prepareGet(indexAliasName, esDomainType, id)
+  def fetch(id: Int): Option[Domain] = {
+    val res = esClient.client.prepareGet(indexAliasName, esDomainType, id.toString)
       .execute.actionGet
     Domain(res.getSourceAsString)
   }
@@ -61,25 +60,26 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
     val (domainsFilter, domainsAggregation) = {
+      val contextMod = searchContext.exists(_.moderationEnabled)
       val ds = searchContext.toSet ++ domainCnames.flatMap(find)
       val dsFilter = if (ds.nonEmpty) domainIds(ds.map(_.domainId)) else isCustomerDomainFilter
       val dsAggregation =
         if (ds.nonEmpty) {
-          val domainIdsModerated = ds.filter(_.moderationEnabled).map(_.domainId).toSeq
-          val domainIdsUnmoderated = ds.filterNot(_.moderationEnabled).map(_.domainId).toSeq
-          domains(searchContext.exists(_.moderationEnabled), domainIdsModerated, domainIdsUnmoderated)
+          val domainIdsModerated = ds.filter(_.moderationEnabled).map(_.domainId)
+          val domainIdsUnmoderated = ds.filterNot(_.moderationEnabled).map(_.domainId)
+          domains(contextMod, domainIdsModerated, domainIdsUnmoderated)
         } else {
           val customerDomains = odnSearch
-          val customerDomainIdsModerated = customerDomains.filter(_.moderationEnabled).map(_.domainId)
-          val customerDomainIdsUnmoderated = customerDomains.filterNot(_.moderationEnabled).map(_.domainId)
-          domains(searchContextIsMod = false, customerDomainIdsModerated, customerDomainIdsUnmoderated)
+          val customerDomainIdsModerated = customerDomains.filter(_.moderationEnabled).map(_.domainId).toSet
+          val customerDomainIdsUnmoderated = customerDomains.filterNot(_.moderationEnabled).map(_.domainId).toSet
+          domains(contextMod, customerDomainIdsModerated, customerDomainIdsUnmoderated)
         }
       (dsFilter, dsAggregation)
     }
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainsFilter))
       .addAggregation(domainsAggregation)
-      .setSearchType("count")
+      .setSearchType(SearchType.COUNT)
   }
 }
 

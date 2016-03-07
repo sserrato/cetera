@@ -20,11 +20,11 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     client.close()
   }
 
-  test("count domains with search context") {
+  test("count domains from unmoderated search context") {
     val expectedResults = List(
-      Count("annabelle.island.net", 0),
+      Count("annabelle.island.net", 1),
       Count("blue.org", 1),
-      Count("opendata-demo.socrata.com", 0),
+      Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 4))
     val (res, _) = service.doAggregate(Map(
       Params.context -> "petercetera.net",
@@ -33,9 +33,22 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     res.results should contain theSameElementsAs expectedResults
   }
 
+  test("count domains from moderated search context") {
+    val expectedResults = List(
+      Count("annabelle.island.net", 1),
+      Count("blue.org", 0),
+      Count("opendata-demo.socrata.com", 1),
+      Count("petercetera.net", 1))
+    val (res, _) = service.doAggregate(Map(
+      Params.context -> "annabelle.island.net",
+      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
+      .mapValues(Seq(_)))
+    res.results should contain theSameElementsAs expectedResults
+  }
+
   test("count domains default to include only customer domains") {
     val expectedResults = List(
-      Count("annabelle.island.net", 0),
+      Count("annabelle.island.net", 1),
       Count("blue.org", 1),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),

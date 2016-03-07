@@ -59,8 +59,12 @@ object DocumentAggregations {
 
 object DomainAggregations {
   def domains(searchContextIsMod: Boolean,
-              modDomainIds: Seq[Int] = Seq.empty,
-              unmodDomainIds: Seq[Int] = Seq.empty): AbstractAggregationBuilder = {
+              modDomainIds: Set[Int],
+              unmodDomainIds: Set[Int]): AbstractAggregationBuilder = {
+    val moderationFilter =
+      DocumentFilters.moderationStatusFilter(searchContextIsMod, modDomainIds, unmodDomainIds, isDomainAgg = true)
+    val routingApprovalFilter =
+      DocumentFilters.routingApprovalFilter(None, isDomainAgg = true).get
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"
       .field("domain_cname.raw")
@@ -74,9 +78,9 @@ object DomainAggregations {
               .filter(FilterBuilders.boolFilter()
                 // is customer domain filter must be applied above this aggregation
                 // apply moderation filter
-                .must(DocumentFilters.moderationStatusFilter(searchContextIsMod, modDomainIds, unmodDomainIds).get)
+                .must(moderationFilter)
                 // apply routing & approval filter
-                .must(DocumentFilters.routingApprovalFilter(None, isDomainAgg = true).get)
+                .must(routingApprovalFilter)
               )
           )
       )

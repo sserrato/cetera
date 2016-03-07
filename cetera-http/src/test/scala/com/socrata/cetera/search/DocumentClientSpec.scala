@@ -132,24 +132,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
       "should": [
         {"term": {"is_default_view": true}},
-        {"term": {"is_moderation_approved": true}},
-        {
-          "bool": {
-            "must": [
-              {"has_parent": {
-                "parent_type": "domain",
-                "filter": {
-                  "not": {
-                    "filter": {
-                      "term": {"moderation_enabled": true}
-                    }
-                  }
-                }
-              }},
-              {"not": {"filter": {"term": {"datatype": "datalens"} } } }
-            ]
-          }
-        }
+        {"term": {"is_moderation_approved": true}}
       ]
     }
   }"""
