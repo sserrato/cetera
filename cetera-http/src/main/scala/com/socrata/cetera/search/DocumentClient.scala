@@ -5,6 +5,7 @@ import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
 import com.socrata.cetera._
+import com.socrata.cetera.search.DocumentFilters._
 import com.socrata.cetera.types._
 
 class DocumentClient(
@@ -92,6 +93,7 @@ class DocumentClient(
 
     QueryBuilders.boolQuery()
       .should(documentQuery)
+      // TODO: refactor out has_parent queries
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
@@ -104,8 +106,6 @@ class DocumentClient(
       domainMetadata: Option[Set[(String, String)]],
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
-
-    import com.socrata.cetera.search.Filters._ // scalastyle:ignore import.grouping
 
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
@@ -342,7 +342,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(size)))
 
-    val filter = domainId.flatMap(i => Filters.domainIdFilter(i))
+    val filter = domainId.flatMap(i => domainIdFilter(i))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders

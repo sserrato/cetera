@@ -1,7 +1,7 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
+import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 
 import com.socrata.cetera._
 import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainCnameFieldType, ScriptScoreFunction}
@@ -41,6 +41,7 @@ object Boosts {
     domainBoosts.foreach {
       case (domain, weight) =>
         query.add(
+          // TODO: refactor out has_parent filters
           FilterBuilders.hasParentFilter(esDomainType,
             FilterBuilders.termFilter(DomainCnameFieldType.rawFieldName, domain)
           ),

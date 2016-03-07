@@ -1,12 +1,11 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.ast.{JNumber, JString}
-import org.scalatest.{BeforeAndAfterAll, Matchers, FunSuiteLike}
+import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.{TestESData, TestESClient}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.Params
+import com.socrata.cetera.{TestESClient, TestESData}
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
@@ -21,17 +20,27 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     client.close()
   }
 
-  test("count domains") {
+  test("count domains with search context") {
+    val expectedResults = List(
+      Count("annabelle.island.net", 0),
+      Count("blue.org", 1),
+      Count("opendata-demo.socrata.com", 0),
+      Count("petercetera.net", 4))
+    val (res, _) = service.doAggregate(Map(
+      Params.context -> "petercetera.net",
+      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
+      .mapValues(Seq(_)))
+    res.results should contain theSameElementsAs expectedResults
+  }
+
+  test("count domains default to include only customer domains") {
     val expectedResults = List(
       Count("annabelle.island.net", 0),
       Count("blue.org", 1),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 4))
-    val (res, _) = service.doAggregate(Map(
-      Params.context -> "petercetera.net",
-      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
-      .mapValues(Seq(_)))
+    val (res, _) = service.doAggregate(Map.empty)
     res.results should contain theSameElementsAs expectedResults
   }
 }

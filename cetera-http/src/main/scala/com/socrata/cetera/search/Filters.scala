@@ -7,7 +7,7 @@ import org.elasticsearch.index.query.{FilterBuilder, QueryBuilder}
 import com.socrata.cetera._
 import com.socrata.cetera.types._
 
-object Filters {
+object DocumentFilters {
   def datatypeFilter(datatypes: Option[Seq[String]]): Option[FilterBuilder] =
     datatypes.map { ts =>
       val validatedDatatypes = ts.flatMap(t => Datatype(t).map(_.singular))
@@ -68,13 +68,6 @@ object Filters {
       )
     }
 
-  def isCustomerDomainFilter: FilterBuilder =
-    notFilter(termFilter(IsCustomerDomainFieldType.fieldName, false))
-
-  def documentInDomainIdsFilter(domainIds: Seq[Int]): Option[FilterBuilder] = {
-    Some(termsFilter(SocrataIdDomainIdFieldType.fieldName, domainIds: _*))
-  }
-
   /**
     * Filter to only show documents that have passed the view moderation workflow.
     *
@@ -96,9 +89,9 @@ object Filters {
     val documentIsDefault = termFilter(IsDefaultViewFieldType.fieldName, true)
     val documentIsAccepted = termFilter(IsModerationApprovedFieldType.fieldName, true)
 
-    val domainIsModerated = termFilter(IsModerationEnabledFieldType.fieldName, true)
-    val parentDomainIsModerated = hasParentFilter(esDomainType, domainIsModerated)
-    val parentDomainIsNotModerated = hasParentFilter(esDomainType, notFilter(domainIsModerated))
+    // TODO: refactor out has_parent filters
+    val parentDomainIsModerated = hasParentFilter(esDomainType, DomainFilters.isModeratedEnabledFilter)
+    val parentDomainIsNotModerated = hasParentFilter(esDomainType, notFilter(DomainFilters.isModeratedEnabledFilter))
 
     val datalensUniqueAndSpecialSnowflakeFilter = termFilter(DatatypeFieldType.fieldName, TypeDatalenses.singular)
     val documentIsNotDatalens = notFilter(datalensUniqueAndSpecialSnowflakeFilter)
@@ -148,9 +141,8 @@ object Filters {
       } else { None }
     }
 
-    val parentDomainIsNotRA = hasParentFilter(esDomainType,
-      notFilter(termFilter(IsRoutingApprovalEnabledFieldType.fieldName, true))
-    )
+    // TODO: refactor out has_parent filters
+    val parentDomainIsNotRA = hasParentFilter(esDomainType, DomainFilters.isRoutingApprovalDisabledFilter)
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
     val domainId = prefix + SocrataIdDomainIdFieldType.fieldName
     val approvingDomainIds = prefix + ApprovingDomainIdsFieldType.fieldName
@@ -164,4 +156,18 @@ object Filters {
     filter.must(documentRAVisible)
     Some(filter)
   }
+}
+
+object DomainFilters {
+  def domainIds(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
+
+  // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
+  def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)
+  def isCustomerDomainFilter: FilterBuilder = notFilter(isNotCustomerDomainFilter)
+
+  def isModeratedEnabledFilter: FilterBuilder = termFilter(IsModerationEnabledFieldType.fieldName, true)
+  def isModeratedDisabledFilter: FilterBuilder = notFilter(isModeratedEnabledFilter)
+
+  def isRoutingApprovalEnabledFilter: FilterBuilder = termFilter(IsRoutingApprovalEnabledFieldType.fieldName, true)
+  def isRoutingApprovalDisabledFilter: FilterBuilder = notFilter(isRoutingApprovalEnabledFilter)
 }
