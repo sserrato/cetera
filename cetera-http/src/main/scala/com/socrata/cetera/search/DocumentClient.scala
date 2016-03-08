@@ -118,6 +118,7 @@ class DocumentClient(
     List.concat(
       datatypeFilter(datatypes),
       domainIdsFilter(domainIds),
+      Some(publicFilter()),
       Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
       Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
       searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))

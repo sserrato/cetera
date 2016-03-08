@@ -170,6 +170,11 @@ object DocumentFilters {
     filter.must(documentRAVisible)
     filter
   }
+
+  def publicFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+    val prefix = if (isDomainAgg) esDocumentType + "." else ""
+    notFilter(termFilter(prefix + IsPublicFieldType.fieldName, false))
+  }
 }
 
 object DomainFilters {

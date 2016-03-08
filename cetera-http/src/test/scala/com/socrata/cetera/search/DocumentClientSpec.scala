@@ -157,9 +157,18 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  val publicFilter = j"""{
+    "not": {
+      "filter": {
+        "term": { "is_public": false }
+      }
+    }
+  }"""
+
   val defaultFilter = j"""{
     "bool": {
       "must": [
+        ${publicFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
       ]
@@ -169,6 +178,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val defaultFilterPlusDomainIds = j"""{
     "bool": {
       "must": [
+        ${publicFilter},
         ${domainFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
@@ -261,6 +271,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
         "must": [
             ${datatypeDatasetsFilter},
+            ${publicFilter},
             ${moderationFilter},
             ${routingApprovalFilter}
         ]
@@ -468,6 +479,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |          "must" : [ {
         |            "terms" : {
         |              "socrata_id.domain_id" : [ $domainId ]
+        |            }
+        |          }, {
+        |            "not" : {
+        |              "filter" : {
+        |                "term" : {
+        |                  "is_public" : false
+        |                }
+        |              }
         |            }
         |          }, {
         |            "bool" : {
