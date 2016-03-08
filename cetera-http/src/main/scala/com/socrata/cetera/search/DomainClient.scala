@@ -2,39 +2,13 @@ package com.socrata.cetera.search
 
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.io.JsonReader
-import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, JsonUtil, Strategy}
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.types.{DomainCnameFieldType, QueryType}
+import com.socrata.cetera.types.{Domain, DomainCnameFieldType, QueryType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
-
-@JsonKeyStrategy(Strategy.Underscore)
-case class Domain(isCustomerDomain: Boolean,
-                  organization: Option[String],
-                  domainCname: String,
-                  domainId: Int,
-                  siteTitle: Option[String],
-                  moderationEnabled: Boolean,
-                  routingApprovalEnabled: Boolean)
-
-object Domain {
-  implicit val jCodec = AutomaticJsonCodecBuilder[Domain]
-  val logger = LoggerFactory.getLogger(getClass)
-
-  def apply(source: String): Option[Domain] = {
-    Option(source).flatMap { s =>
-      JsonUtil.parseJson[Domain](s) match {
-        case Right(domain) => Some(domain)
-        case Left(err) =>
-          logger.error(err.english)
-          throw new JsonDecodeException(err)
-      }
-    }
-  }
-}
 
 class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)

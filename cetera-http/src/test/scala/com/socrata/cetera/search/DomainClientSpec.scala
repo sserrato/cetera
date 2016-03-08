@@ -2,6 +2,7 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.types.Domain
 import com.socrata.cetera.{TestESClient, TestESData}
 
 class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with BeforeAndAfterAll {

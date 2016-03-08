@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{DocumentClient, Domain, DomainClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._

@@ -7,16 +7,16 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.routing.SimpleResource
-import com.socrata.http.server.{HttpService, HttpResponse, HttpRequest}
 import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, OK}
+import com.socrata.http.server.routing.SimpleResource
+import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.search.DomainClient
 import com.socrata.cetera.types.Count
-import com.socrata.cetera.util._
 import com.socrata.cetera.util.JsonResponses.jsonError
+import com.socrata.cetera.util._
 
 class DomainCountService(domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])

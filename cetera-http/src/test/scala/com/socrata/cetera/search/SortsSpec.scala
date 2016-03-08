@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.types.{AdvancedQuery, NoQuery, SimpleQuery}
+import com.socrata.cetera.types.{AdvancedQuery, Domain, NoQuery, SimpleQuery}
 
 // NOTE: The toString method of the SortBuilders does not produce
 // JSON-parseable output. So, we test the output of the toString method as a
