@@ -94,7 +94,6 @@ class DocumentClient(
 
     QueryBuilders.boolQuery()
       .should(documentQuery)
-      // TODO: refactor out has_parent queries
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
