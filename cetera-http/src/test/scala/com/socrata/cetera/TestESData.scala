@@ -60,6 +60,7 @@ trait TestESData {
       | "customer_metadata_flattened": [
       |   %s
       | ],
+      | "is_public": %s,
       | "is_default_view": %s,
       | "is_moderation_approved": %s,
       | "approving_domain_ids": [
@@ -118,6 +119,7 @@ trait TestESData {
                          indexedMetadataColumnsDescriptions: Seq[String],
                          indexedMetadataColumnsNames: Seq[String],
                          customerMetadataFlattened: Map[String,String],
+                         isPublic: Boolean,
                          isDefaultView: Boolean,
                          isModerationApproved: Option[Boolean],
                          approvingDomainIds: Seq[Int],
@@ -148,6 +150,7 @@ trait TestESData {
       quoteQualify(indexedMetadataColumnsDescriptions),
       quoteQualify(indexedMetadataColumnsNames),
       quoteQualifyMap(customerMetadataFlattened),
+      isPublic.toString,
       isDefaultView.toString,
       isModerationApproved.map(_.toString).getOrElse("null"),
       approvingDomainIds.mkString(","),
@@ -188,6 +191,7 @@ trait TestESData {
       defaultImColumnsDescriptions,
       defaultImColumnNames,
       domainMetadata(i % domainMetadata.length),
+      isPublics(i % isPublics.length),
       isDefaultViews(i % isDefaultViews.length),
       isModerationApproveds(i % isModerationApproveds.length),
       domainApprovalIds,
@@ -239,6 +243,7 @@ trait TestESData {
   val imDescriptions = resourceDescriptions
   val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
   val isModerationApproveds = Seq(Some(false), Some(true), None, None, None)
+  val isPublics = Seq(true)
   val isDefaultViews = Seq(false, false, false, true, false)
   val approvingDomains = Seq("petercetera.net", "blue.org", "annabelle.island.demo").map(Seq(_))
   val approvingDomainIds = Seq(Seq(0), Seq(2), Seq(3))
@@ -296,7 +301,7 @@ trait TestESData {
         TypeDatasets.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
-        isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
+        isPublic = true, isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
         "42", "Fun", Seq.empty, 0L
       )),
       (3, buildEsDoc(
@@ -306,8 +311,18 @@ trait TestESData {
         TypeDatasets.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
-        isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
+        isPublic = true, isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
         "42", "Fun", Seq.empty, 0L
+      )),
+      (0, buildEsDoc(
+        "zeta-0003", 0,
+        "private dataset", "zeta-0003", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0003", Seq.empty, "", Map.empty, Map.empty,
+        TypeDatasets.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isPublic = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
+        "42", "Private", Seq.empty, 0L
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
