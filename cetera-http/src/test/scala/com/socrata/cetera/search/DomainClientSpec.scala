@@ -2,11 +2,11 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.{TestESData, TestESClient}
+import com.socrata.cetera.{TestESClient, TestESData}
 
 class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with BeforeAndAfterAll {
-  val client = new TestESClient("domainClient")
-  val domainClient: DomainClient = new DomainClient(client)
+  val client = new TestESClient(testSuiteName)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()

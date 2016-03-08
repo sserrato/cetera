@@ -53,19 +53,18 @@ object SearchServer extends App {
                               executor) with Startable)
 
     esClient <- managed(
-      new ElasticSearchClient(config.elasticSearch.elasticSearchServer,
-                              config.elasticSearch.elasticSearchPort,
-                              config.elasticSearch.elasticSearchClusterName))
+      ElasticSearchClient(config.elasticSearch))
     } {
 
-    val documentClient = DocumentClient(
+    val documentClient = new DocumentClient(
       esClient,
+      config.elasticSearch.indexAliasName,
       config.elasticSearch.titleBoost,
       config.elasticSearch.minShouldMatch,
       config.elasticSearch.functionScoreScripts.flatMap(fnName =>
       ScriptScoreFunction.getScriptFunction(fnName)).toSet
     )
-    val domainClient = new DomainClient(esClient)
+    val domainClient = new DomainClient(esClient, config.elasticSearch.indexAliasName)
 
     logger.info("ElasticSearchClient initialized on nodes " +
                   esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)

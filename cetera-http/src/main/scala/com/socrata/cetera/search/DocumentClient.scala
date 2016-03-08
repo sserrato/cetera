@@ -7,25 +7,9 @@ import org.elasticsearch.search.aggregations.AggregationBuilders
 import com.socrata.cetera._
 import com.socrata.cetera.types._
 
-object DocumentClient {
-  def apply(
-      esClient: ElasticSearchClient,
-      defaultTitleBoost: Option[Float],
-      defaultMinShouldMatch: Option[String],
-      scriptScoreFunctions: Set[ScriptScoreFunction])
-    : DocumentClient = {
-
-    new DocumentClient(
-      esClient,
-      defaultTitleBoost,
-      defaultMinShouldMatch,
-      scriptScoreFunctions
-    )
-  }
-}
-
 class DocumentClient(
     esClient: ElasticSearchClient,
+    indexAliasName: String,
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
     scriptScoreFunctions: Set[ScriptScoreFunction]) {
@@ -236,7 +220,7 @@ class DocumentClient(
     query.scoreMode("multiply").boostMode("replace")
 
     val preparedSearch = esClient.client
-      .prepareSearch(Indices: _*)
+      .prepareSearch(indexAliasName)
       .setQuery(query)
       .setTypes(esDocumentType)
 
@@ -361,7 +345,7 @@ class DocumentClient(
       .subAggregation(metadataAgg)
 
     val preparedSearch = esClient.client
-      .prepareSearch(Indices: _*)
+      .prepareSearch(indexAliasName)
       .addAggregation(filteredAggs)
       .setSize(size)
 

@@ -20,22 +20,19 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
   }
 
   test("aliases are bootstrapped") {
-    val res = client.client.admin().indices().prepareGetAliases()
+    val res = client.client.admin.indices.prepareGetAliases()
       .execute.actionGet
     val indexAliases = res.getAliases.asScala.map(ooc => ooc.key -> ooc.value.asScala.map(_.alias))
     indexAliases.size should be(1) // number of indices
     indexAliases.flatMap(as => as._2).size should be(1) // number of aliases
-    Indices.foreach { index =>
-      indexAliases.find { case (_,as) => as.contains(index) } should be('defined)
-    }
+    indexAliases.find { case (_,as) => as.contains(testSuiteName) } should be('defined)
   }
 
   test("settings are bootstrapped") {
-    val res = client.client.admin().indices().prepareGetSettings()
+    val res = client.client.admin.indices.prepareGetSettings(testSuiteName)
       .execute.actionGet
     val settings = res.getIndexToSettings.asScala.map(ooc => ooc.key -> ooc.value)
     settings.size should be(1)
-    settings.find { case (i,_) => i == testSuiteName } should be('defined)
   }
 
   test("mappings are bootstrapped") {

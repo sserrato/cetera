@@ -1,6 +1,6 @@
 package com.socrata.cetera.search
 
-import com.rojoma.json.v3.codec.{DecodeError, JsonDecode}
+import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, JsonUtil, Strategy}
 import org.elasticsearch.action.search.SearchRequestBuilder
@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.types.{DomainCnameFieldType, QueryType}
-import com.socrata.cetera.util.LogHelper
+import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Domain(isCustomerDomain: Boolean,
@@ -24,10 +24,6 @@ object Domain {
   implicit val jCodec = AutomaticJsonCodecBuilder[Domain]
   val logger = LoggerFactory.getLogger(getClass)
 
-  case class JsonDecodeException(err: DecodeError) extends RuntimeException {
-    override def getMessage: String = err.english
-  }
-
   def apply(source: String): Option[Domain] = {
     Option(source).flatMap { s =>
       JsonUtil.parseJson[Domain](s) match {
@@ -40,22 +36,20 @@ object Domain {
   }
 }
 
-class DomainClient(val esClient: ElasticSearchClient) {
+class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = fetch(id.toString)
   def fetch(id: String): Option[Domain] = {
-    Indices.flatMap { idx =>
-      val res = esClient.client.prepareGet(idx, esDomainType, id)
-        .execute.actionGet
-      Domain(res.getSourceAsString)
-    }.headOption
+    val res = esClient.client.prepareGet(indexAliasName, esDomainType, id)
+      .execute.actionGet
+    Domain(res.getSourceAsString)
   }
 
   def find(cname: String): Option[Domain] = {
-    val search = esClient.client.prepareSearch(Indices: _*).setTypes(esDomainType)
+    val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.matchPhraseQuery(DomainCnameFieldType.fieldName, cname))
-    logger.info(LogHelper.formatEsRequest(Indices, search))
+    logger.info(LogHelper.formatEsRequest(search))
     val res = search.execute.actionGet
     val hits = res.getHits.hits
     hits.length match {
@@ -80,7 +74,7 @@ class DomainClient(val esClient: ElasticSearchClient) {
       tags: Option[Set[String]],
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
-    esClient.client.prepareSearch(Indices: _*).setTypes(esDomainType)
+    esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .addAggregation(Aggregations.domains)
       .setSearchType("count")
   }

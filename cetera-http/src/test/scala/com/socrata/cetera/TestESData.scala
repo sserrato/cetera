@@ -9,6 +9,7 @@ import org.scalatest.exceptions.TestCanceledException
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
+import com.socrata.cetera.util.ElasticsearchBootstrap
 
 trait TestESData {
   val client: ElasticSearchClient
@@ -247,7 +248,7 @@ trait TestESData {
   val updateFreqs = Seq(1, 2, 3, 4)
 
   private def indexSettings: String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/settings.json")).getLines().mkString("\n")
+    val s = Source.fromInputStream(getClass.getResourceAsStream("/esSettings.json")).getLines().mkString("\n")
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
       case Right(j) => j
@@ -256,7 +257,7 @@ trait TestESData {
   }
 
   private def datatypeMappings(datatype: String): String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/base.json")).getLines().mkString("\n")
+    val s = Source.fromInputStream(getClass.getResourceAsStream("/esMappings.json")).getLines().mkString("\n")
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
       case Right(j) => j
@@ -269,29 +270,9 @@ trait TestESData {
     typeMapping.!.toString()
   }
 
-  def bootstrapSettings(): Unit = {
-    client.client.admin().indices().prepareCreate(testSuiteName)
-      .setSettings(indexSettings)
-      .execute.actionGet
-    client.client.admin().indices().preparePutMapping(testSuiteName)
-      .setType(esDomainType)
-      .setSource(datatypeMappings(esDomainType))
-      .setIgnoreConflicts(true)
-      .execute.actionGet
-    client.client.admin().indices().preparePutMapping(testSuiteName)
-      .setType(esDocumentType)
-      .setSource(datatypeMappings(esDocumentType))
-      .setIgnoreConflicts(true)
-      .execute.actionGet
-    Indices.foreach { alias =>
-      client.client.admin().indices().prepareAliases()
-        .addAlias(testSuiteName, alias)
-        .execute.actionGet
-    }
-  }
-
   def bootstrapData(): Unit = {
-    bootstrapSettings()
+    ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
+
     domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
       client.client.prepareIndex(testSuiteName, esDomainType)
         .setSource(buildEsDomainByIndex(cname, i))

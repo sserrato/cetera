@@ -192,7 +192,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           params.sortOrder
         )
 
-        logger.info(LogHelper.formatEsRequest(Indices, req))
+        logger.info(LogHelper.formatEsRequest(req))
 
         val res = req.execute.actionGet
 

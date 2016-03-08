@@ -22,9 +22,10 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient("SearchService")
-  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
-  val domainClient: DomainClient = new DomainClient(client)
+  val testSuiteName: String = getClass.getSimpleName.toLowerCase
+  val client: ElasticSearchClient = new TestESClient(testSuiteName)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
+  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
@@ -40,7 +41,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     2 -> "second-socrata.com")
 
   val searchResponse = {
-    val shardTarget = new SearchShardTarget("1", IndexCatalog, 1)
+    val shardTarget = new SearchShardTarget("1", "catalog", 1)
     val score = 0.12345f
 
     val resource = "\"resource\":{\"name\": \"Just A Test\", \"I'm\":\"OK\",\"you're\":\"so-so\"}"
@@ -222,8 +223,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
-  val domainClient: DomainClient = new DomainClient(client)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
+  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
   val balboaDir: java.io.File = new java.io.File("balboa_test_trash")
   val balboaClient: BalboaClient = new BalboaClient(balboaDir.getName)
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)

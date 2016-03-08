@@ -14,8 +14,8 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val boostedDatatypeQueryString = "boost" + boostedDatatype.plural.capitalize
 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, None, None, Set.empty)
-  val domainClient: DomainClient = new DomainClient(client)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
+  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 

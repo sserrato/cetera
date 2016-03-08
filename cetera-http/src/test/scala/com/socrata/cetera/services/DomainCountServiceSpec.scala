@@ -8,8 +8,8 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
-  val client: ElasticSearchClient = new TestESClient("DomainCountServiceSpec")
-  val domainClient: DomainClient = new DomainClient(client)
+  val client: ElasticSearchClient = new TestESClient(testSuiteName)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
   val service: DomainCountService = new DomainCountService(domainClient)
 
   override protected def beforeAll(): Unit = {

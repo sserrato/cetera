@@ -61,7 +61,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
           params.tags,
           params.only
         )
-        logger.info(LogHelper.formatEsRequest(Indices, search))
+        logger.info(LogHelper.formatEsRequest(search))
         val res = search.execute.actionGet
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)

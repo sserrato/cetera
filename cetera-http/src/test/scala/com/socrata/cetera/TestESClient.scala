@@ -8,11 +8,12 @@ import org.elasticsearch.node.NodeBuilder._
 
 import com.socrata.cetera.search.ElasticSearchClient
 
-class TestESClient(val clusterName: String) extends ElasticSearchClient("local", 0, "useless") {
+class TestESClient(testSuiteName: String)
+  extends ElasticSearchClient("", 0, "", testSuiteName) { // host:port & cluster name are immaterial
 
   val tempDataDir = Files.createTempDirectory("elasticsearch_data_").toFile
   val testSettings = ImmutableSettings.settingsBuilder()
-    .put("cluster.name", clusterName)
+    .put("cluster.name", testSuiteName)
     .put("client.transport.sniff", false)
     .put("discovery.zen.ping.multicast.enabled", false)
     .put("path.data", tempDataDir.toString)

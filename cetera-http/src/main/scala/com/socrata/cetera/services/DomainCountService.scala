@@ -13,7 +13,6 @@ import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json,
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.Domain.JsonDecodeException
 import com.socrata.cetera.search.DomainClient
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util._
@@ -56,6 +55,7 @@ class DomainCountService(domainClient: DomainClient) {
           params.tags,
           params.only
         )
+        logger.info(LogHelper.formatEsRequest(search))
         val res = search.execute.actionGet
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)

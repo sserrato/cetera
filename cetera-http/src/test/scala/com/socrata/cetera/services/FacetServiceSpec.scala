@@ -8,8 +8,8 @@ import com.socrata.cetera.types.Datatypes
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val documentClient: DocumentClient = DocumentClient(client, None, None, Set.empty)
-  val domainClient: DomainClient = new DomainClient(client)
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
+  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
   val service: FacetService = new FacetService(documentClient)
 
   override protected def beforeAll(): Unit = {

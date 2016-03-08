@@ -16,9 +16,8 @@ object LogHelper {
     ).mkString(" -- ")
   }
 
-  def formatEsRequest(indices: List[String], search: SearchRequestBuilder): String = {
-    s"""Elasticsearch request - indices: ${indices.mkString(",")},
-        | body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
+  def formatEsRequest(search: SearchRequestBuilder): String = {
+    s"""Elasticsearch request body: ${search.toString.replaceAll("""[\n\s]+""", " ")}
      """.stripMargin.trim
   }
 }

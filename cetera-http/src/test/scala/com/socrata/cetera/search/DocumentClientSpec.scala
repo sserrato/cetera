@@ -8,7 +8,7 @@ import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.{TestESClient, esDocumentType}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.ValidatedQueryParameters
+import com.socrata.cetera.util.{ElasticsearchBootstrap, ValidatedQueryParameters}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness
@@ -23,19 +23,25 @@ import com.socrata.cetera.util.ValidatedQueryParameters
 // Also note that a query builder is different from a request builder.
 
 class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
-  val client = new TestESClient("esclientspec")  // Remember to close() me!!
+  val testSuiteName = getClass.getSimpleName.toLowerCase
+  val client = new TestESClient(testSuiteName)  // Remember to close() me!!
   val defaultMinShouldMatch = Some("37%")
   val scriptScoreFunctions = Set(
     ScriptScoreFunction.getScriptFunction("views"),
     ScriptScoreFunction.getScriptFunction("score")
   ).flatMap { fn => fn }
 
-  val documentClient: DocumentClient = DocumentClient(
+  val documentClient: DocumentClient = new DocumentClient(
     esClient = client,
+    indexAliasName = testSuiteName,
     defaultTitleBoost = None,
     defaultMinShouldMatch = defaultMinShouldMatch,
     scriptScoreFunctions = scriptScoreFunctions
   )
+
+  override protected def beforeAll(): Unit = {
+    ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
+  }
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
