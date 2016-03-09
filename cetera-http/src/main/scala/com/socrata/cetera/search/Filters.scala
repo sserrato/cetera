@@ -7,25 +7,7 @@ import org.elasticsearch.index.query.{FilterBuilder, QueryBuilder}
 import com.socrata.cetera._
 import com.socrata.cetera.types._
 
-object DocumentFilters {
-  def datatypeFilter(datatypes: Option[Seq[String]], aggPrefix: String = ""): Option[FilterBuilder] =
-    datatypes.map(ts => datatypeFilter(ts, aggPrefix))
-  def datatypeFilter(datatypes: Seq[String], aggPrefix: String): FilterBuilder = {
-    val validatedDatatypes = datatypes.flatMap(t => Datatype(t).map(_.singular))
-    termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)
-  }
-
-  def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): Option[FilterBuilder] =
-    if (domainIds.nonEmpty) {
-      Some(termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*))
-    } else { None }
-
-  def domainIdFilter(domainId: Int, aggPrefix: String = ""): Option[FilterBuilder] =
-    domainIdsFilter(Set(domainId), aggPrefix)
-
-  def isApprovedByParentDomainFilter(aggPrefix: String = ""): Option[FilterBuilder] =
-    Some(termFilter(aggPrefix + "is_approved_by_parent_domain", true))
-
+object DocumentQueries {
   def categoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>
       nestedQuery(
@@ -59,6 +41,26 @@ object DocumentFilters {
         b.should(matchQuery(DomainTagsFieldType.fieldName, q))
       }
     }
+}
+
+object DocumentFilters {
+  def datatypeFilter(datatypes: Option[Seq[String]], aggPrefix: String = ""): Option[FilterBuilder] =
+    datatypes.map(ts => datatypeFilter(ts, aggPrefix))
+  def datatypeFilter(datatypes: Seq[String], aggPrefix: String): FilterBuilder = {
+    val validatedDatatypes = datatypes.flatMap(t => Datatype(t).map(_.singular))
+    termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)
+  }
+
+  def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): Option[FilterBuilder] =
+    if (domainIds.nonEmpty) {
+      Some(termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*))
+    } else { None }
+
+  def domainIdFilter(domainId: Int, aggPrefix: String = ""): Option[FilterBuilder] =
+    domainIdsFilter(Set(domainId), aggPrefix)
+
+  def isApprovedByParentDomainFilter(aggPrefix: String = ""): Option[FilterBuilder] =
+    Some(termFilter(aggPrefix + "is_approved_by_parent_domain", true))
 
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
     metadata.map { ss =>

@@ -158,8 +158,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val defaultFilter = j"""{
-    "and": {
-      "filters": [
+    "bool": {
+      "must": [
         ${moderationFilter},
         ${routingApprovalFilter}
       ]
@@ -167,8 +167,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val defaultFilterPlusDomainIds = j"""{
-    "and": {
-      "filters": [
+    "bool": {
+      "must": [
         ${domainFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
@@ -258,8 +258,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val complexFilter = j"""{
-    "and": {
-        "filters": [
+    "bool": {
+        "must": [
             ${datatypeDatasetsFilter},
             ${moderationFilter},
             ${routingApprovalFilter}
@@ -455,8 +455,32 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  "aggregations" : {
         |    "domain_filter" : {
         |      "filter" : {
-        |        "terms" : {
-        |          "socrata_id.domain_id" : [ ${domainId} ]
+        |        "bool" : {
+        |          "must" : [ {
+        |            "bool" : {
+        |              "should" : [ {
+        |                "term" : {
+        |                  "is_default_view" : true
+        |                }
+        |              }, {
+        |                "term" : {
+        |                  "is_moderation_approved" : true
+        |                }
+        |              } ]
+        |            }
+        |          }, {
+        |            "bool" : {
+        |              "must" : {
+        |                "bool" : {
+        |                  "should" : {
+        |                    "term" : {
+        |                      "is_approved_by_parent_domain" : true
+        |                    }
+        |                  }
+        |                }
+        |              }
+        |            }
+        |          } ]
         |        }
         |      },
         |      "aggregations" : {
