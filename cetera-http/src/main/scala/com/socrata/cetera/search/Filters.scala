@@ -46,6 +46,7 @@ object DocumentQueries {
 object DocumentFilters {
   def datatypeFilter(datatypes: Option[Seq[String]], aggPrefix: String = ""): Option[FilterBuilder] =
     datatypes.map(ts => datatypeFilter(ts, aggPrefix))
+
   def datatypeFilter(datatypes: Seq[String], aggPrefix: String): FilterBuilder = {
     val validatedDatatypes = datatypes.flatMap(t => Datatype(t).map(_.singular))
     termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)

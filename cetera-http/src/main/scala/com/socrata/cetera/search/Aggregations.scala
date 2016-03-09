@@ -58,14 +58,22 @@ object DocumentAggregations {
 }
 
 object DomainAggregations {
-  def domains(searchContextIsMod: Boolean,
-              modDomainIds: Set[Int],
-              unmodDomainIds: Set[Int],
-              raOffDomainIds: Set[Int]): AbstractAggregationBuilder = {
-    val moderationFilter =
-      DocumentFilters.moderationStatusFilter(searchContextIsMod, modDomainIds, unmodDomainIds, isDomainAgg = true)
-    val routingApprovalFilter =
-      DocumentFilters.routingApprovalFilter(None, raOffDomainIds, isDomainAgg = true)
+  def domains(searchContextIsModerated: Boolean,
+              moderatedDomainIds: Set[Int],
+              unmoderatedDomainIds: Set[Int],
+              routingApprovalDisabledDomainIds: Set[Int]
+             ): AbstractAggregationBuilder = {
+    val moderationFilter = DocumentFilters.moderationStatusFilter(
+      searchContextIsModerated,
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      isDomainAgg = true
+    )
+    val routingApprovalFilter = DocumentFilters.routingApprovalFilter(
+      None,
+      routingApprovalDisabledDomainIds,
+      isDomainAgg = true
+    )
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"
       .field("domain_cname.raw")

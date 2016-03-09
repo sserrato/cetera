@@ -107,8 +107,14 @@ class DocumentClient(
 
 
     val contextModerated = searchContext.exists(_.moderationEnabled)
-    val (domainIds, moderatedDomainIds, unmoderatedDomainIds, routingApprovalDisabledDomainIds) =
-      domainClient.calculateIdsAndModRAStatuses(domainClient.fetchOrAllCustomerDomains(queryDomainIds))
+    val (
+      domainIds,
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds
+      ) = domainClient.calculateIdsAndModRAStatuses(
+        domainClient.fetchOrAllCustomerDomains(queryDomainIds)
+    )
 
     val filter = FilterBuilders.boolFilter()
     List.concat(

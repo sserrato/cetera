@@ -43,7 +43,10 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
 
   def odnSearch: Seq[Domain] = {
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
-      .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), isCustomerDomainFilter))
+      .setQuery(QueryBuilders.filteredQuery(
+        QueryBuilders.matchAllQuery(),
+        isCustomerDomainFilter)
+      )
     logger.debug(LogHelper.formatEsRequest(search))
     val res = search.execute.actionGet
     res.getHits.hits.flatMap { h =>
