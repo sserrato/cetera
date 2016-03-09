@@ -47,13 +47,13 @@ object DocumentAggregations {
           .size(0)
       )
 
-  def chooseAggregation(field: CeteraFieldType with Countable with Rawable): AbstractAggregationBuilder =
+  def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
     field match {
       case DomainCategoryFieldType => domainCategories
       case DomainTagsFieldType => domainTags
+
       case CategoriesFieldType => categories
       case TagsFieldType => tags
-      case _ => ???
     }
 }
 

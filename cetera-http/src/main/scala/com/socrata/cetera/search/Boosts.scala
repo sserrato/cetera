@@ -3,8 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 
-import com.socrata.cetera._
-import com.socrata.cetera.types._
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, ScriptScoreFunction, SocrataIdDomainIdFieldType}
 
 object Boosts {
   def applyDatatypeBoosts(

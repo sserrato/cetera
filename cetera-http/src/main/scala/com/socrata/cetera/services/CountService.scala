@@ -41,7 +41,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   def format(counts: Seq[JValue]): SearchResults[Count] =
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
-  def doAggregate(field: CeteraFieldType with Countable with Rawable,
+  def doAggregate(field: DocumentFieldType with Countable with Rawable,
                   queryParameters: MultiQueryParams): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
@@ -78,9 +78,8 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
 
   // $COVERAGE-OFF$ jetty wiring
-  def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
+  def aggregate(field: DocumentFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
     implicit val cEncode = field match {
-      case DomainCnameFieldType => Count.encode(esDomainType)
       case CategoriesFieldType => Count.encode("category")
       case TagsFieldType => Count.encode("tag")
       case DomainCategoryFieldType => Count.encode("domain_category")
@@ -102,7 +101,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     }
   }
 
-  case class Service(field: CeteraFieldType with Countable with Rawable) extends SimpleResource {
+  case class Service(field: DocumentFieldType with Countable with Rawable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
   // $COVERAGE-ON$

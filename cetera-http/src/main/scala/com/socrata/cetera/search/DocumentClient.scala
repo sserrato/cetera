@@ -277,7 +277,7 @@ class DocumentClient(
   }
 
   def buildCountRequest(
-      field: CeteraFieldType with Countable with Rawable,
+      field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
       domainIds: Set[Int],
       searchContext: Option[Domain],
