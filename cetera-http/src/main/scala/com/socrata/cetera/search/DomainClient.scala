@@ -16,6 +16,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {
+    logger.debug(s"fetching domain id $id")
     val res = esClient.client.prepareGet(indexAliasName, esDomainType, id.toString)
       .execute.actionGet
     Domain(res.getSourceAsString)
