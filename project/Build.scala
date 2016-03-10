@@ -38,8 +38,8 @@ object CeteraBuild extends Build {
     file("./cetera-http/"),
     settings = commonSettings ++ de.johoop.jacoco4sbt.JacocoPlugin.jacoco.settings ++ Seq(
       // Make sure the "configs" dir is on the runtime classpaths so application.conf can be found.
-      fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d / "configs") },
-      fullClasspath in Test <+= baseDirectory map { d => Attributed.blank(d / "configs") },
+      fullClasspath in Runtime <+= baseDirectory map { d => Attributed.blank(d.getParentFile / "configs") },
+      fullClasspath in Test <+= baseDirectory map { d => Attributed.blank(d.getParentFile / "configs") },
       buildInfoPackage := "com.socrata.cetera",
       libraryDependencies ++= Deps.http
     )
