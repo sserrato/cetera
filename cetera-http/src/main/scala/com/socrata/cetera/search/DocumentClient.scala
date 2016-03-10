@@ -97,7 +97,7 @@ class DocumentClient(
   }
 
   private def buildFilter(datatypes: Option[Seq[String]],
-                          queryDomainIds: Set[Int],
+                          queryDomains: Set[Domain],
                           searchContext: Option[Domain],
                           categories: Option[Set[String]],
                           tags: Option[Set[String]],
@@ -112,9 +112,7 @@ class DocumentClient(
       moderatedDomainIds,
       unmoderatedDomainIds,
       routingApprovalDisabledDomainIds
-      ) = domainClient.calculateIdsAndModRAStatuses(
-        domainClient.fetchOrAllCustomerDomains(queryDomainIds)
-    )
+      ) = domainClient.calculateIdsAndModRAStatuses(queryDomains)
 
     val filter = FilterBuilders.boolFilter()
     List.concat(
@@ -129,7 +127,7 @@ class DocumentClient(
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      queryDomainIds: Set[Int],
+      queryDomains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -157,7 +155,7 @@ class DocumentClient(
         categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
       } else { query }
 
-    val filter = buildFilter(datatypes, queryDomainIds, searchContext, categories, tags, domainMetadata)
+    val filter = buildFilter(datatypes, queryDomains, searchContext, categories, tags, domainMetadata)
 
     QueryBuilders.filteredQuery(
       categoriesAndTagsQuery,
@@ -203,7 +201,7 @@ class DocumentClient(
   // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domainIds: Set[Int],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -229,7 +227,7 @@ class DocumentClient(
 
     // Wrap basic match query in filtered query for filtering
     val filteredQuery = buildFilteredQuery(only,
-      domainIds,
+      domains,
       searchContext,
       categories,
       tags,
@@ -252,7 +250,7 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domainIds: Set[Int],
+      domains: Set[Domain],
       domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -270,7 +268,7 @@ class DocumentClient(
 
     val baseRequest = buildBaseRequest(
       searchQuery,
-      domainIds,
+      domains,
       searchContext,
       categories,
       tags,
@@ -299,7 +297,7 @@ class DocumentClient(
   def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domainIds: Set[Int],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -310,7 +308,7 @@ class DocumentClient(
 
     val baseRequest = buildBaseRequest(
       searchQuery,
-      domainIds,
+      domains,
       searchContext,
       categories,
       tags,
@@ -328,7 +326,7 @@ class DocumentClient(
       .setSearchType("count")
   }
 
-  def buildFacetRequest(domainId: Option[Int]): SearchRequestBuilder = {
+  def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder = {
     val size = 0 // no docs, aggs only
 
     val datatypeAgg = AggregationBuilders
@@ -356,7 +354,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(size)))
 
-    val filter = domainId.map(i => buildFilter(None, Set(i), None, None, None, None))
+    val filter = domain.map(d => buildFilter(None, Set(d), None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders

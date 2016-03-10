@@ -108,17 +108,19 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
-  private def domainCnames(hits: SearchHits): Map[Int, String] = {
+  private def fetchDomainCnames(domainIdCnames: Map[Int, String], hits: SearchHits): Map[Int, String] = {
     val distinctDomainIds = hits.hits.map { h =>
       JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
         case jn: JNumber => jn.toInt
         case _ => throw new scala.NoSuchElementException
       }
-    }.groupBy { case i: Int => i }.keys // deduplicate domain id
+    }.toSet // deduplicate domain id
 
-    distinctDomainIds.flatMap { i =>
+    val unknownDomainIds = distinctDomainIds -- domainIdCnames.keys // don't repeat lookup for known domains
+    logger.warn(s"Somehow these domains were not known at query construction time: $unknownDomainIds; wtf mate?")
+    unknownDomainIds.flatMap { i =>
       domainClient.fetch(i).map { d => i -> d.domainCname } // lookup domain cname from elasticsearch
-    }.toMap
+    }.toMap ++ domainIdCnames
   }
 
   def format(domainCnames: Map[Int,String], showScore: Boolean,
@@ -169,12 +171,20 @@ class SearchService(elasticSearchClient: DocumentClient,
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val searchContext = params.searchContext.flatMap(domainClient.find)
-        val (domainIds, domainIdBoosts) = fetchDomains(params)
+        val relevantDomains = domainClient.findRelevantDomains(params.searchContext, params.domains)
+        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
+        val queryDomains = params.domains match {
+          case cs: Set[String] if cs.nonEmpty => cs.flatMap (cname => relevantDomains.find (_.domainCname == cname) )
+          case _ => relevantDomains
+        }
+        val domainIdBoosts = params.domainBoosts.flatMap { case (cname: String, weight: Float) =>
+          relevantDomains.collect { case d: Domain if d.domainCname == cname => d.domainId -> weight }
+        }
+        val domainIdCnames = relevantDomains.map(d => d.domainId -> d.domainCname).toMap
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
-          domainIds,
+          queryDomains,
           params.domainMetadata,
           searchContext,
           params.categories,
@@ -194,22 +204,13 @@ class SearchService(elasticSearchClient: DocumentClient,
 
         val res = req.execute.actionGet
         val count = res.getHits.getTotalHits
-        val cnames = domainCnames(res.getHits)
+        val cnames = fetchDomainCnames(domainIdCnames, res.getHits)
         val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
         logSearchTerm(searchContext, params.searchQuery)
 
         (formattedResults.copy(resultSetSize = Some(count), timings = Some(timings)), timings)
     }
-  }
-
-  private def fetchDomains(params: ValidatedQueryParameters): (Set[Int], Map[Int, Float]) = {
-    val domains = params.domains.flatMap(domainClient.find)
-    val domainIds = domains.map(_.domainId)
-    val domainIdBoosts = params.domainBoosts.flatMap { case (cname, weight) =>
-      domains.find(_.domainCname == cname).map(_.domainId -> weight)
-    }
-    (domainIds, domainIdBoosts)
   }
 
   // $COVERAGE-OFF$ jetty wiring

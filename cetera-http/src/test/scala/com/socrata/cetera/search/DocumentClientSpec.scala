@@ -308,7 +308,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domainIds = Set(1, 2, 3),
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -340,7 +340,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domainIds = Set.empty[Int],
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -372,7 +372,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domainIds = Set.empty[Int],
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -428,7 +428,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
-        domainIds = domainIds,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -450,6 +450,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "buildFacetRequest" should {
     "build a faceted request" in {
       val domainId = 42
+      val domain = Domain(
+        isCustomerDomain = true,
+        None,
+        "",
+        domainId,
+        None,
+        moderationEnabled = false,
+        routingApprovalEnabled = false)
+
       val expectedAsString = s"""{
         |  "size" : 0,
         |  "aggregations" : {
@@ -457,6 +466,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |      "filter" : {
         |        "bool" : {
         |          "must" : [ {
+        |            "terms" : {
+        |              "socrata_id.domain_id" : [ $domainId ]
+        |            }
+        |          }, {
         |            "bool" : {
         |              "should" : [ {
         |                "term" : {
@@ -466,17 +479,37 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |                "term" : {
         |                  "is_moderation_approved" : true
         |                }
+        |              }, {
+        |                "bool" : {
+        |                  "must" : [ {
+        |                    "terms" : {
+        |                      "socrata_id.domain_id" : [ $domainId ]
+        |                    }
+        |                  }, {
+        |                    "not" : {
+        |                      "filter" : {
+        |                        "terms" : {
+        |                          "datatype" : [ "datalens" ]
+        |                        }
+        |                      }
+        |                    }
+        |                  } ]
+        |                }
         |              } ]
         |            }
         |          }, {
         |            "bool" : {
         |              "must" : {
         |                "bool" : {
-        |                  "should" : {
+        |                  "should" : [ {
+        |                    "terms" : {
+        |                      "socrata_id.domain_id" : [ $domainId ]
+        |                    }
+        |                  }, {
         |                    "term" : {
         |                      "is_approved_by_parent_domain" : true
         |                    }
-        |                  }
+        |                  } ]
         |                }
         |              }
         |            }
@@ -528,7 +561,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  }
         |}""".stripMargin
 
-      val actual = documentClient.buildFacetRequest(Some(domainId))
+      val actual = documentClient.buildFacetRequest(Some(domain))
 
       actual.toString should be(expectedAsString)
     }
@@ -557,7 +590,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
-        domainIds = domainIds,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -612,7 +645,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
-        domainIds = domainIds,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,

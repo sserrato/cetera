@@ -49,8 +49,8 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val domainId = Some(domainClient.find(cname).getOrElse(throw new DomainNotFound(cname)).domainId)
-    val request = documentClient.buildFacetRequest(domainId)
+    val domain = Some(domainClient.find(cname).getOrElse(throw new DomainNotFound(cname)))
+    val request = documentClient.buildFacetRequest(domain)
     logger.info(LogHelper.formatEsRequest(request))
     val res = request.execute().actionGet()
     val aggs = res.getAggregations.asMap().asScala
