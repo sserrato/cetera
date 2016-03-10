@@ -49,7 +49,9 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val domain = Some(domainClient.find(cname).getOrElse(throw new DomainNotFound(cname)))
+    val (domain, domainSearchTime) = domainClient.find(cname)
+    domain.getOrElse(throw new DomainNotFound(cname))
+
     val request = documentClient.buildFacetRequest(domain)
     logger.info(LogHelper.formatEsRequest(request))
     val res = request.execute().actionGet()
@@ -78,7 +80,7 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
       }.toSeq
 
     val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
-    val timings = InternalTimings(Timings.elapsedInMillis(startMs), Option(res.getTookInMillis))
+    val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
     (facets, timings)
   }
 }

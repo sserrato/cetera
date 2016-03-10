@@ -171,7 +171,7 @@ class SearchService(elasticSearchClient: DocumentClient,
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val relevantDomains = domainClient.findRelevantDomains(params.searchContext, params.domains)
+        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
         val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
         val queryDomains = params.domains match {
           case cs: Set[String] if cs.nonEmpty => cs.flatMap (cname => relevantDomains.find (_.domainCname == cname) )
@@ -206,7 +206,7 @@ class SearchService(elasticSearchClient: DocumentClient,
         val count = res.getHits.getTotalHits
         val cnames = fetchDomainCnames(domainIdCnames, res.getHits)
         val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         logSearchTerm(searchContext, params.searchQuery)
 
         (formattedResults.copy(resultSetSize = Some(count), timings = Some(timings)), timings)

@@ -28,7 +28,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
         routingApprovalEnabled = false)
-      val actualDomain = domainClient.find("petercetera.net")
+      val (actualDomain, _) = domainClient.find("petercetera.net")
       actualDomain.get should be(expectedDomain)
     }
 
@@ -41,19 +41,19 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         siteTitle = Some("And other things"),
         moderationEnabled = true,
         routingApprovalEnabled = false)
-      val actualDomain = domainClient.find("opendata-demo.socrata.com")
+      val (actualDomain, _) = domainClient.find("opendata-demo.socrata.com")
       actualDomain.get should be(expectedDomain)
     }
 
     "return None if the domain does not exist" in {
       val expectedDomain = None
-      val actualDomain = domainClient.find("hellcat.com")
+      val (actualDomain, _) = domainClient.find("hellcat.com")
       actualDomain should be(expectedDomain)
     }
 
     "return None if searching for blank string" in {
       val expectedDomain = None
-      val actualDomain = domainClient.find("")
+      val (actualDomain, _) = domainClient.find("")
       actualDomain should be(expectedDomain)
     }
   }

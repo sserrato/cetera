@@ -21,9 +21,12 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     Domain(res.getSourceAsString)
   }
 
-  def find(cname: String): Option[Domain] = find(Set(cname)).headOption
+  def find(cname: String): (Option[Domain], Long) = {
+    val (domains, timing) = find(Set(cname))
+    (domains.headOption, timing)
+  }
 
-  def find(cnames: Set[String]): Set[Domain] = {
+  def find(cnames: Set[String]): (Set[Domain], Long) = {
     val query = QueryBuilders.boolQuery()
     cnames.foreach(s => query.should(QueryBuilders.matchPhraseQuery(DomainCnameFieldType.fieldName, s)))
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
@@ -31,7 +34,8 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     logger.debug(LogHelper.formatEsRequest(search))
 
     val res = search.execute.actionGet
-    res.getHits.hits.flatMap { h =>
+    val timing = res.getTookInMillis
+    val domains = res.getHits.hits.flatMap { h =>
       JsonUtil.parseJson[Domain](h.sourceAsString) match {
         case Right(domain) => Some(domain)
         case Left(err) =>
@@ -39,18 +43,19 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
           throw new JsonDecodeException(err)
       }
     }.toSet
+    (domains, timing)
   }
 
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
-  def findRelevantDomains(searchContextCname: Option[String], domainCnames: Set[String]): Set[Domain] = {
+  def findRelevantDomains(searchContextCname: Option[String], domainCnames: Set[String]): (Set[Domain], Long) = {
     searchContextCname.foldLeft(domainCnames) { (b, x) => b + x } match {
       case cs: Set[String] if cs.nonEmpty => find(cs)
-      case _ => customerDomainSearch.toSet
+      case _ => customerDomainSearch
     }
   }
 
   // when query doesn't define domain filter, we assume all customer domains.
-  private def customerDomainSearch: Seq[Domain] = {
+  private def customerDomainSearch: (Set[Domain], Long) = {
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(
         QueryBuilders.matchAllQuery(),
@@ -58,9 +63,11 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       )
     logger.debug(LogHelper.formatEsRequest(search))
     val res = search.execute.actionGet
-    res.getHits.hits.flatMap { h =>
+    val timing = res.getTookInMillis
+    val domains = res.getHits.hits.flatMap { h =>
       Domain(h.getSourceAsString)
-    }
+    }.toSet
+    (domains, timing)
   }
 
   // (pre-)calculate domain moderation and R+A status

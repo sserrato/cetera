@@ -46,7 +46,7 @@ class DomainCountService(domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val relevantDomains = domainClient.findRelevantDomains(params.searchContext, params.domains)
+        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
         val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
 
         val search = domainClient.buildCountRequest(
@@ -59,7 +59,7 @@ class DomainCountService(domainClient: DomainClient) {
         )
         logger.info(LogHelper.formatEsRequest(search))
         val res = search.execute.actionGet
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)
         val counts = extract(json) match {
           case Right(extracted) => extracted
