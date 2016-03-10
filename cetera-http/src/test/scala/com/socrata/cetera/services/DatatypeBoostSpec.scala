@@ -15,7 +15,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
 
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, testSuiteName, None, None, Set.empty)
+  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
   val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
 
@@ -30,6 +30,8 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
 
   test("datatype boost - increases score when datatype matches") {
     val (results, _) = service.doSearch(Map(
+      Params.context -> "petercetera.net",
+      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net",
       Params.querySimple -> "one",
       Params.showScore -> "true",
       boostedDatatypeQueryString -> "10"

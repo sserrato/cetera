@@ -41,7 +41,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   def format(counts: Seq[JValue]): SearchResults[Count] =
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
-  def doAggregate(field: CeteraFieldType with Countable with Rawable,
+  def doAggregate(field: DocumentFieldType with Countable with Rawable,
                   queryParameters: MultiQueryParams): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
@@ -51,19 +51,25 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val domain = params.searchContext.flatMap(domainClient.find)
+        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
+        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
+        val queryDomains = params.domains match {
+          case cs: Set[String] if cs.nonEmpty => cs.flatMap(cname => relevantDomains.find(_.domainCname == cname))
+          case _ => relevantDomains
+        }
+
         val search = documentClient.buildCountRequest(
           field,
           params.searchQuery,
-          params.domains,
-          domain,
+          queryDomains,
+          searchContext,
           params.categories,
           params.tags,
           params.only
         )
         logger.info(LogHelper.formatEsRequest(search))
         val res = search.execute.actionGet
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)
         val counts = extract(json) match {
           case Right(extracted) => extracted
@@ -77,9 +83,8 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
 
   // $COVERAGE-OFF$ jetty wiring
-  def aggregate(field: CeteraFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
+  def aggregate(field: DocumentFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
     implicit val cEncode = field match {
-      case DomainCnameFieldType => Count.encode(esDomainType)
       case CategoriesFieldType => Count.encode("category")
       case TagsFieldType => Count.encode("tag")
       case DomainCategoryFieldType => Count.encode("domain_category")
@@ -101,7 +106,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     }
   }
 
-  case class Service(field: CeteraFieldType with Countable with Rawable) extends SimpleResource {
+  case class Service(field: DocumentFieldType with Countable with Rawable) extends SimpleResource {
     override def get: HttpService = aggregate(field)
   }
   // $COVERAGE-ON$

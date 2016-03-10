@@ -16,7 +16,7 @@ class Router(
     catalogResource: => HttpService,
     facetResource: String => HttpService,
     domainCountResource: => HttpService,
-    countResource: CeteraFieldType with Countable with Rawable => HttpService) {
+    countResource: DocumentFieldType with Countable with Rawable => HttpService) {
 
   val routes = Routes(
     // /version is for internal use

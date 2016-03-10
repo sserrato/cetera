@@ -66,7 +66,7 @@ object ElasticsearchBootstrap {
 
       } catch {
         case e: IndexAlreadyExistsException =>
-          logger.info(s"actually something went wrong ${e.getMessage}")
+          logger.info(s"actually that index ($indexAliasName) already exists!")
       }
     }
   }

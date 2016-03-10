@@ -35,7 +35,7 @@ object JsonResponses {
 }
 
 // Helpers for internal timing information to report to the caller
-case class InternalTimings(serviceMillis: Long, searchMillis: Option[Long])
+case class InternalTimings(serviceMillis: Long, searchMillis: Seq[Long])
 
 object InternalTimings {
   implicit val jCodec = AutomaticJsonCodecBuilder[InternalTimings]

@@ -108,20 +108,19 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
-  private def domainCnames(searchContext: Option[Domain],
-                           params: ValidatedQueryParameters,
-                           hits: SearchHits): Map[Int, String] = {
-    List.concat(
-      searchContext.map { d => d.domainId -> d.domainCname },
-      params.domains.flatMap(domainClient.find).map { d => d.domainId -> d.domainCname },
-      hits.hits.flatMap { h =>
-        val i = JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
-          case jn: JNumber => jn.toInt
-          case _ => throw new scala.NoSuchElementException
-        }
-        domainClient.fetch(i).map { d => i -> d.domainCname }
+  private def fetchDomainCnames(domainIdCnames: Map[Int, String], hits: SearchHits): Map[Int, String] = {
+    val distinctDomainIds = hits.hits.map { h =>
+      JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
+        case jn: JNumber => jn.toInt
+        case _ => throw new scala.NoSuchElementException
       }
-    ).groupBy { case (i: Int, c: String) => i }.map(_._2.head) // deduplicate by id and create map
+    }.toSet // deduplicate domain id
+
+    val unknownDomainIds = distinctDomainIds -- domainIdCnames.keys // don't repeat lookup for known domains
+    logger.warn(s"Somehow these domains were not known at query construction time: $unknownDomainIds; wtf mate?")
+    unknownDomainIds.flatMap { i =>
+      domainClient.fetch(i).map { d => i -> d.domainCname } // lookup domain cname from elasticsearch
+    }.toMap ++ domainIdCnames
   }
 
   def format(domainCnames: Map[Int,String], showScore: Boolean,
@@ -172,11 +171,20 @@ class SearchService(elasticSearchClient: DocumentClient,
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val searchContext = params.searchContext.flatMap(domainClient.find)
+        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
+        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
+        val queryDomains = params.domains match {
+          case cs: Set[String] if cs.nonEmpty => cs.flatMap (cname => relevantDomains.find (_.domainCname == cname) )
+          case _ => relevantDomains
+        }
+        val domainIdBoosts = params.domainBoosts.flatMap { case (cname: String, weight: Float) =>
+          relevantDomains.collect { case d: Domain if d.domainCname == cname => d.domainId -> weight }
+        }
+        val domainIdCnames = relevantDomains.map(d => d.domainId -> d.domainCname).toMap
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
-          params.domains,
+          queryDomains,
           params.domainMetadata,
           searchContext,
           params.categories,
@@ -184,7 +192,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           params.only,
           params.fieldBoosts,
           params.datatypeBoosts,
-          params.domainBoosts,
+          domainIdBoosts,
           params.minShouldMatch,
           params.slop,
           params.offset,
@@ -195,19 +203,13 @@ class SearchService(elasticSearchClient: DocumentClient,
         logger.info(LogHelper.formatEsRequest(req))
 
         val res = req.execute.actionGet
-
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Option(res.getTookInMillis))
-
+        val count = res.getHits.getTotalHits
+        val cnames = fetchDomainCnames(domainIdCnames, res.getHits)
+        val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         logSearchTerm(searchContext, params.searchQuery)
 
-        val count = res.getHits.getTotalHits
-
-        val cnames = domainCnames(searchContext, params, res.getHits)
-
-        val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
-          .copy(resultSetSize = Some(count), timings = Some(timings))
-
-        (formattedResults, timings)
+        (formattedResults.copy(resultSetSize = Some(count), timings = Some(timings)), timings)
     }
   }
 

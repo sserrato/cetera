@@ -56,15 +56,16 @@ object SearchServer extends App {
       ElasticSearchClient(config.elasticSearch))
     } {
 
+    val domainClient = new DomainClient(esClient, config.elasticSearch.indexAliasName)
     val documentClient = new DocumentClient(
       esClient,
+      domainClient,
       config.elasticSearch.indexAliasName,
       config.elasticSearch.titleBoost,
       config.elasticSearch.minShouldMatch,
       config.elasticSearch.functionScoreScripts.flatMap(fnName =>
       ScriptScoreFunction.getScriptFunction(fnName)).toSet
     )
-    val domainClient = new DomainClient(esClient, config.elasticSearch.indexAliasName)
 
     logger.info("ElasticSearchClient initialized on nodes " +
                   esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)
@@ -79,7 +80,7 @@ object SearchServer extends App {
     val searchService = new SearchService(documentClient, domainClient, balboaClient)
 
     logger.info("Initializing FacetService with document client")
-    val facetService = new FacetService(documentClient)
+    val facetService = new FacetService(documentClient, domainClient)
 
     logger.info("Initializing DomainCountService with domain client")
     val domainCountService = new DomainCountService(domainClient)

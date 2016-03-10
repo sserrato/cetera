@@ -47,9 +47,9 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
   "boostDomains" should {
     "add domain cname boosts to the query" in {
       val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
-      val domainBoosts = Map[String, Float](
-        "example.com" -> 1.23f,
-        "data.seattle.gov" -> 4.56f
+      val domainBoosts = Map[Int, Float](
+        0 -> 1.23f,
+        7 -> 4.56f
       )
 
       Boosts.applyDomainBoosts(query, domainBoosts)
@@ -58,21 +58,11 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
         "function_score": {
           "functions": [
             {
-              "filter": {
-                "has_parent": {
-                  "parent_type": "domain",
-                  "filter": { "term": { "domain_cname.raw": "example.com" } }
-                }
-              },
+              "filter": { "term": { "socrata_id.domain_id": 0 } },
               "weight": 1.23
             },
             {
-              "filter": {
-                "has_parent": {
-                  "parent_type": "domain",
-                  "filter": { "term": { "domain_cname.raw": "data.seattle.gov" } }
-                }
-              },
+              "filter": { "term": { "socrata_id.domain_id": 7 } },
               "weight": 4.56
             }
           ],
@@ -89,7 +79,7 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
 
     "do nothing to the query if given no domain boosts" in {
       val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
-      val domainBoosts = Map.empty[String, Float]
+      val domainBoosts = Map.empty[Int, Float]
 
       val beforeJson = JsonReader.fromString(query.toString)
       Boosts.applyDomainBoosts(query, domainBoosts)

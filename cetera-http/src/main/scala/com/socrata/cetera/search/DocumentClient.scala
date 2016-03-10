@@ -5,10 +5,12 @@ import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
 import com.socrata.cetera._
+import com.socrata.cetera.search.DocumentAggregations._
 import com.socrata.cetera.types._
 
 class DocumentClient(
     esClient: ElasticSearchClient,
+    domainClient: DomainClient,
     indexAliasName: String,
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
@@ -94,9 +96,38 @@ class DocumentClient(
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
+  private def buildFilter(datatypes: Option[Seq[String]],
+                          queryDomains: Set[Domain],
+                          searchContext: Option[Domain],
+                          categories: Option[Set[String]],
+                          tags: Option[Set[String]],
+                          domainMetadata: Option[Set[(String, String)]]): FilterBuilder = {
+
+    import com.socrata.cetera.search.DocumentFilters._ // scalastyle:ignore import.grouping
+
+
+    val contextModerated = searchContext.exists(_.moderationEnabled)
+    val (
+      domainIds,
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds
+      ) = domainClient.calculateIdsAndModRAStatuses(queryDomains)
+
+    val filter = FilterBuilders.boolFilter()
+    List.concat(
+      datatypeFilter(datatypes),
+      domainIdsFilter(domainIds),
+      Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
+      Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
+      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))
+    ).foreach(filter.must)
+    filter
+  }
+
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      domains: Set[String],
+      queryDomains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -104,7 +135,7 @@ class DocumentClient(
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
 
-    import com.socrata.cetera.search.Filters._ // scalastyle:ignore import.grouping
+    import com.socrata.cetera.search.DocumentQueries._ // scalastyle:ignore import.grouping
 
     // If there is no search context, use the ODN categories and tags and prohibit domain metadata
     // otherwise use the custom domain categories, tags, metadata
@@ -119,27 +150,17 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
-    val moderated = searchContext.exists(_.moderationEnabled)
-
-    val filters: List[FilterBuilder] = List.concat(
-      datatypeFilter(datatypes),
-      domainFilter(domains),
-      moderationStatusFilter(moderated),
-      routingApprovalFilter(searchContext),
-      if (searchContext.isDefined) domainMetadataFilter(domainMetadata) else customerDomainFilter
-    )
-
     val categoriesAndTagsQuery =
       if (categoriesAndTags.nonEmpty) {
         categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
       } else { query }
 
-    if (filters.nonEmpty) {
-      QueryBuilders.filteredQuery(
-        categoriesAndTagsQuery,
-        FilterBuilders.andFilter(filters.toSeq: _*)
-      )
-    } else { categoriesAndTagsQuery }
+    val filter = buildFilter(datatypes, queryDomains, searchContext, categories, tags, domainMetadata)
+
+    QueryBuilders.filteredQuery(
+      categoriesAndTagsQuery,
+      filter
+    )
   }
 
   private def applyDefaultTitleBoost(
@@ -180,7 +201,7 @@ class DocumentClient(
   // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[String],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -188,7 +209,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
-      domainBoosts: Map[String, Float],
+      domainIdBoosts: Map[Int, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
     : SearchRequestBuilder = {
@@ -216,7 +237,7 @@ class DocumentClient(
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
     Boosts.applyScoreFunctions(query, scriptScoreFunctions)
-    Boosts.applyDomainBoosts(query, domainBoosts)
+    Boosts.applyDomainBoosts(query, domainIdBoosts)
     query.scoreMode("multiply").boostMode("replace")
 
     val preparedSearch = esClient.client
@@ -229,7 +250,7 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[String],
+      domains: Set[Domain],
       domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -237,7 +258,7 @@ class DocumentClient(
       only: Option[Seq[String]],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
-      domainBoosts: Map[String, Float],
+      domainIdBoosts: Map[Int, Float],
       minShouldMatch: Option[String],
       slop: Option[Int],
       offset: Int,
@@ -255,7 +276,7 @@ class DocumentClient(
       only,
       fieldBoosts,
       datatypeBoosts,
-      domainBoosts,
+      domainIdBoosts,
       minShouldMatch,
       slop
     )
@@ -274,16 +295,16 @@ class DocumentClient(
   }
 
   def buildCountRequest(
-      field: CeteraFieldType with Countable with Rawable,
+      field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Set[String],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       only: Option[Seq[String]])
     : SearchRequestBuilder = {
 
-    val aggregation = Aggregations.chooseAggregation(field)
+    val aggregation = chooseAggregation(field)
 
     val baseRequest = buildBaseRequest(
       searchQuery,
@@ -305,7 +326,7 @@ class DocumentClient(
       .setSearchType("count")
   }
 
-  def buildFacetRequest(cname: String): SearchRequestBuilder = {
+  def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder = {
     val size = 0 // no docs, aggs only
 
     val datatypeAgg = AggregationBuilders
@@ -333,7 +354,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(size)))
 
-    val filter = Filters.domainFilter(cname)
+    val filter = domain.map(d => buildFilter(None, Set(d), None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders

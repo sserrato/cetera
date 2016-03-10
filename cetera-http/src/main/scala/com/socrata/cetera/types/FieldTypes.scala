@@ -10,6 +10,9 @@ sealed trait CeteraFieldType {
   val fieldName: String
 }
 
+sealed trait DocumentFieldType extends CeteraFieldType
+sealed trait DomainFieldType extends CeteraFieldType
+
 // A field that can be boosted (i.e, fields like title or description that can
 // have extra weight given to then when matching keyword queries).
 sealed trait Boostable extends CeteraFieldType
@@ -62,7 +65,7 @@ case object FullTextSearchAnalyzedFieldType extends CeteraFieldType {
 case object FullTextSearchRawFieldType extends CeteraFieldType {
   val fieldName: String = "fts_raw"
 }
-case object DomainCnameFieldType extends CeteraFieldType with Countable with Rawable {
+case object DomainCnameFieldType extends DomainFieldType with Countable with Rawable {
   val fieldName: String = "domain_cname"
 }
 
@@ -70,7 +73,7 @@ case object DomainCnameFieldType extends CeteraFieldType with Countable with Raw
 // Categories & Tags
 
 // Categories have a score and a raw field name available
-case object CategoriesFieldType extends Scorable with Rawable {
+case object CategoriesFieldType extends DocumentFieldType with Scorable with Rawable {
   val fieldName: String = "animl_annotations.categories"
 
   case object Name extends NestedField with Rawable {
@@ -83,7 +86,7 @@ case object CategoriesFieldType extends Scorable with Rawable {
 }
 
 // Tags have a score and a raw field name available
-case object TagsFieldType extends Scorable with Rawable {
+case object TagsFieldType extends DocumentFieldType with Scorable with Rawable {
   val fieldName: String = "animl_annotations.tags"
 
   case object Name extends NestedField with Rawable {
@@ -98,7 +101,7 @@ case object TagsFieldType extends Scorable with Rawable {
 // TODO: cetera-etl rename customer_category to domain_category
 // A domain category is a domain-specific (customer-specified) category (as
 // opposed to a Socrata-specific canonical category).
-case object DomainCategoryFieldType extends Countable with Rawable {
+case object DomainCategoryFieldType extends DocumentFieldType with Countable with Rawable {
   val fieldName: String = "customer_category"
 }
 
@@ -106,31 +109,31 @@ case object DomainCategoryFieldType extends Countable with Rawable {
 /////////////////////
 // Catalog Visibility
 
-case object IsCustomerDomainFieldType extends CeteraFieldType {
+case object IsCustomerDomainFieldType extends DomainFieldType {
   val fieldName: String = "is_customer_domain"
 }
 
-case object IsModerationEnabledFieldType extends CeteraFieldType {
+case object IsModerationEnabledFieldType extends DomainFieldType {
   val fieldName: String = "moderation_enabled"
 }
 
-case object IsRoutingApprovalEnabledFieldType extends CeteraFieldType {
+case object IsRoutingApprovalEnabledFieldType extends DocumentFieldType {
   val fieldName: String = "routing_approval_enabled"
 }
 
-case object IsDefaultViewFieldType extends CeteraFieldType {
+case object IsDefaultViewFieldType extends DocumentFieldType {
   val fieldName: String = "is_default_view"
 }
 
-case object IsModerationApprovedFieldType extends CeteraFieldType {
+case object IsModerationApprovedFieldType extends DocumentFieldType {
   val fieldName: String = "is_moderation_approved"
 }
 
-case object ApprovingDomainIdsFieldType extends CeteraFieldType {
+case object ApprovingDomainIdsFieldType extends DocumentFieldType {
   val fieldName: String = "approving_domain_ids"
 }
 
-case object SocrataIdDomainIdFieldType extends CeteraFieldType {
+case object SocrataIdDomainIdFieldType extends DocumentFieldType {
   val fieldName: String = "socrata_id.domain_id"
 }
 
@@ -140,7 +143,7 @@ case object SocrataIdDomainIdFieldType extends CeteraFieldType {
 
 // TODO: cetera-etl rename customer_tags to domain_tags
 // Domain tags are customer-defined tags (which surface as topics in the front end).
-case object DomainTagsFieldType extends Countable with Rawable {
+case object DomainTagsFieldType extends DocumentFieldType with Countable with Rawable {
   val fieldName: String = "customer_tags"
 }
 
@@ -149,7 +152,7 @@ case object DomainTagsFieldType extends Countable with Rawable {
 // own facets and call them whatever they like, for example you could define
 // Superheroes and select from a list of them. We support these fields as
 // direct url params (e.g., Superheros=Batman).
-case object DomainMetadataFieldType extends Mapable with Rawable {
+case object DomainMetadataFieldType extends DocumentFieldType with Mapable with Rawable {
   val fieldName: String = "customer_metadata_flattened"
 
   case object Key extends NestedField with Rawable {
@@ -165,27 +168,27 @@ case object DomainMetadataFieldType extends Mapable with Rawable {
 /////////////
 // Boostables
 
-case object TitleFieldType extends Boostable with Rawable {
+case object TitleFieldType extends DocumentFieldType with Boostable with Rawable {
   val fieldName: String = "indexed_metadata.name"
 }
 
-case object DescriptionFieldType extends Boostable {
+case object DescriptionFieldType extends DocumentFieldType with Boostable {
   val fieldName: String = "indexed_metadata.description"
 }
 
-case object ColumnNameFieldType extends Boostable {
+case object ColumnNameFieldType extends DocumentFieldType with Boostable {
   val fieldName: String = "indexed_metadata.columns_name"
 }
 
-case object ColumnDescriptionFieldType extends Boostable {
+case object ColumnDescriptionFieldType extends DocumentFieldType with Boostable {
   val fieldName: String = "indexed_metadata.columns_description"
 }
 
-case object ColumnFieldNameFieldType extends Boostable {
+case object ColumnFieldNameFieldType extends DocumentFieldType with Boostable {
   val fieldName: String = "indexed_metadata.columns_field_name"
 }
 
-case object DatatypeFieldType extends Boostable {
+case object DatatypeFieldType extends DocumentFieldType with Boostable {
   val fieldName: String = "datatype"
 }
 
@@ -193,26 +196,26 @@ case object DatatypeFieldType extends Boostable {
 //////////////
 // For sorting
 
-case object PageViewsTotalFieldType extends CeteraFieldType with Sortable {
+case object PageViewsTotalFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "page_views.page_views_total"
 }
 
-case object PageViewsLastMonthFieldType extends CeteraFieldType with Sortable {
+case object PageViewsLastMonthFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "page_views.page_views_last_month"
 }
 
-case object PageViewsLastWeekFieldType extends CeteraFieldType with Sortable {
+case object PageViewsLastWeekFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "page_views.page_views_last_week"
 }
 
-case object UpdatedAtFieldType extends CeteraFieldType with Sortable {
+case object UpdatedAtFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "updated_at" // notice the snake_case, long story
 }
 
-case object CreatedAtFieldType extends CeteraFieldType with Sortable {
+case object CreatedAtFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "created_at" // notice the snake_case, long story
 }
 
-case object NameFieldType extends CeteraFieldType with Sortable {
+case object NameFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "indexed_metadata.name.raw"
 }

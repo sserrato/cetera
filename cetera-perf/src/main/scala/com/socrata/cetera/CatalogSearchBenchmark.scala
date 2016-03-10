@@ -30,6 +30,7 @@ class CatalogSearchBenchmark {
   val domainClient = new DomainClient(client, config.elasticSearch.indexAliasName)
   val documentClient = new DocumentClient(
     client,
+    domainClient,
     config.elasticSearch.indexAliasName,
     config.elasticSearch.titleBoost,
     config.elasticSearch.minShouldMatch,

@@ -1,10 +1,9 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
+import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
 
-import com.socrata.cetera._
-import com.socrata.cetera.types.{Datatype, DatatypeFieldType, DomainCnameFieldType, ScriptScoreFunction}
+import com.socrata.cetera.types.{Datatype, DatatypeFieldType, ScriptScoreFunction, SocrataIdDomainIdFieldType}
 
 object Boosts {
   def applyDatatypeBoosts(
@@ -35,15 +34,13 @@ object Boosts {
 
   def applyDomainBoosts(
       query: FunctionScoreQueryBuilder,
-      domainBoosts: Map[String, Float])
+      domainIdBoosts: Map[Int, Float])
     : Unit = {
 
-    domainBoosts.foreach {
-      case (domain, weight) =>
+    domainIdBoosts.foreach {
+      case (domainId, weight) =>
         query.add(
-          FilterBuilders.hasParentFilter(esDomainType,
-            FilterBuilders.termFilter(DomainCnameFieldType.rawFieldName, domain)
-          ),
+          FilterBuilders.termFilter(SocrataIdDomainIdFieldType.fieldName, domainId),
           ScoreFunctionBuilders.weightFactorFunction(weight)
         )
     }

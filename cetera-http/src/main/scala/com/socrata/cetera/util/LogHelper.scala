@@ -12,7 +12,7 @@ object LogHelper {
       request.queryStr.getOrElse(""),
       "requested by",
       request.servletRequest.getRemoteHost,
-      s"""TIMINGS ## ESTime : ${timings.searchMillis.getOrElse(-1)} ## ServiceTime : ${timings.serviceMillis}"""
+      s"""TIMINGS ## ESTime : ${timings.searchMillis} ## ServiceTime : ${timings.serviceMillis}"""
     ).mkString(" -- ")
   }
 

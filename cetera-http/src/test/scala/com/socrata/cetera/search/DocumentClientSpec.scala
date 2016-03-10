@@ -6,9 +6,9 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.{TestESClient, esDocumentType}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchBootstrap, ValidatedQueryParameters}
+import com.socrata.cetera.{TestESClient, esDocumentType}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness
@@ -31,8 +31,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     ScriptScoreFunction.getScriptFunction("score")
   ).flatMap { fn => fn }
 
+  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
   val documentClient: DocumentClient = new DocumentClient(
     esClient = client,
+    domainClient,
     indexAliasName = testSuiteName,
     defaultTitleBoost = None,
     defaultMinShouldMatch = defaultMinShouldMatch,
@@ -47,6 +49,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     client.close() // Important!!
   }
 
+  val domainIds = Set(1, 2, 3)
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
     domains = Set("www.example.com", "test.example.com", "socrata.com"),
@@ -129,24 +132,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
       "should": [
         {"term": {"is_default_view": true}},
-        {"term": {"is_moderation_approved": true}},
-        {
-          "bool": {
-            "must": [
-              {"has_parent": {
-                "parent_type": "domain",
-                "filter": {
-                  "not": {
-                    "filter": {
-                      "term": {"moderation_enabled": true}
-                    }
-                  }
-                }
-              }},
-              {"not": {"filter": {"term": {"datatype": "datalens"} } } }
-            ]
-          }
-        }
+        {"term": {"is_moderation_approved": true}}
       ]
     }
   }"""
@@ -155,45 +141,37 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
       "must": {
         "bool": {
-          "should": [
-            {
-              "has_parent": {
-                "parent_type": "domain",
-                "filter": {
-                  "not": {
-                    "filter": {
-                      "term": {"routing_approval_enabled": true}
-                    }
-                  }
-                }
-              }
-            },
-            { "term": {"is_approved_by_parent_domain": true} }
-          ]
+          "should": { "term": {"is_approved_by_parent_domain": true} }
         }
       }
     }
   }"""
 
-  val customerDomainFilter = j"""{
-    "has_parent": {
-      "parent_type": "domain",
-      "filter": {
-        "not": {
-          "filter": {
-            "term": { "is_customer_domain": false }
-          }
-        }
-      }
+  val domainFilter = j"""{
+    "terms": {
+      "socrata_id.domain_id": [
+        1,
+        2,
+        3
+      ]
     }
   }"""
 
   val defaultFilter = j"""{
-    "and": {
-      "filters": [
+    "bool": {
+      "must": [
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${customerDomainFilter}
+        ${routingApprovalFilter}
+      ]
+    }
+  }"""
+
+  val defaultFilterPlusDomainIds = j"""{
+    "bool": {
+      "must": [
+        ${domainFilter},
+        ${moderationFilter},
+        ${routingApprovalFilter}
       ]
     }
   }"""
@@ -203,21 +181,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "datatype": [
             "dataset"
         ]
-    }
-  }"""
-
-  val domainFilter = j"""{
-    "has_parent": {
-      "parent_type": "domain",
-      "filter": {
-        "terms": {
-          "domain_cname.raw": [
-            "www.example.com",
-            "test.example.com",
-            "socrata.com"
-          ]
-        }
-      }
     }
   }"""
 
@@ -258,6 +221,17 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         {"match_all": {}},
         ${animlCategoriesQuery},
+        ${animlTagsQuery},
+        ${domainFilter}
+      ]
+    }
+  }"""
+
+  val simpleQueryWithoutDomainFilter = j"""{
+    "bool": {
+      "must": [
+        {"match_all": {}},
+        ${animlCategoriesQuery},
         ${animlTagsQuery}
       ]
     }
@@ -284,13 +258,11 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val complexFilter = j"""{
-    "and": {
-        "filters": [
+    "bool": {
+        "must": [
             ${datatypeDatasetsFilter},
-            ${domainFilter},
             ${moderationFilter},
-            ${routingApprovalFilter},
-            ${customerDomainFilter}
+            ${routingApprovalFilter}
         ]
     }
   }"""
@@ -336,7 +308,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domains = Set.empty[String],
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -344,7 +316,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
-        domainBoosts = Map.empty[String, Float],
+        domainIdBoosts = Map.empty[Int, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -368,7 +340,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty[String],
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -376,7 +348,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
-        domainBoosts = Map.empty[String, Float],
+        domainIdBoosts = Map.empty[Int, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -400,7 +372,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty[String],
+        domains = Set.empty,
         searchContext = None,
         categories = None,
         tags = None,
@@ -408,7 +380,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = None,
         fieldBoosts = params.fieldBoosts,
         datatypeBoosts = Map.empty,
-        domainBoosts = Map.empty[String, Float],
+        domainIdBoosts = Map.empty[Int, Float],
         minShouldMatch = None,
         slop = None
       )
@@ -434,6 +406,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val expected = j"""{
+        "query": ${query},
         "aggregations": {
             "annotations": {
                 "aggregations": {
@@ -455,7 +428,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
-        domains = params.domains,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -476,19 +449,71 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // TODO: Make this a JSON comparison
   "buildFacetRequest" should {
     "build a faceted request" in {
-      val cname = "example.com"
+      val domainId = 42
+      val domain = Domain(
+        isCustomerDomain = true,
+        None,
+        "",
+        domainId,
+        None,
+        moderationEnabled = false,
+        routingApprovalEnabled = false)
+
       val expectedAsString = s"""{
         |  "size" : 0,
         |  "aggregations" : {
         |    "domain_filter" : {
         |      "filter" : {
-        |        "has_parent" : {
-        |          "filter" : {
+        |        "bool" : {
+        |          "must" : [ {
         |            "terms" : {
-        |              "domain_cname.raw" : [ "${cname}" ]
+        |              "socrata_id.domain_id" : [ $domainId ]
         |            }
-        |          },
-        |          "parent_type" : "domain"
+        |          }, {
+        |            "bool" : {
+        |              "should" : [ {
+        |                "term" : {
+        |                  "is_default_view" : true
+        |                }
+        |              }, {
+        |                "term" : {
+        |                  "is_moderation_approved" : true
+        |                }
+        |              }, {
+        |                "bool" : {
+        |                  "must" : [ {
+        |                    "terms" : {
+        |                      "socrata_id.domain_id" : [ $domainId ]
+        |                    }
+        |                  }, {
+        |                    "not" : {
+        |                      "filter" : {
+        |                        "terms" : {
+        |                          "datatype" : [ "datalens" ]
+        |                        }
+        |                      }
+        |                    }
+        |                  } ]
+        |                }
+        |              } ]
+        |            }
+        |          }, {
+        |            "bool" : {
+        |              "must" : {
+        |                "bool" : {
+        |                  "should" : [ {
+        |                    "terms" : {
+        |                      "socrata_id.domain_id" : [ $domainId ]
+        |                    }
+        |                  }, {
+        |                    "term" : {
+        |                      "is_approved_by_parent_domain" : true
+        |                    }
+        |                  } ]
+        |                }
+        |              }
+        |            }
+        |          } ]
         |        }
         |      },
         |      "aggregations" : {
@@ -536,14 +561,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  }
         |}""".stripMargin
 
-      val actual = documentClient.buildFacetRequest(cname)
+      val actual = documentClient.buildFacetRequest(Some(domain))
 
       actual.toString should be(expectedAsString)
-    }
-
-    "throw when cname is a null string" in {
-      val cname: String = null // scalastyle:ignore
-      a [NullPointerException] should be thrownBy documentClient.buildFacetRequest(cname)
     }
   }
 
@@ -570,7 +590,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
-        domains = params.domains,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -578,7 +598,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
-        domainBoosts = Map.empty[String, Float],
+        domainIdBoosts = Map.empty[Int, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
@@ -596,7 +616,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val query = j"""{
         "filtered": {
           "filter": ${complexFilter},
-          "query": ${simpleQuery}
+          "query": ${simpleQueryWithoutDomainFilter}
         }
       }"""
 
@@ -625,7 +645,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
-        domains = params.domains,
+        domains = Set.empty,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -633,7 +653,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         only = params.only,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
-        domainBoosts = Map.empty[String, Float],
+        domainIdBoosts = Map.empty[Int, Float],
         minShouldMatch = None,
         slop = None,
         offset = params.offset,
