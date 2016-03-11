@@ -137,6 +137,10 @@ case object SocrataIdDomainIdFieldType extends DocumentFieldType {
   val fieldName: String = "socrata_id.domain_id"
 }
 
+case object IsPublicFieldType extends CeteraFieldType {
+  val fieldName: String = "is_public"
+}
+
 
 /////////////////////////////////////////////////
 // Domain-specific Categories, Tags, and Metadata

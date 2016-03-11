@@ -3,6 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.FilterBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
+import org.elasticsearch.search.aggregations.bucket.terms.Terms
 
 import com.socrata.cetera._
 import com.socrata.cetera.types._
@@ -63,6 +64,7 @@ object DomainAggregations {
               unmoderatedDomainIds: Set[Int],
               routingApprovalDisabledDomainIds: Set[Int]
              ): AbstractAggregationBuilder = {
+    val publicFilter = DocumentFilters.publicFilter(isDomainAgg = true)
     val moderationFilter = DocumentFilters.moderationStatusFilter(
       searchContextIsModerated,
       moderatedDomainIds,
@@ -86,6 +88,8 @@ object DomainAggregations {
               .filter("visible") // "visible" is an agg of documents matching the following filter
               .filter(FilterBuilders.boolFilter()
                 // is customer domain filter must be applied above this aggregation
+                // apply isPublic filter
+                .must(publicFilter)
                 // apply moderation filter
                 .must(moderationFilter)
                 // apply routing & approval filter

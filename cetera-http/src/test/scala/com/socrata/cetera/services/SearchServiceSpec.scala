@@ -20,6 +20,7 @@ import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
+import com.socrata.cetera.util.Params
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val testSuiteName: String = getClass.getSimpleName.toLowerCase
@@ -314,11 +315,12 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       id  cname                     cust  mod   r&a
       0   petercetera.net           t     f     f (not moderated, 1 default view)
         documents
-        fxf     def mod r&a visible
-        fxf-0   f   f   0   t
-        fxf-4   f   n   2   t
-        fxf-8   t   n   3   t
-        zeta-1  f   t   0   t       (mod=t anomaly)
+        fxf     def mod r&a       visible
+        fxf-0   f   f   0         t
+        fxf-4   f   n   2         t
+        fxf-8   t   n   3         t
+        zeta-1  f   t   0         t       (mod=t anomaly)
+        zeta-3  t   t   0,1,2,3   f       (isPublic=false)
       1   opendata-demo.socrata.com f     t     f (not customer domain)
         fxf     def mod r&a visible
         fxf-1   f   t   2   f / t
@@ -341,6 +343,17 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     //   * that the ES type returned includes only documents (i.e. no domains)
     //   * that non-customer domains don't show up
     val (res, _) = service.doSearch(Map.empty)
+    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("private documents should always be hidden") {
+    val expectedFxfs = Set.empty
+    val (res, _) = service.doSearch(Map(
+      Params.filterDomains -> "petercetera.net",
+      Params.context -> "petercetera.net",
+      Params.querySimple -> "private"
+    ).mapValues(Seq(_)))
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
