@@ -117,8 +117,7 @@ class SearchService(elasticSearchClient: DocumentClient,
     }.toSet // deduplicate domain id
 
     val unknownDomainIds = distinctDomainIds -- domainIdCnames.keys // don't repeat lookup for known domains
-    if (unknownDomainIds.nonEmpty)
-      logger.warn(s"Somehow these domains were not known at query construction time: $unknownDomainIds; wtf mate?")
+    if (unknownDomainIds.nonEmpty) logger.warn(s"Domains not known at query construction time: $unknownDomainIds.")
     unknownDomainIds.flatMap { i =>
       domainClient.fetch(i).map { d => i -> d.domainCname } // lookup domain cname from elasticsearch
     }.toMap ++ domainIdCnames

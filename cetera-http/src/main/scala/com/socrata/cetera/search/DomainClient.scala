@@ -29,8 +29,14 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   def find(cnames: Set[String]): (Set[Domain], Long) = {
     val query = QueryBuilders.boolQuery()
     cnames.foreach(s => query.should(QueryBuilders.matchPhraseQuery(DomainCnameFieldType.fieldName, s)))
+
+    // because this is an analyzed phrase search, the size limit should be something larger than what we expect
+    val searchFactor = 2
+    val searchSize = cnames.size * searchFactor
+
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(query)
+      .setSize(searchSize)
     logger.debug(LogHelper.formatEsRequest(search))
 
     val res = search.execute.actionGet
@@ -54,6 +60,10 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     }
   }
 
+  // TODO: handle unlimited domain count with aggregation or scan+scroll query
+  // if we get 42 thousand customer domains before addressing this, most of us will probably be millionaires anyway.
+  private val customerDomainSearchSize = 42000
+
   // when query doesn't define domain filter, we assume all customer domains.
   private def customerDomainSearch: (Set[Domain], Long) = {
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
@@ -61,6 +71,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
         QueryBuilders.matchAllQuery(),
         isCustomerDomainFilter)
       )
+      .setSize(customerDomainSearchSize)
     logger.debug(LogHelper.formatEsRequest(search))
     val res = search.execute.actionGet
     val timing = res.getTookInMillis
@@ -98,6 +109,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
       .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainsFilter))
       .addAggregation(domainsAggregation)
       .setSearchType(SearchType.COUNT)
+      .setSize(0) // no docs, aggs only
   }
 }
 
