@@ -12,19 +12,21 @@ object DocumentAggregations {
   // The 'terms' and 'nested' fields need to jive with
   // ../services/CountService.scala
 
+  private val aggSize = 0 // agg count unlimited
+
   val domainCategories =
     AggregationBuilders
       .terms("domain_categories")
       .field(DomainCategoryFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // no docs, aggs only
+      .size(aggSize)
 
   val domainTags =
     AggregationBuilders
       .terms("domain_tags")
       .field(DomainCategoryFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
-      .size(0) // no docs, aggs only
+      .size(aggSize)
 
   val categories =
     AggregationBuilders
@@ -34,7 +36,7 @@ object DocumentAggregations {
         AggregationBuilders
           .terms("names")
           .field(CategoriesFieldType.Name.rawFieldName)
-          .size(0)
+          .size(aggSize)
       )
 
   val tags =
@@ -45,7 +47,7 @@ object DocumentAggregations {
         AggregationBuilders
           .terms("names")
           .field(TagsFieldType.Name.rawFieldName)
-          .size(0)
+          .size(aggSize)
       )
 
   def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
@@ -59,6 +61,8 @@ object DocumentAggregations {
 }
 
 object DomainAggregations {
+  private val aggSize = 0 // agg count unlimited
+
   def domains(searchContextIsModerated: Boolean,
               moderatedDomainIds: Set[Int],
               unmoderatedDomainIds: Set[Int],
@@ -79,6 +83,7 @@ object DomainAggregations {
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"
       .field("domain_cname.raw")
+      .size(aggSize)
       .subAggregation(
         AggregationBuilders
           .children("documents") // "documents" is an agg of children of type esDocumentType

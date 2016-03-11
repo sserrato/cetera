@@ -417,6 +417,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val expected = j"""{
+        "size": 0,
         "query": ${query},
         "aggregations": {
             "annotations": {

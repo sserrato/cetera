@@ -325,35 +325,37 @@ class DocumentClient(
     baseRequest
       .addAggregation(aggregation)
       .setSearchType("count")
+      .setSize(0) // no docs, aggs only
   }
 
   def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder = {
-    val size = 0 // no docs, aggs only
+    val aggSize = 0 // agg count unlimited
+    val searchSize = 0 // no docs, aggs only
 
     val datatypeAgg = AggregationBuilders
       .terms("datatypes")
       .field(DatatypeFieldType.fieldName)
-      .size(size)
+      .size(aggSize)
 
     val categoryAgg = AggregationBuilders
       .terms("categories")
       .field(DomainCategoryFieldType.rawFieldName)
-      .size(size)
+      .size(aggSize)
 
     val tagAgg = AggregationBuilders
       .terms("tags")
       .field(DomainTagsFieldType.rawFieldName)
-      .size(size)
+      .size(aggSize)
 
     val metadataAgg = AggregationBuilders
       .nested("metadata")
       .path(DomainMetadataFieldType.fieldName)
       .subAggregation(AggregationBuilders.terms("keys")
         .field(DomainMetadataFieldType.Key.rawFieldName)
-        .size(size)
+        .size(aggSize)
         .subAggregation(AggregationBuilders.terms("values")
           .field(DomainMetadataFieldType.Value.rawFieldName)
-          .size(size)))
+          .size(aggSize)))
 
     val filter = domain.map(d => buildFilter(None, Set(d), None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
@@ -369,7 +371,7 @@ class DocumentClient(
     val preparedSearch = esClient.client
       .prepareSearch(indexAliasName)
       .addAggregation(filteredAggs)
-      .setSize(size)
+      .setSize(searchSize)
 
     preparedSearch
   }
