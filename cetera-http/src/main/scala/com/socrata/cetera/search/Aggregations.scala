@@ -24,7 +24,7 @@ object DocumentAggregations {
   val domainTags =
     AggregationBuilders
       .terms("domain_tags")
-      .field(DomainCategoryFieldType.rawFieldName)
+      .field(DomainTagsFieldType.rawFieldName)
       .order(Terms.Order.count(false)) // count desc
       .size(aggSize)
 
