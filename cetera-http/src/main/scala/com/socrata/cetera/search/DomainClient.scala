@@ -15,9 +15,10 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {
-    logger.debug(s"fetching domain id $id")
-    val res = esClient.client.prepareGet(indexAliasName, esDomainType, id.toString)
-      .execute.actionGet
+    val get = esClient.client.prepareGet(indexAliasName, esDomainType, id.toString)
+    logger.info("Elasticsearch request: " + get.request.toString)
+
+    val res = get.execute.actionGet
     Domain(res.getSourceAsString)
   }
 
@@ -37,7 +38,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(query)
       .setSize(searchSize)
-    logger.debug(LogHelper.formatEsRequest(search))
+    logger.info(LogHelper.formatEsRequest(search))
 
     val res = search.execute.actionGet
     val timing = res.getTookInMillis
@@ -72,7 +73,8 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
         isCustomerDomainFilter)
       )
       .setSize(customerDomainSearchSize)
-    logger.debug(LogHelper.formatEsRequest(search))
+    logger.info(LogHelper.formatEsRequest(search))
+
     val res = search.execute.actionGet
     val timing = res.getTookInMillis
     val domains = res.getHits.hits.flatMap { h =>
