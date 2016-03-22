@@ -106,7 +106,10 @@ object DocumentFilters {
     val parentDomainIsModerated = domainIdsFilter(moderatedDomainIds, aggPrefix)
     val parentDomainIsNotModerated = domainIdsFilter(unmoderatedDomainIds, aggPrefix)
 
-    val datalensUniqueAndSpecialSnowflakeFilter = datatypeFilter(Seq(TypeDatalenses.singular), aggPrefix)
+    val datalensUniqueAndSpecialSnowflakeFilter = datatypeFilter(
+      Seq(TypeDatalenses.singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular),
+      aggPrefix
+    )
     val documentIsNotDatalens = notFilter(datalensUniqueAndSpecialSnowflakeFilter)
 
     val basicFilter = boolFilter()

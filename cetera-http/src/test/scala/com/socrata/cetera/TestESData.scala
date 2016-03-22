@@ -323,6 +323,16 @@ trait TestESData {
         Map.empty,
         isPublic = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
         "42", "Private", Seq.empty, 0L
+      )),
+      (0, buildEsDoc(
+        "zeta-0004", 0,
+        "standalone visualization", "zeta-0004", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0004", Seq.empty, "", Map.empty, Map.empty,
+        TypeDatalensCharts.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isPublic = true, isDefaultView = false, None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
+        "42", "Standalone", Seq.empty, 0L
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)

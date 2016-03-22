@@ -509,7 +509,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |                    "not" : {
         |                      "filter" : {
         |                        "terms" : {
-        |                          "datatype" : [ "datalens" ]
+        |                          "datatype" : [ "datalens", "datalens_chart", "datalens_map" ]
         |                        }
         |                      }
         |                    }

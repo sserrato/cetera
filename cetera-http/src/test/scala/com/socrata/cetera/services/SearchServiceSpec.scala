@@ -321,6 +321,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         fxf-8   t   n   3         t
         zeta-1  f   t   0         t       (mod=t anomaly)
         zeta-3  t   t   0,1,2,3   f       (isPublic=false)
+        zeta-4  f   n   0,1,2,3   f       (unapproved datalens_chart/map should not be visible)
       1   opendata-demo.socrata.com f     t     f (not customer domain)
         fxf     def mod r&a visible
         fxf-1   f   t   2   f / t

@@ -48,7 +48,7 @@ class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with Bef
 
   test("test docs are bootstrapped") {
     val res = client.client.prepareSearch().execute.actionGet
-    val numDocs = Datatypes.materialized.length + 3
+    val numDocs = Datatypes.materialized.length + 4
     val numDomains = domainCnames.length
     res.getHits.getTotalHits should be(numDocs + numDomains)
   }
