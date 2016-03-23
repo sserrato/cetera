@@ -28,16 +28,12 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   }
 
   def find(cnames: Set[String]): (Set[Domain], Long) = {
-    val query = QueryBuilders.boolQuery()
-    cnames.foreach(s => query.should(QueryBuilders.matchPhraseQuery(DomainCnameFieldType.fieldName, s)))
-
-    // because this is an analyzed phrase search, the size limit should be something larger than what we expect
-    val searchFactor = 2
-    val searchSize = cnames.size * searchFactor
+    val query = QueryBuilders.termsQuery(DomainCnameFieldType.rawFieldName, cnames.toList: _*)
 
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(query)
-      .setSize(searchSize)
+      .setSize(cnames.size)
+
     logger.info(LogHelper.formatEsRequest(search))
 
     val res = search.execute.actionGet
@@ -50,6 +46,7 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
           throw new JsonDecodeException(err)
       }
     }.toSet
+
     (domains, timing)
   }
 

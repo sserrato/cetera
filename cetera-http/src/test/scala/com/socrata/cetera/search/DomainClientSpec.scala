@@ -56,5 +56,19 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
       val (actualDomain, _) = domainClient.find("")
       actualDomain should be(expectedDomain)
     }
+
+    "return only domains with an exact match" in {
+      val expectedDomain = Domain(
+        isCustomerDomain = true,
+        organization = Some(""),
+        domainCname = "dylan.demo.socrata.com",
+        domainId = 4,
+        siteTitle = Some("Temporary URI"),
+        moderationEnabled = false,
+        routingApprovalEnabled = false)
+
+      val (actualDomain, _) = domainClient.find("dylan.demo.socrata.com")
+      actualDomain shouldBe Some(expectedDomain)
+    }
   }
 }

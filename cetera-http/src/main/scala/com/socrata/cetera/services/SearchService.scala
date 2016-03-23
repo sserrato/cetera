@@ -177,6 +177,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           case cs: Set[String] if cs.nonEmpty => cs.flatMap (cname => relevantDomains.find (_.domainCname == cname) )
           case _ => relevantDomains
         }
+
         val domainIdBoosts = params.domainBoosts.flatMap { case (cname: String, weight: Float) =>
           relevantDomains.collect { case d: Domain if d.domainCname == cname => d.domainId -> weight }
         }

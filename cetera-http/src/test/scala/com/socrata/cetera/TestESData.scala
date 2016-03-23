@@ -278,7 +278,9 @@ trait TestESData {
   def bootstrapData(): Unit = {
     ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
 
-    domainCnames.zipWithIndex.foreach { case (cname: String, i: Int) =>
+    val additionalCnames = Seq("dylan.demo.socrata.com", "dylan2.demo.socrata.com")
+
+    (domainCnames ++ additionalCnames).zipWithIndex.foreach { case (cname: String, i: Int) =>
       client.client.prepareIndex(testSuiteName, esDomainType)
         .setSource(buildEsDomainByIndex(cname, i))
         .setId(i.toString)

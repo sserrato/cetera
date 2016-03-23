@@ -50,6 +50,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     val expectedResults = List(
       Count("annabelle.island.net", 1),
       Count("blue.org", 1),
+      Count("dylan.demo.socrata.com", 0),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 4))
