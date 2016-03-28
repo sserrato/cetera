@@ -343,7 +343,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
     //   * that non-customer domains don't show up
-    val (res, _) = service.doSearch(Map.empty)
+    val (res, _) = service.doSearch(Map("pants" -> Seq.empty[String])) // Jason debugging
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }

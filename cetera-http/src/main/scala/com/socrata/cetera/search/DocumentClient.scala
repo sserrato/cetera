@@ -96,28 +96,34 @@ class DocumentClient(
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
-  private def buildFilter(datatypes: Option[Seq[String]],
-                          queryDomains: Set[Domain],
-                          searchContext: Option[Domain],
-                          categories: Option[Set[String]],
-                          tags: Option[Set[String]],
-                          domainMetadata: Option[Set[(String, String)]]): FilterBuilder = {
+  private def buildDomainSpecificFilter(
+      datatypes: Option[Seq[String]],
+      domains: Option[Set[Domain]],
+      searchContext: Option[Domain],
+      domainMetadata: Option[Set[(String, String)]])
+    : FilterBuilder = {
 
-    import com.socrata.cetera.search.DocumentFilters._ // scalastyle:ignore import.grouping
-
+    import com.socrata.cetera.search.DocumentFilters._ // scalastyle:ignore
 
     val contextModerated = searchContext.exists(_.moderationEnabled)
-    val (
-      domainIds,
-      moderatedDomainIds,
-      unmoderatedDomainIds,
-      routingApprovalDisabledDomainIds
-      ) = domainClient.calculateIdsAndModRAStatuses(queryDomains)
+
+    val (domainIds,
+         moderatedDomainIds,
+         unmoderatedDomainIds,
+         routingApprovalDisabledDomainIds) = domains match {
+      case Some(ds) => domainClient.calculateIdsAndModRAStatuses(ds)
+      case None => (Set.empty[Int], Set.empty[Int], Set.empty[Int], Set.empty[Int])
+    }
+
+    val domainFilter = domains match {
+      case Some(ds) => Some(domainIdsFilter(domainIds))
+      case none => None
+    }
 
     val filter = FilterBuilders.boolFilter()
     List.concat(
-      datatypeFilter(datatypes),
-      domainIdsFilter(domainIds),
+      datatypeFilter(datatypes), // I don't belong here
+      domainFilter, // I don't really belong here either
       Some(publicFilter()),
       Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
       Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
@@ -128,7 +134,7 @@ class DocumentClient(
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      queryDomains: Set[Domain],
+      domains: Option[Set[Domain]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -136,10 +142,10 @@ class DocumentClient(
       query: BaseQueryBuilder)
     : BaseQueryBuilder = {
 
-    import com.socrata.cetera.search.DocumentQueries._ // scalastyle:ignore import.grouping
+    import com.socrata.cetera.search.DocumentQueries._ // scalastyle:ignore
 
-    // If there is no search context, use the ODN categories and tags and prohibit domain metadata
-    // otherwise use the custom domain categories, tags, metadata
+    // If there is no search context, use the ODN categories and tags
+    // otherwise use the custom domain categories and tags
     val categoriesAndTags: Seq[QueryBuilder] =
       if (searchContext.isDefined) {
         List.concat(
@@ -151,16 +157,20 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
+    // TODO: move datatypes and domainIds here from domainSpecificFilter
     val categoriesAndTagsQuery =
       if (categoriesAndTags.nonEmpty) {
         categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
       } else { query }
 
-    val filter = buildFilter(datatypes, queryDomains, searchContext, categories, tags, domainMetadata)
+    // domain-specific filter is largely about R&A, moderation, visibility, custom metadata
+    // but there are two filters there that don't really belong there: datatypes and domains
+    val domainSpecificFilter =
+      buildDomainSpecificFilter(datatypes, domains, searchContext, domainMetadata)
 
     QueryBuilders.filteredQuery(
       categoriesAndTagsQuery,
-      filter
+      domainSpecificFilter
     )
   }
 
@@ -202,7 +212,7 @@ class DocumentClient(
   // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domains: Option[Set[Domain]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -251,7 +261,7 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domains: Option[Set[Domain]],
       domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -298,7 +308,7 @@ class DocumentClient(
   def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domains: Option[Set[Domain]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -357,12 +367,13 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val filter = domain.map(d => buildFilter(None, Set(d), None, None, None, None))
-      .getOrElse(FilterBuilders.matchAllFilter())
+    val domainSpecificFilter =
+      domain.map(d => buildDomainSpecificFilter(None, Some(Set(d)), None, None))
+        .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")
-      .filter(filter)
+      .filter(domainSpecificFilter)
       .subAggregation(datatypeAgg)
       .subAggregation(categoryAgg)
       .subAggregation(tagAgg)

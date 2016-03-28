@@ -51,12 +51,8 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
-        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
-        val queryDomains = params.domains match {
-          case cs: Set[String] if cs.nonEmpty => cs.flatMap(cname => relevantDomains.find(_.domainCname == cname))
-          case _ => relevantDomains
-        }
+        val (searchContext, queryDomains, domainSearchTime) =
+          domainClient.findRelevantDomains(params.searchContext, params.domains)
 
         val search = documentClient.buildCountRequest(
           field,
@@ -68,6 +64,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
           params.only
         )
         logger.info(LogHelper.formatEsRequest(search))
+
         val res = search.execute.actionGet
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)

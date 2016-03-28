@@ -52,16 +52,12 @@ object DocumentFilters {
     termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)
   }
 
-  def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): Option[FilterBuilder] =
-    if (domainIds.nonEmpty) {
-      Some(termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*))
-    } else { None }
+  // Don't call me unless you actually want to build a filter
+  def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): FilterBuilder =
+    termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)
 
-  def domainIdFilter(domainId: Int, aggPrefix: String = ""): Option[FilterBuilder] =
-    domainIdsFilter(Set(domainId), aggPrefix)
-
-  def isApprovedByParentDomainFilter(aggPrefix: String = ""): Option[FilterBuilder] =
-    Some(termFilter(aggPrefix + "is_approved_by_parent_domain", true))
+  def isApprovedByParentDomainFilter(aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + "is_approved_by_parent_domain", true)
 
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
     metadata.map { ss =>
@@ -103,8 +99,11 @@ object DocumentFilters {
     val documentIsDefault = termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, true)
     val documentIsAccepted = termFilter(aggPrefix + IsModerationApprovedFieldType.fieldName, true)
 
-    val parentDomainIsModerated = domainIdsFilter(moderatedDomainIds, aggPrefix)
-    val parentDomainIsNotModerated = domainIdsFilter(unmoderatedDomainIds, aggPrefix)
+    val parentDomainIsModerated =
+      Some(moderatedDomainIds).filter(_.nonEmpty).map(mdids => domainIdsFilter(mdids, aggPrefix))
+
+    val parentDomainIsNotModerated =
+      Some(unmoderatedDomainIds).filter(_.nonEmpty).map(udids => domainIdsFilter(udids, aggPrefix))
 
     val datalensUniqueAndSpecialSnowflakeFilter = datatypeFilter(
       Seq(TypeDatalenses.singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular),
@@ -115,6 +114,7 @@ object DocumentFilters {
     val basicFilter = boolFilter()
       .should(documentIsDefault)
       .should(documentIsAccepted)
+
     parentDomainIsNotModerated.foreach(f => basicFilter.should(
       boolFilter()
         .must(f)
@@ -165,8 +165,9 @@ object DocumentFilters {
     }
 
     val documentRAVisible = boolFilter()
-    domainIdsFilter(raOffDomainIds, prefix).foreach(documentRAVisible.should)
-    isApprovedByParentDomainFilter(prefix).foreach(documentRAVisible.should)
+
+    if (raOffDomainIds.nonEmpty) documentRAVisible.should(domainIdsFilter(raOffDomainIds, prefix))
+    documentRAVisible.should(isApprovedByParentDomainFilter(prefix))
 
     val filter = boolFilter()
     documentIsApprovedBySearchContext.foreach(filter.must)
@@ -181,7 +182,7 @@ object DocumentFilters {
 }
 
 object DomainFilters {
-  def domainIds(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
+  def domainIdsFilter(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
 
   // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
   def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)

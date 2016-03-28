@@ -108,7 +108,7 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
-  private def fetchDomainCnames(domainIdCnames: Map[Int, String], hits: SearchHits): Map[Int, String] = {
+  private def extractDomainCnames(domainIdCnames: Map[Int, String], hits: SearchHits): Map[Int, String] = {
     val distinctDomainIds = hits.hits.map { h =>
       JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
         case jn: JNumber => jn.toInt
@@ -123,14 +123,14 @@ class SearchService(elasticSearchClient: DocumentClient,
     }.toMap ++ domainIdCnames
   }
 
-  def format(domainCnames: Map[Int,String], showScore: Boolean,
+  def format(domainIdCnames: Map[Int, String], showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
       val links = SearchService.links(
-        cname(domainCnames, json),
+        cname(domainIdCnames, json),
         datatype(json),
         viewtype(json),
         datasetId(json).getOrElse(throw new NoSuchElementException),
@@ -145,7 +145,7 @@ class SearchService(elasticSearchClient: DocumentClient,
           domainCategory(json),
           domainTags(json),
           domainMetadata(json)),
-        Map(esDomainType -> JString(cname(domainCnames, json))) ++ score,
+        Map(esDomainType -> JString(cname(domainIdCnames, json))) ++ score,
         links.getOrElse("permalink", JString("")),
         links.getOrElse("link", JString(""))
       )
@@ -162,6 +162,29 @@ class SearchService(elasticSearchClient: DocumentClient,
     )
   }
 
+  // Find domain objects given domain cname strings
+  // and translate domain boost keys from cnames to ids
+  def prepareDomainParams(
+      searchContext: Option[String],
+      queryDomainNames: Option[Set[String]],
+      domainBoosts: Map[String, Float])
+    : (Option[Domain], Option[Set[Domain]], Long, Map[Int, Float]) = {
+
+    // If searchContext is missing, findRelevantDomains will throw DomainNotFound exception
+    val (searchContextDomain, queryDomains, domainSearchTime) =
+      domainClient.findRelevantDomains(searchContext, queryDomainNames)
+
+    // WARN: This id-lookup pattern breaks domain boosting on default matchAll queries!!
+    // TODO: go back to cname boosting when boosts are present but there are no queryDomains
+    val domainIdBoosts = domainBoosts.flatMap { case (cname: String, weight: Float) =>
+      (searchContextDomain ++ queryDomains).collect { case d: Domain if d.domainCname == cname =>
+        d.domainId -> weight
+      }
+    }
+
+    (searchContextDomain, queryDomains, domainSearchTime, domainIdBoosts)
+  }
+
   def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
 
@@ -171,23 +194,14 @@ class SearchService(elasticSearchClient: DocumentClient,
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
-        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
-        val queryDomains = params.domains match {
-          case cs: Set[String] if cs.nonEmpty => cs.flatMap (cname => relevantDomains.find (_.domainCname == cname) )
-          case _ => relevantDomains
-        }
-
-        val domainIdBoosts = params.domainBoosts.flatMap { case (cname: String, weight: Float) =>
-          relevantDomains.collect { case d: Domain if d.domainCname == cname => d.domainId -> weight }
-        }
-        val domainIdCnames = relevantDomains.map(d => d.domainId -> d.domainCname).toMap
+        val (searchContextDomain, queryDomains, domainSearchTime, domainIdBoosts) =
+          prepareDomainParams(params.searchContext, params.domains, params.domainBoosts)
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
           queryDomains,
           params.domainMetadata,
-          searchContext,
+          searchContextDomain,
           params.categories,
           params.tags,
           params.only,
@@ -200,15 +214,27 @@ class SearchService(elasticSearchClient: DocumentClient,
           params.limit,
           params.sortOrder
         )
-
         logger.info(LogHelper.formatEsRequest(req))
+
+        // Jason debugging
+        queryParameters.get("pants") match {
+          case Some(_) => println(LogHelper.formatEsRequest(req))
+          case None => Unit
+        }
 
         val res = req.execute.actionGet
         val count = res.getHits.getTotalHits
-        val cnames = fetchDomainCnames(domainIdCnames, res.getHits)
-        val formattedResults: SearchResults[SearchResult] = format(cnames, params.showScore, res)
+
+        val idCnames = queryDomains match {
+          case Some(domains) =>
+            extractDomainCnames(domains.map(d => d.domainId -> d.domainCname).toMap, res.getHits).toMap
+          case None =>
+            Map.empty[Int, String]
+        }
+
+        val formattedResults: SearchResults[SearchResult] = format(idCnames, params.showScore, res)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-        logSearchTerm(searchContext, params.searchQuery)
+        logSearchTerm(searchContextDomain, params.searchQuery)
 
         (formattedResults.copy(resultSetSize = Some(count), timings = Some(timings)), timings)
     }
