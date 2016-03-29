@@ -7,13 +7,13 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, OK}
+import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.DomainClient
+import com.socrata.cetera.search.{DomainClient, DomainNotFound}
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.JsonResponses.jsonError
 import com.socrata.cetera.util._
@@ -78,6 +78,10 @@ class DomainCountService(domainClient: DomainClient) {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case DomainNotFound(e) =>
+        val msg = s"Domain not found: $e"
+        logger.error(msg)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

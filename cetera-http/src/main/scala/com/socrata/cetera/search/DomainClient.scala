@@ -54,9 +54,9 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   def findRelevantDomains(
       searchContextCname: Option[String],
       domainCnames: Option[Set[String]])
-    : (Option[Domain], Option[Set[Domain]], Long) = {
+    : (Option[Domain], Set[Domain], Long) = {
 
-    // We want to fetch all relevant domains (search context and query domains) in a single query
+    // We want to fetch all relevant domains (search context and relevant domains) in a single query
     val (foundDomains, timings) = domainCnames match {
       case Some(cnames) => find(domainCnames.getOrElse(Set.empty[String]) ++ searchContextCname)
       case None => customerDomainSearch
@@ -65,18 +65,17 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     // If a searchContext is specified and we can't find it, we have to bail
     val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
     searchContextCname.foreach { searchContext =>
-      if (!foundDomains.exists(_.domainCname == searchContext)) {
-        throw new DomainNotFound(searchContext)
-      }
+      if (!foundDomains.exists(_.domainCname == searchContext)) throw new DomainNotFound(searchContext)
     }
 
-    // None means none were specified; Set.empty means none could be found
-    val foundQueryDomains = domainCnames match {
-      case Some(cnames) => Some(cnames.flatMap(cname => foundDomains.find(_.domainCname == cname)))
-      case None => Some(foundDomains)
+    // TODO: Combine with domainCnames match above?
+    val relevantDomains = domainCnames match {
+      // TODO: Consider not using linear find inside flatMap
+      case Some(cnames) => cnames.flatMap(cname => foundDomains.find(_.domainCname == cname))
+      case None => foundDomains
     }
 
-    (searchContextDomain, foundQueryDomains, timings)
+    (searchContextDomain, relevantDomains, timings)
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query
@@ -112,24 +111,18 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
 
   // NOTE: I do not currently honor counting according to parameters
   def buildCountRequest(
-      domains: Option[Set[Domain]],
+      domains: Set[Domain],
       searchContext: Option[Domain])
     : SearchRequestBuilder = {
 
     val contextModerated = searchContext.exists(_.moderationEnabled)
 
     val (domainIds,
-         moderatedDomainIds,
-         unmoderatedDomainIds,
-         routingApprovalDisabledDomainIds) = domains match {
-      case Some(ds) => calculateIdsAndModRAStatuses(ds)
-      case None => (Set.empty[Int], Set.empty[Int], Set.empty[Int], Set.empty[Int])
-    }
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds) = calculateIdsAndModRAStatuses(domains)
 
-    val domainFilter = domains match {
-      case Some(ds) => domainIdsFilter(domainIds)
-      case None => isCustomerDomainFilter
-    }
+    val domainFilter = domainIdsFilter(domainIds)
 
     val aggregation = DomainAggregations.domains(
       contextModerated,
@@ -147,4 +140,6 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
 }
 
 // Should throw when Search Context is not found
-class DomainNotFound(cname: String) extends NoSuchElementException(cname)
+case class DomainNotFound(cname: String) extends Throwable {
+  override def toString: String = s"Domain not found: $cname"
+}

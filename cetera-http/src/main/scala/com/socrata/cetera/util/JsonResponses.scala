@@ -8,11 +8,6 @@ import com.socrata.http.server.HttpResponse
 import com.socrata.http.server.responses.Json
 
 object JsonResponses {
-  def jsonMessage(message: String): HttpResponse = {
-    val messageMap = Map("message" -> message)
-    Json(messageMap)
-  }
-
   def jsonError(error: String): HttpResponse = {
     val errorMap = Map("error" -> error)
     Json(errorMap)

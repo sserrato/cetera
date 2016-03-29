@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{DocumentClient, DomainClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, DomainNotFound}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -108,6 +108,8 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   private def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
+  // When we construct this map, we already have the set of all possible domains
+  // TODO: Verify that the "should never happen" clause does not actually happen
   private def extractDomainCnames(domainIdCnames: Map[Int, String], hits: SearchHits): Map[Int, String] = {
     val distinctDomainIds = hits.hits.map { h =>
       JsonReader.fromString(h.sourceAsString()).dyn.socrata_id.domain_id.! match {
@@ -119,10 +121,12 @@ class SearchService(elasticSearchClient: DocumentClient,
     val unknownDomainIds = distinctDomainIds -- domainIdCnames.keys // don't repeat lookup for known domains
     if (unknownDomainIds.nonEmpty) logger.warn(s"Domains not known at query construction time: $unknownDomainIds.")
     unknownDomainIds.flatMap { i =>
+      // This should never happen!!! ;)
       domainClient.fetch(i).map { d => i -> d.domainCname } // lookup domain cname from elasticsearch
     }.toMap ++ domainIdCnames
   }
 
+  // WARN: This will raise if a single document has a single missing path!
   def format(domainIdCnames: Map[Int, String], showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
@@ -133,9 +137,9 @@ class SearchService(elasticSearchClient: DocumentClient,
         cname(domainIdCnames, json),
         datatype(json),
         viewtype(json),
-        datasetId(json).getOrElse(throw new NoSuchElementException),
+        datasetId(json).get,
         domainCategoryString(json),
-        datasetName(json).getOrElse(throw new NoSuchElementException))
+        datasetName(json).get)
 
       SearchResult(
         json.dyn.resource.!,
@@ -168,21 +172,21 @@ class SearchService(elasticSearchClient: DocumentClient,
       searchContext: Option[String],
       queryDomainNames: Option[Set[String]],
       domainBoosts: Map[String, Float])
-    : (Option[Domain], Option[Set[Domain]], Long, Map[Int, Float]) = {
+    : (Option[Domain], Set[Domain], Map[Int, Float], Long) = {
 
     // If searchContext is missing, findRelevantDomains will throw DomainNotFound exception
     val (searchContextDomain, queryDomains, domainSearchTime) =
       domainClient.findRelevantDomains(searchContext, queryDomainNames)
 
-    // WARN: This id-lookup pattern breaks domain boosting on default matchAll queries!!
-    // TODO: go back to cname boosting when boosts are present but there are no queryDomains
+    // WARN: Inner loop means polytime, but these _should_ be small
+    val allDomains = (searchContextDomain ++ queryDomains)
     val domainIdBoosts = domainBoosts.flatMap { case (cname: String, weight: Float) =>
-      (searchContextDomain ++ queryDomains).collect { case d: Domain if d.domainCname == cname =>
+      allDomains.collect { case d: Domain if d.domainCname == cname =>
         d.domainId -> weight
       }
     }
 
-    (searchContextDomain, queryDomains, domainSearchTime, domainIdBoosts)
+    (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime)
   }
 
   def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
@@ -194,7 +198,7 @@ class SearchService(elasticSearchClient: DocumentClient,
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (searchContextDomain, queryDomains, domainSearchTime, domainIdBoosts) =
+        val (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime) =
           prepareDomainParams(params.searchContext, params.domains, params.domainBoosts)
 
         val req = elasticSearchClient.buildSearchRequest(
@@ -216,21 +220,13 @@ class SearchService(elasticSearchClient: DocumentClient,
         )
         logger.info(LogHelper.formatEsRequest(req))
 
-        // Jason debugging
-        queryParameters.get("pants") match {
-          case Some(_) => println(LogHelper.formatEsRequest(req))
-          case None => Unit
-        }
-
         val res = req.execute.actionGet
         val count = res.getHits.getTotalHits
 
-        val idCnames = queryDomains match {
-          case Some(domains) =>
-            extractDomainCnames(domains.map(d => d.domainId -> d.domainCname).toMap, res.getHits).toMap
-          case None =>
-            Map.empty[Int, String]
-        }
+        val idCnames = extractDomainCnames(
+          queryDomains.map(d => d.domainId -> d.domainCname).toMap,
+          res.getHits
+        ).toMap
 
         val formattedResults: SearchResults[SearchResult] = format(idCnames, params.showScore, res)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
@@ -250,10 +246,15 @@ class SearchService(elasticSearchClient: DocumentClient,
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case DomainNotFound(e) =>
+        val msg = s"Domain not found: $e"
+        logger.error(msg)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
       case NonFatal(e) =>
+        val msg = "Cetera search service error"
         val esError = ElasticsearchError(e)
-        logger.error(s"Database error: ${esError.getMessage}")
-        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
+        logger.error(s"$msg: $esError")
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(msg, esError)
     }
   }
 

@@ -97,8 +97,8 @@ class DocumentClient(
   }
 
   private def buildDomainSpecificFilter(
+      domains: Set[Domain],
       datatypes: Option[Seq[String]],
-      domains: Option[Set[Domain]],
       searchContext: Option[Domain],
       domainMetadata: Option[Set[(String, String)]])
     : FilterBuilder = {
@@ -108,33 +108,27 @@ class DocumentClient(
     val contextModerated = searchContext.exists(_.moderationEnabled)
 
     val (domainIds,
-         moderatedDomainIds,
-         unmoderatedDomainIds,
-         routingApprovalDisabledDomainIds) = domains match {
-      case Some(ds) => domainClient.calculateIdsAndModRAStatuses(ds)
-      case None => (Set.empty[Int], Set.empty[Int], Set.empty[Int], Set.empty[Int])
-    }
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds) = domainClient.calculateIdsAndModRAStatuses(domains)
 
-    val domainFilter = domains match {
-      case Some(ds) => Some(domainIdsFilter(domainIds))
-      case none => None
-    }
+    val domainFilter = domainIdsFilter(domainIds)
 
     val filter = FilterBuilders.boolFilter()
     List.concat(
       datatypeFilter(datatypes), // I don't belong here
-      domainFilter, // I don't really belong here either
+      Some(domainFilter), // TODO: remove me since I am the superset!
       Some(publicFilter()),
       Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
       Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
-      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata))
+      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata)) // I make it hard to de-option
     ).foreach(filter.must)
     filter
   }
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
-      domains: Option[Set[Domain]],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -166,7 +160,7 @@ class DocumentClient(
     // domain-specific filter is largely about R&A, moderation, visibility, custom metadata
     // but there are two filters there that don't really belong there: datatypes and domains
     val domainSpecificFilter =
-      buildDomainSpecificFilter(datatypes, domains, searchContext, domainMetadata)
+      buildDomainSpecificFilter(domains, datatypes, searchContext, domainMetadata)
 
     QueryBuilders.filteredQuery(
       categoriesAndTagsQuery,
@@ -212,7 +206,7 @@ class DocumentClient(
   // * Applies filters (facets and searchContext-sensitive federation preferences)
   def buildBaseRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Option[Set[Domain]],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -261,7 +255,7 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Option[Set[Domain]],
+      domains: Set[Domain],
       domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -308,7 +302,7 @@ class DocumentClient(
   def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Option[Set[Domain]],
+      domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
@@ -367,9 +361,9 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter =
-      domain.map(d => buildDomainSpecificFilter(None, Some(Set(d)), None, None))
-        .getOrElse(FilterBuilders.matchAllFilter())
+    val domainSpecificFilter = domain
+      .map(d => buildDomainSpecificFilter(Set(d), None, None, None))
+      .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")
