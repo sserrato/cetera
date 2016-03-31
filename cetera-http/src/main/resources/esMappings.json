@@ -316,6 +316,12 @@
         },
         "routing_approval_enabled" : {
           "type" : "boolean"
+        },
+        "locked_down" : {
+          "type" : "boolean"
+        },
+        "api_locked_down" : {
+          "type" : "boolean"
         }
       }
     }

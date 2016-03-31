@@ -86,7 +86,9 @@ trait TestESData {
       | "organization": %s,
       | "is_customer_domain": %s,
       | "moderation_enabled": %s,
-      | "routing_approval_enabled": %s
+      | "routing_approval_enabled": %s,
+      | "locked_down": %s,
+      | "api_locked_down": %s
       |}
     """.stripMargin
 
@@ -163,9 +165,11 @@ trait TestESData {
   }
 
   private def buildEsDomain(domainCname: String, domainId: Int, siteTitle: String, organization: String,
-                            isCustomerDomain: Boolean, moderationEnabled: Boolean, routingApprovalEnabled: Boolean) =
+                            isCustomerDomain: Boolean, moderationEnabled: Boolean, routingApprovalEnabled: Boolean,
+                            lockedDown: Boolean, apiLockedDown: Boolean) =
     esDomainTemplate.format(quoteQualify(domainCname), domainId.toString, quoteQualify(siteTitle), quoteQualify(organization),
-                            isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString)
+                            isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString,
+                            lockedDown.toString, apiLockedDown.toString)
 
   private def buildEsDocByIndex(i: Int): String = {
     val domainId = i % domainCnames.length
@@ -209,7 +213,9 @@ trait TestESData {
                   defaultSocrataIdOrg,
                   isCustomerDomains(i % isCustomerDomains.length),
                   isDomainModerated(i % isDomainModerated.length),
-                  hasRoutingApproval(i % hasRoutingApproval.length))
+                  hasRoutingApproval(i % hasRoutingApproval.length),
+                  false,
+                  false)
   }
 
   val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")

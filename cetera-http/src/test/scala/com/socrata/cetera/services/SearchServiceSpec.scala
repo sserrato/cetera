@@ -97,7 +97,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       1,
       Some("Title"),
       moderationEnabled = false,
-      routingApprovalEnabled = false)
+      routingApprovalEnabled = false,
+      lockedDown = false,
+      apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
     val searchResults = service.format(domainCnames, showScore = false, searchResponse)

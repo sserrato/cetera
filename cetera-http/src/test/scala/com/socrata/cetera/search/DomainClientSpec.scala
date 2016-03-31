@@ -27,7 +27,9 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         domainId = 0,
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
-        routingApprovalEnabled = false)
+        routingApprovalEnabled = false,
+        lockedDown = false,
+        apiLockedDown = false)
       val (actualDomain, _) = domainClient.find("petercetera.net")
       actualDomain.get should be(expectedDomain)
     }
@@ -40,7 +42,9 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         domainId = 1,
         siteTitle = Some("And other things"),
         moderationEnabled = true,
-        routingApprovalEnabled = false)
+        routingApprovalEnabled = false,
+        lockedDown = false,
+        apiLockedDown = false)
       val (actualDomain, _) = domainClient.find("opendata-demo.socrata.com")
       actualDomain.get should be(expectedDomain)
     }
@@ -65,7 +69,9 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
         domainId = 4,
         siteTitle = Some("Temporary URI"),
         moderationEnabled = false,
-        routingApprovalEnabled = false)
+        routingApprovalEnabled = false,
+        lockedDown = false,
+        apiLockedDown = false)
 
       val (actualDomain, _) = domainClient.find("dylan.demo.socrata.com")
       actualDomain shouldBe Some(expectedDomain)
