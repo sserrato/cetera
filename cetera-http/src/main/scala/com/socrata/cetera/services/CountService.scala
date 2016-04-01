@@ -7,13 +7,13 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{FirstOf, PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, OK}
+import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DocumentClient, DomainClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, DomainNotFound}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses.jsonError
 import com.socrata.cetera.util._
@@ -51,12 +51,8 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (relevantDomains, domainSearchTime) = domainClient.findRelevantDomains(params.searchContext, params.domains)
-        val searchContext = params.searchContext.flatMap(cname => relevantDomains.find(_.domainCname == cname))
-        val queryDomains = params.domains match {
-          case cs: Set[String] if cs.nonEmpty => cs.flatMap(cname => relevantDomains.find(_.domainCname == cname))
-          case _ => relevantDomains
-        }
+        val (searchContext, queryDomains, domainSearchTime) =
+          domainClient.findRelevantDomains(params.searchContext, params.domains)
 
         val search = documentClient.buildCountRequest(
           field,
@@ -68,6 +64,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
           params.only
         )
         logger.info(LogHelper.formatEsRequest(search))
+
         val res = search.execute.actionGet
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         val json = JsonReader.fromString(res.toString)
@@ -99,6 +96,10 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case DomainNotFound(e) =>
+        val msg = s"Domain not found: $e"
+        logger.error(msg)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

@@ -71,4 +71,30 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
       actualDomain shouldBe Some(expectedDomain)
     }
   }
+
+  "findRelevantDomains" should {
+    "throw DomainNotFound exception when searchContext is missing" in {
+      intercept[DomainNotFound] {
+        domainClient.findRelevantDomains(Some("iamnotarealdomain.wat"), None)
+      }
+    }
+
+    "throw DomainNotFound exception when searchContext is missing even if domains are found" in {
+      intercept[DomainNotFound] {
+        domainClient.findRelevantDomains(Some("iamnotarealdomain.wat"), Some(Set("dylan.demo.socrata.com")))
+      }
+    }
+
+    "not throw DomainNotFound exception when searchContext is present" in {
+      noException should be thrownBy {
+        domainClient.findRelevantDomains(Some("dylan.demo.socrata.com"), None)
+      }
+    }
+
+    "not throw DomainNotFound exception when domains are missing" in {
+      noException should be thrownBy {
+        domainClient.findRelevantDomains(None, Some(Set("iamnotarealdomain.wat")))
+      }
+    }
+  }
 }

@@ -6,8 +6,7 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.DomainAggregations._
-import com.socrata.cetera.search.DomainFilters._
+import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, QueryType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
@@ -51,11 +50,32 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
   }
 
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
-  def findRelevantDomains(searchContextCname: Option[String], domainCnames: Set[String]): (Set[Domain], Long) = {
-    searchContextCname.foldLeft(domainCnames) { (b, x) => b + x } match {
-      case cs: Set[String] if cs.nonEmpty => find(cs)
-      case _ => customerDomainSearch
+  // also looks up the search context and throws if it cannot be found
+  def findRelevantDomains(
+      searchContextCname: Option[String],
+      domainCnames: Option[Set[String]])
+    : (Option[Domain], Set[Domain], Long) = {
+
+    // We want to fetch all relevant domains (search context and relevant domains) in a single query
+    val (foundDomains, timings) = domainCnames match {
+      case Some(cnames) => find(domainCnames.getOrElse(Set.empty[String]) ++ searchContextCname)
+      case None => customerDomainSearch
     }
+
+    // If a searchContext is specified and we can't find it, we have to bail
+    val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
+    searchContextCname.foreach { searchContext =>
+      if (!foundDomains.exists(_.domainCname == searchContext)) throw new DomainNotFound(searchContext)
+    }
+
+    // TODO: Combine with domainCnames match above?
+    val relevantDomains = domainCnames match {
+      // TODO: Consider not using linear find inside flatMap
+      case Some(cnames) => cnames.flatMap(cname => foundDomains.find(_.domainCname == cname))
+      case None => foundDomains
+    }
+
+    (searchContextDomain, relevantDomains, timings)
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query
@@ -89,27 +109,37 @@ class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String
     (ids, mod, unmod, raOff)
   }
 
+  // NOTE: I do not currently honor counting according to parameters
   def buildCountRequest(
-      searchQuery: QueryType,
-      searchDomains: Set[Domain],
-      searchContext: Option[Domain],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      only: Option[Seq[String]])
+      domains: Set[Domain],
+      searchContext: Option[Domain])
     : SearchRequestBuilder = {
-    val (domainsFilter, domainsAggregation) = {
-      val contextMod = searchContext.exists(_.moderationEnabled)
-      val (ids, mod, unmod, raOff) = calculateIdsAndModRAStatuses(searchDomains)
-      val dsFilter = if (ids.nonEmpty) domainIds(ids) else isCustomerDomainFilter
-      val dsAggregation = domains(contextMod, mod, unmod, raOff)
-      (dsFilter, dsAggregation)
-    }
+
+    val contextModerated = searchContext.exists(_.moderationEnabled)
+
+    val (domainIds,
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds) = calculateIdsAndModRAStatuses(domains)
+
+    val domainFilter = domainIdsFilter(domainIds)
+
+    val aggregation = DomainAggregations.domains(
+      contextModerated,
+      moderatedDomainIds,
+      unmoderatedDomainIds,
+      routingApprovalDisabledDomainIds
+    )
+
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
-      .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainsFilter))
-      .addAggregation(domainsAggregation)
+      .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainFilter))
+      .addAggregation(aggregation)
       .setSearchType(SearchType.COUNT)
       .setSize(0) // no docs, aggs only
   }
 }
 
-class DomainNotFound(cname: String) extends NoSuchElementException(cname)
+// Should throw when Search Context is not found
+case class DomainNotFound(cname: String) extends Throwable {
+  override def toString: String = s"Domain not found: $cname"
+}

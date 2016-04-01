@@ -52,7 +52,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val domainIds = Set(1, 2, 3)
   val params = ValidatedQueryParameters(
     searchQuery = SimpleQuery("search query terms"),
-    domains = Set("www.example.com", "test.example.com", "socrata.com"),
+    domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
     domainMetadata = None,
     searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
@@ -157,6 +157,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  // NOTE: In reality, the domain_id set would be populated or no results would come back.
+  // But, when domains is empty, this filter must match no (rather than all) domain_ids.
+  // See instances of `domains = Set.empty[Domain]`
+  val domainIdsFilterEmpty = j"""{
+    "terms" : { "socrata_id.domain_id" : [] }
+  }"""
+
+
   val publicFilter = j"""{
     "not": {
       "filter": {
@@ -168,6 +176,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val defaultFilter = j"""{
     "bool": {
       "must": [
+        ${domainIdsFilterEmpty},
         ${publicFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
@@ -271,6 +280,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
         "must": [
             ${datatypeDatasetsFilter},
+            ${domainIdsFilterEmpty},
             ${publicFilter},
             ${moderationFilter},
             ${routingApprovalFilter}
@@ -319,7 +329,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = NoQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = None,
         tags = None,
@@ -351,7 +361,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = None,
         tags = None,
@@ -383,7 +393,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildBaseRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = None,
         tags = None,
@@ -440,7 +450,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -610,7 +620,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
@@ -665,7 +675,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
-        domains = Set.empty,
+        domains = Set.empty[Domain],
         searchContext = None,
         categories = params.categories,
         tags = params.tags,

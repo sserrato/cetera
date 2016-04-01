@@ -8,7 +8,7 @@ import com.socrata.cetera.types._
 // These are validated input parameters but aren't supposed to know anything about ES
 case class ValidatedQueryParameters(
     searchQuery: QueryType,
-    domains: Set[String],
+    domains: Option[Set[String]],
     domainMetadata: Option[Set[(String, String)]],
     searchContext: Option[String],
     categories: Option[Set[String]],
@@ -123,11 +123,11 @@ object QueryParametersParser {
     )
   }
 
-  def prepareDomains(queryParameters: MultiQueryParams): Set[String] = {
-    queryParameters.first(Params.filterDomains) match {
-      case Some(ds) => ds.toLowerCase.split(filterDelimiter).toSet
-      case None => Set.empty[String]
-    }
+  // Still uses old-style comma-separation
+  def prepareDomains(queryParameters: MultiQueryParams): Option[Set[String]] = {
+    queryParameters.first(Params.filterDomains).map(domain =>
+      domain.toLowerCase.split(filterDelimiter).toSet
+    )
   }
 
   def prepareSearchContext(queryParameters: MultiQueryParams): Option[String] = {
