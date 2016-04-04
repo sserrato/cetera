@@ -13,8 +13,14 @@ com.socrata {
   }
 
   log4j {
-    rootLogger = [ INFO, stdout ]
+    rootLogger = {{ LOG_PATHS }}
     appender {
+      airbrake.class = airbrake.AirbrakeAppender
+      airbrake.props {
+        api_key = {{ AIRBRAKE_API_KEY }}
+        env = {{ AIRBRAKE_ENVIRONMENT }}
+        enabled = {{ AIRBRAKE_ENABLED }}
+      }
       stdout.class = org.apache.log4j.ConsoleAppender
       stdout.props {
         layout.class = org.apache.log4j.PatternLayout

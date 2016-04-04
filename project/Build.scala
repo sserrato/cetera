@@ -78,9 +78,10 @@ object Deps {
     "org.mock-server" % "mockserver-maven-plugin" % "3.10.1" % "test"
   )
 
+  // airbrake-java includes log4j
   lazy val logging = Seq(
-    "log4j" % "log4j" % "1.2.17",
-    "org.slf4j" % "slf4j-log4j12" % "1.7.10"
+    "org.slf4j" % "slf4j-log4j12" % "1.7.10",
+    "io.airbrake" % "airbrake-java" % "2.2.8" % "provided"
   )
 
   lazy val rojoma = Seq(
