@@ -3,11 +3,13 @@ package com.socrata.cetera.search
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.types.Domain
-import com.socrata.cetera.{TestESClient, TestESData}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, TestESData}
 
 class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
+  val httpClient = new TestHttpClient()  // Remember to close() me!!
+  val coreClient = new TestCoreClient(httpClient, 8030)  // Remember to close() me!!
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -16,6 +18,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    httpClient.close()
   }
 
   "find" should {

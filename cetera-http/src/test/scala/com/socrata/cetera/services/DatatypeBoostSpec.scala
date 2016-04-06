@@ -3,7 +3,7 @@ package com.socrata.cetera.services
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.{TestESData, TestESClient}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESData, TestESClient}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
@@ -13,11 +13,13 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val boostedDatatype = TypeCalendars
   val boostedDatatypeQueryString = "boost" + boostedDatatype.plural.capitalize
 
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
-  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8033)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val balboaClient = new BalboaClient("/tmp/metrics")
+  val service = new SearchService(documentClient, domainClient, balboaClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -26,6 +28,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    httpClient.close()
   }
 
   test("datatype boost - increases score when datatype matches") {

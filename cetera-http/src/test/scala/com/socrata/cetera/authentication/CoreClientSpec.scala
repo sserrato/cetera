@@ -1,25 +1,19 @@
 package com.socrata.cetera.authentication
 
-import java.util.concurrent.Executors
-
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.CompactJsonWriter
-import com.rojoma.simplearm.v2._
-import com.socrata.http.client.HttpClientHttpClient
 import org.mockserver.integration.ClientAndServer.startClientAndServer
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
-import org.scalatest._
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, ShouldMatchers, WordSpec}
+
+import com.socrata.cetera.{TestHttpClient, TestCoreClient}
 
 class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll with BeforeAndAfterEach {
 
   val coreTestPort = 8082
-  val coreTimeout = 2000
-  val appToken = "t0T4l1yVaL1d"
-  implicit val shutdownTimeout = Resource.executorShutdownNoTimeout
-  val executor = Executors.newCachedThreadPool()
-  val httpClient = new HttpClientHttpClient(executor, HttpClientHttpClient.defaultOptions)
-  val coreClient = new CoreClient(httpClient, "localhost", coreTestPort, coreTimeout, appToken)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, coreTestPort)
   val mockServer = startClientAndServer(coreTestPort)
 
   override def beforeEach(): Unit = {
@@ -29,7 +23,6 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
   override def afterAll(): Unit = {
     mockServer.stop(true)
     httpClient.close()
-    executor.shutdown()
   }
 
   "The fetchCurrentUser method" should {
@@ -56,7 +49,6 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
           .withMethod("GET")
           .withPath("/users.json")
           .withHeader("X-Socrata-Host", domain)
-          .withHeader("X-App-Token", appToken)
       ).respond(
         response()
           .withStatusCode(200)
@@ -86,7 +78,6 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
           .withMethod("GET")
           .withPath("/users.json")
           .withHeader("X-Socrata-Host", domain)
-          .withHeader("X-App-Token", appToken)
       ).respond(
         response()
           .withStatusCode(200)
@@ -101,15 +92,15 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
     }
 
 
-    "return the anonymous user without calling core if passed an empty cookie" in {
+    "return None without calling core if passed an empty cookie" in {
       coreClient.fetchCurrentUser("forest.com", Some("")) should be(None)
     }
 
-    "return the anonymous user without calling core if passed no cookie" in {
+    "return None without calling core if passed no cookie" in {
       coreClient.fetchCurrentUser("forest.com", None) should be(None)
     }
 
-    "return the anonymous user if core returns a 401" in {
+    "return None if core returns a 401" in {
       mockServer
         .when(
           request()
@@ -124,7 +115,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       coreClient.fetchCurrentUser("forest.com", Some("c=cookie")) should be(None)
     }
 
-    "return the anonymous user if core returns a 403" in {
+    "return None if core returns a 403" in {
       mockServer
         .when(
           request()
@@ -139,7 +130,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       coreClient.fetchCurrentUser("forest.com", Some("c=cookie")) should be(None)
     }
 
-    "return the anonymous user if core returns a 500" in {
+    "return None if core returns a 500" in {
       mockServer
         .when(
           request()
@@ -160,14 +151,11 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
 class CoreClientlessSpec extends WordSpec with ShouldMatchers {
 
   val coreTestPort = 8016
-  implicit val shutdownTimeout = Resource.executorShutdownNoTimeout
-  val executor = Executors.newCachedThreadPool()
-  val httpClient = new HttpClientHttpClient(executor, HttpClientHttpClient.defaultOptions.withUserAgent("rammstein"))
-  val appToken = "t0T4l1yVaL1d"
-  val coreClient = new CoreClient(httpClient, "localhost", coreTestPort, 2000, appToken)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, coreTestPort)
 
-  "When core is not reachable, the isCookieValid method" should {
-    "return the anonymous user" in {
+  "When core is not reachable, the fetchCurrentUser method" should {
+    "return None" in {
       coreClient.fetchCurrentUser("forest.com", Some("c=cookie")) should be(None)
     }
   }

@@ -83,6 +83,8 @@ class PerfESClient(testSuiteName: String = "catalog")
       domainId,
       Some(Random.alphanumeric.take(16).force.mkString),
       Random.nextBoolean(),
+      Random.nextBoolean(),
+      Random.nextBoolean(),
       Random.nextBoolean()
     )
   }

@@ -14,6 +14,7 @@ class CeteraConfig(config: Config) extends ConfigClass(config, "com.socrata") {
   val http = getConfig("http", new HttpConfig(_, _))
   val elasticSearch = getConfig("elasticsearch", new ElasticSearchConfig(_, _))
   val balboa =  getConfig("balboa", new BalboaConfig(_, _))
+  val core =  getConfig("core", new CoreConfig(_, _))
   val debugString = config.root.render()
 }
 
@@ -34,6 +35,14 @@ class ServerConfig(config: Config, root: String) extends ConfigClass(config, roo
 
 class BalboaConfig(config: Config, root: String) extends ConfigClass(config, root) {
   val dataDirectory = getString("data-directory")
+}
+
+class CoreConfig(config: Config, root: String) extends ConfigClass(config, root) {
+  val host = getString("host")
+  val port = getInt("port")
+  val appToken = getString("appToken")
+  val defaultTimeoutMs = 2000
+  val connectionTimeoutMs = optionally(getInt("connectionTimeoutMs")).getOrElse(defaultTimeoutMs)
 }
 
 class ElasticSearchConfig(config: Config, root: String) extends ConfigClass(config,root) {

@@ -5,20 +5,23 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.{TestESData, TestESClient}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESData, TestESClient}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service: CountService = new CountService(documentClient, domainClient)
+  val esClient = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8031)
+  val domainClient = new DomainClient(esClient, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(esClient, domainClient, testSuiteName, None, None, Set.empty)
+  val service = new CountService(documentClient, domainClient)
 
   override protected def afterAll(): Unit = {
-    client.close() // Important!!
+    esClient.close() // Important!!
+    httpClient.close()
   }
 
   val esResponse = j"""{
@@ -112,9 +115,11 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
 
 class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service: CountService = new CountService(documentClient, domainClient)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8032)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val service = new CountService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -122,6 +127,7 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
 
   override protected def afterAll(): Unit = {
     client.close()
+    httpClient.close()
   }
 
   test("categories count request") {

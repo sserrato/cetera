@@ -23,15 +23,18 @@ import com.socrata.cetera.types._
 import com.socrata.cetera.util.Params
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
-  val testSuiteName: String = getClass.getSimpleName.toLowerCase
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
-  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
+  val testSuiteName = getClass.getSimpleName.toLowerCase
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8036)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val balboaClient = new BalboaClient("/tmp/metrics")
+  val service = new SearchService(documentClient, domainClient, balboaClient)
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
+    httpClient.close()
   }
 
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
@@ -225,12 +228,14 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 }
 
 class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaDir: java.io.File = new java.io.File("balboa_test_trash")
-  val balboaClient: BalboaClient = new BalboaClient(balboaDir.getName)
-  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8037)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val balboaDir = new java.io.File("balboa_test_trash")
+  val balboaClient = new BalboaClient(balboaDir.getName)
+  val service = new SearchService(documentClient, domainClient, balboaClient)
 
   def emptyAndRemoveDir(dir: java.io.File): Unit = {
     if (dir.isDirectory) {
@@ -247,6 +252,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    httpClient.close()
     emptyAndRemoveDir(balboaDir)
   }
 

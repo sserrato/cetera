@@ -6,13 +6,15 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
-import com.socrata.cetera.{TestESClient, TestESData}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, TestESData}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service: FacetService = new FacetService(documentClient, domainClient)
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8035)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val service = new FacetService(documentClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -21,6 +23,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    httpClient.close()
   }
 
   test("retrieve all visible domain facets") {

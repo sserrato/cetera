@@ -1,14 +1,17 @@
 package com.socrata.cetera
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.util.Random
 
+import com.rojoma.simplearm.v2.Resource
+import com.socrata.http.client.HttpClientHttpClient
 import com.typesafe.config.ConfigFactory
 import org.elasticsearch.search.aggregations.AggregationBuilders.terms
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.openjdk.jmh.annotations._
 
+import com.socrata.cetera.authentication.CoreClient
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{DocumentClient, DomainClient}
@@ -27,7 +30,12 @@ class CatalogSearchBenchmark {
   val config = new CeteraConfig(ConfigFactory.load())
   val client = new PerfESClient
   val balboaClient = new BalboaClient(config.balboa.dataDirectory)
-  val domainClient = new DomainClient(client, config.elasticSearch.indexAliasName)
+  implicit val shutdownTimeout = Resource.executorShutdownNoTimeout
+  val executor = Executors.newCachedThreadPool()
+  val httpClient = new HttpClientHttpClient(executor, HttpClientHttpClient.defaultOptions)
+  val coreClient = new CoreClient(httpClient, config.core.host, config.core.port,
+    config.core.connectionTimeoutMs, config.core.appToken)
+  val domainClient = new DomainClient(client, coreClient, config.elasticSearch.indexAliasName)
   val documentClient = new DocumentClient(
     client,
     domainClient,

@@ -8,7 +8,7 @@ import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchBootstrap, ValidatedQueryParameters}
-import com.socrata.cetera.{TestESClient, esDocumentType}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, esDocumentType}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness
@@ -24,16 +24,18 @@ import com.socrata.cetera.{TestESClient, esDocumentType}
 
 class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
-  val client = new TestESClient(testSuiteName)  // Remember to close() me!!
+  val esClient = new TestESClient(testSuiteName)  // Remember to close() me!!
+  val httpClient = new TestHttpClient()  // Remember to close() me!!
+  val coreClient = new TestCoreClient(httpClient, 2082)
   val defaultMinShouldMatch = Some("37%")
   val scriptScoreFunctions = Set(
     ScriptScoreFunction.getScriptFunction("views"),
     ScriptScoreFunction.getScriptFunction("score")
   ).flatMap { fn => fn }
 
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(
-    esClient = client,
+  val domainClient = new DomainClient(esClient, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(
+    esClient = esClient,
     domainClient,
     indexAliasName = testSuiteName,
     defaultTitleBoost = None,
@@ -42,11 +44,12 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   )
 
   override protected def beforeAll(): Unit = {
-    ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
+    ElasticsearchBootstrap.ensureIndex(esClient, "yyyyMMddHHmm", testSuiteName)
   }
 
   override protected def afterAll(): Unit = {
-    client.close() // Important!!
+    esClient.close() // Important!!
+    httpClient.close()
   }
 
   val domainIds = Set(1, 2, 3)

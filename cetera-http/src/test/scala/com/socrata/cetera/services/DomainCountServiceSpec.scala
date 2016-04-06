@@ -5,12 +5,14 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.Params
-import com.socrata.cetera.{TestESClient, TestESData}
+import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, TestESData}
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val service: DomainCountService = new DomainCountService(domainClient)
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8034)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val service = new DomainCountService(domainClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -18,6 +20,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   override protected def afterAll(): Unit = {
     client.close()
+    httpClient.close()
   }
 
   test("count domains from unmoderated search context") {

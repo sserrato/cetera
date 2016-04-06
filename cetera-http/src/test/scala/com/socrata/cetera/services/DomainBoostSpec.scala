@@ -9,11 +9,13 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.util.Params
 
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val domainClient: DomainClient = new DomainClient(client, testSuiteName)
-  val documentClient: DocumentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaClient: BalboaClient = new BalboaClient("/tmp/metrics")
-  val service: SearchService = new SearchService(documentClient, domainClient, balboaClient)
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8030)  // Remember to close() me!!
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val balboaClient = new BalboaClient("/tmp/metrics")
+  val service = new SearchService(documentClient, domainClient, balboaClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -22,6 +24,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
+    httpClient.close()
   }
 
   val activeDomainCnames = Seq("petercetera.net", "blue.org")

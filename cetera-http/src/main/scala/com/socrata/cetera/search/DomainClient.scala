@@ -6,11 +6,12 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.authentication.CoreClient
 import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomainFilter}
-import com.socrata.cetera.types.{Domain, DomainCnameFieldType, QueryType}
+import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
-class DomainClient(val esClient: ElasticSearchClient, val indexAliasName: String) {
+class DomainClient(val esClient: ElasticSearchClient, val coreClient: CoreClient, indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {
