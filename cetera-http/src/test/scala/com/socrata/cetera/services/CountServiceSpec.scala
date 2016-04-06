@@ -132,25 +132,25 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
 
   test("categories count request") {
     val expectedResults = List(Count("Personal", 4))
-    val (res, _) = service.doAggregate(CategoriesFieldType, Map.empty)
+    val (res, _) = service.doAggregate(CategoriesFieldType, Map.empty, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("tags count request") {
     val expectedResults = List(Count("Happy", 4), Count("Accident", 4))
-    val (res, _) = service.doAggregate(TagsFieldType, Map.empty)
+    val (res, _) = service.doAggregate(TagsFieldType, Map.empty, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain categories count request") {
     val expectedResults = List(Count("Alpha", 3), Count("Gamma", 1), Count("Fun", 2))
-    val (res, _) = service.doAggregate(DomainCategoryFieldType, Map.empty)
+    val (res, _) = service.doAggregate(DomainCategoryFieldType, Map.empty, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain tags count request") {
     val expectedResults = List(Count("1-one",3), Count("3-three",1))
-    val (res, _) = service.doAggregate(DomainTagsFieldType, Map.empty)
+    val (res, _) = service.doAggregate(DomainTagsFieldType, Map.empty, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }

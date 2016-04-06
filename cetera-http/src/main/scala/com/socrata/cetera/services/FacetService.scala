@@ -33,7 +33,7 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings) = doAggregate(cname)
+          val (facets, timings) = doAggregate(cname, req.header("Cookie"))
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)
         } catch {
@@ -50,41 +50,46 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
   // $COVERAGE-ON$
 
-  def doAggregate(cname: String): (Seq[FacetCount], InternalTimings) = {
+  def doAggregate(cname: String, cookie: Option[String]): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val (domain, domainSearchTime) = domainClient.find(cname)
-    domain.getOrElse(throw new DomainNotFound(cname))
+    val (domain, _, domainSearchTime) = domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie)
+    domain match {
+      case Some(d) => // domain exists and is viewable by user
+        val request = documentClient.buildFacetRequest(domain)
+        logger.info(LogHelper.formatEsRequest(request))
+        val res = request.execute().actionGet()
+        val aggs = res.getAggregations.asMap().asScala
+          .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
+          .getAggregations.asMap().asScala
 
-    val request = documentClient.buildFacetRequest(domain)
-    logger.info(LogHelper.formatEsRequest(request))
-    val res = request.execute().actionGet()
-    val aggs = res.getAggregations.asMap().asScala
-      .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
-      .getAggregations.asMap().asScala
+        val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+        val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
 
-    val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-    val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
+        val categoriesValues = aggs("categories").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+        val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
 
-    val categoriesValues = aggs("categories").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-    val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
+        val tagsValues = aggs("tags").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
+        val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
 
-    val tagsValues = aggs("tags").asInstanceOf[Terms]
-      .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-    val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
+        val metadataFacets = aggs("metadata").asInstanceOf[Nested]
+          .getAggregations.get("keys").asInstanceOf[Terms]
+          .getBuckets.asScala.map { b =>
+          val values = b.getAggregations.get("values").asInstanceOf[Terms]
+            .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }.toSeq
+          FacetCount(b.getKey, b.getDocCount, values)
+        }.toSeq
 
-    val metadataFacets = aggs("metadata").asInstanceOf[Nested]
-      .getAggregations.get("keys").asInstanceOf[Terms]
-      .getBuckets.asScala.map { b =>
-        val values = b.getAggregations.get("values").asInstanceOf[Terms]
-          .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }.toSeq
-        FacetCount(b.getKey, b.getDocCount, values)
-      }.toSeq
-
-    val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
-    val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
-    (facets, timings)
+        val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
+        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
+        (facets, timings)
+      case None => // domain exists (otherwise DomainNotFound would be thrown) but user isn't authed to see this domain
+        val facets = Seq.empty[FacetCount]
+        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
+        (facets, timings)
+    }
   }
 }

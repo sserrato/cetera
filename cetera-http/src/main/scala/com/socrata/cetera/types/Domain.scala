@@ -14,7 +14,10 @@ case class Domain(domainId: Int,
                   moderationEnabled: Boolean,
                   routingApprovalEnabled: Boolean,
                   lockedDown: Boolean,
-                  apiLockedDown: Boolean)
+                  apiLockedDown: Boolean) {
+
+  def isLocked: Boolean = lockedDown || apiLockedDown
+}
 
 object Domain {
   implicit val jCodec = AutomaticJsonCodecBuilder[Domain]

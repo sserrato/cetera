@@ -11,7 +11,7 @@ import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomai
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
-class DomainClient(val esClient: ElasticSearchClient, val coreClient: CoreClient, indexAliasName: String) {
+class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {
@@ -50,33 +50,66 @@ class DomainClient(val esClient: ElasticSearchClient, val coreClient: CoreClient
     (domains, timing)
   }
 
+  // This method returns
+  //  _._1) a search context of None if the search context is locked-down and the user is
+  //        not signed in with a role; otherwise the given search context is returned.
+  //  _._2) the given domains restricted to those that are viewable, where viewable means:
+  //        a) not locked down   OR
+  //        b) locked down, but user is logged in and has a role on the given domain
+  // WARN: The search context may come back as None. This is to avoid leaking locked domains through the context.
+  //       But if a search context was given this effectively pretends no context was given.
+  def removeLockedDomainsForbiddenToUser(
+      context: Option[Domain],
+      domains: Set[Domain],
+      cookie: Option[String])
+    : (Option[Domain], Set[Domain]) = {
+    val contextLocked = context.exists(_.isLocked)
+    val (lockedDomains, unlockedDomains) = domains.partition(_.isLocked)
+
+    if (!contextLocked && lockedDomains.isEmpty) {
+      (context, domains)
+    } else {
+      val loggedInUser = coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie)
+      val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewCatalog))
+      loggedInUser match {
+        case Some(u) =>
+          val viewableLockedDomains =
+            lockedDomains.filter(d => coreClient.fetchUserById(d.domainCname, u.id).exists(_.canViewCatalog))
+          (viewableContext, unlockedDomains ++ viewableLockedDomains)
+        case None => // user is not logged in and thus can see no locked data
+          (viewableContext, unlockedDomains)
+      }
+    }
+  }
+
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
   // also looks up the search context and throws if it cannot be found
   def findRelevantDomains(
       searchContextCname: Option[String],
-      domainCnames: Option[Set[String]])
+      domainCnames: Option[Set[String]],
+      cookie: Option[String])
     : (Option[Domain], Set[Domain], Long) = {
 
     // We want to fetch all relevant domains (search context and relevant domains) in a single query
+    // NOTE: the searchContext may be present as both the context and in the relevant domains
     val (foundDomains, timings) = domainCnames match {
-      case Some(cnames) => find(domainCnames.getOrElse(Set.empty[String]) ++ searchContextCname)
+      case Some(cnames) => find(cnames ++ searchContextCname)
       case None => customerDomainSearch
     }
-
-    // If a searchContext is specified and we can't find it, we have to bail
     val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
-    searchContextCname.foreach { searchContext =>
-      if (!foundDomains.exists(_.domainCname == searchContext)) throw new DomainNotFound(searchContext)
-    }
-
-    // TODO: Combine with domainCnames match above?
     val relevantDomains = domainCnames match {
-      // TODO: Consider not using linear find inside flatMap
-      case Some(cnames) => cnames.flatMap(cname => foundDomains.find(_.domainCname == cname))
+      case Some(cnames) => foundDomains.filter(d => cnames.contains(d.domainCname))
       case None => foundDomains
     }
 
-    (searchContextDomain, relevantDomains, timings)
+    // If a searchContext is specified and we can't find it, we have to bail
+    searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFound(c))
+
+    // Remove domains that are locked domain and should be hidden from the user
+    val (viewableSearchContext, viewableDomains) =
+      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie)
+
+    (viewableSearchContext, viewableDomains, timings)
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query

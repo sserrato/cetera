@@ -42,7 +42,8 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
 
   def doAggregate(field: DocumentFieldType with Countable with Rawable,
-                  queryParameters: MultiQueryParams): (SearchResults[Count], InternalTimings) = {
+                  queryParameters: MultiQueryParams,
+                  cookie: Option[String]): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
     QueryParametersParser(queryParameters) match {
@@ -52,7 +53,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
 
       case Right(params) =>
         val (searchContext, queryDomains, domainSearchTime) =
-          domainClient.findRelevantDomains(params.searchContext, params.domains)
+          domainClient.findRelevantDomains(params.searchContext, params.domains, cookie)
 
         val search = documentClient.buildCountRequest(
           field,
@@ -89,7 +90,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
     }
 
     try {
-      val (formattedResults, timings) = doAggregate(field, req.multiQueryParams)
+      val (formattedResults, timings) = doAggregate(field, req.multiQueryParams, req.header("Cookie"))
       logger.info(LogHelper.formatRequest(req, timings))
       OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {

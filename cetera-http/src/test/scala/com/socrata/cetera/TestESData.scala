@@ -15,6 +15,25 @@ trait TestESData {
   val client: ElasticSearchClient
   val testSuiteName: String = getClass.getSimpleName.toLowerCase
 
+  val domains = {
+    val domainTSV = Source.fromInputStream(getClass.getResourceAsStream("/domains.tsv"))
+    val iter = domainTSV.getLines().map(_.split("\t"))
+    iter.drop(1) // drop the header columns
+    iter.map { tsvLine =>
+      new Domain(
+        domainId = tsvLine(0).toInt,
+        domainCname = tsvLine(1),
+        siteTitle = if (tsvLine(2).isEmpty) None else Some(tsvLine(2)),
+        organization = if (tsvLine(3).isEmpty) None else Some(tsvLine(3)),
+        isCustomerDomain = tsvLine(4).toBoolean,
+        moderationEnabled = tsvLine(5).toBoolean,
+        routingApprovalEnabled = tsvLine(6).toBoolean,
+        lockedDown = tsvLine(7).toBoolean,
+        apiLockedDown = tsvLine(8).toBoolean
+      )
+    }.toSeq
+  }
+
   private val esDocTemplate: String =
     """{
       | "socrata_id": {
@@ -185,7 +204,7 @@ trait TestESData {
       updateFreqs(i % updateFreqs.length))
   }
 
-  val domainsWithData = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
+  val domainsWithData = domains.slice(0,4).map(d => d.domainCname)
 
   val defaultResourceUpdatedAt = DateTime.now().toString
   val defaultResourceCreatedAt = DateTime.now().toString
@@ -243,35 +262,16 @@ trait TestESData {
     typeMapping.!.toString()
   }
 
-  private def buildEsDomain(tsvLine: Array[String]): String = {
-    val domain = new Domain(
-      domainId = tsvLine(0).toInt,
-      domainCname = tsvLine(1),
-      siteTitle = if (tsvLine(2).isEmpty) None else Some(tsvLine(2)),
-      organization = if (tsvLine(3).isEmpty) None else Some(tsvLine(3)),
-      isCustomerDomain = tsvLine(4).toBoolean,
-      moderationEnabled = tsvLine(5).toBoolean,
-      routingApprovalEnabled = tsvLine(6).toBoolean,
-      lockedDown = tsvLine(7).toBoolean,
-      apiLockedDown = tsvLine(8).toBoolean
-    )
-    JsonUtil.renderJson[Domain](domain)
-  }
-
   def bootstrapData(): Unit = {
     ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
 
     // load domains
-    val domainTSV = Source.fromInputStream(getClass.getResourceAsStream("/domains.tsv"))
-    val iter = domainTSV.getLines().map(_.split("\t"))
-    iter.foreach { tsvLine =>
-      if (tsvLine(0) != "id") { // this is the column header line
-        client.client.prepareIndex(testSuiteName, esDomainType)
-          .setSource(buildEsDomain(tsvLine))
-          .setId(tsvLine(0))
-          .setRefresh(true)
-          .execute.actionGet
-      }
+    domains.foreach{ d =>
+      client.client.prepareIndex(testSuiteName, esDomainType)
+        .setSource(JsonUtil.renderJson[Domain](d))
+        .setId(d.domainId.toString)
+        .setRefresh(true)
+        .execute.actionGet
     }
 
     // load data

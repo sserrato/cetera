@@ -19,6 +19,19 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
     .connectTimeoutMS(connectTimeoutMs)
     .addHeaders(headers)
 
+  def optionallyGetUserByCookie(domain: Option[String], cookie: Option[String]): Option[User] = {
+   (domain, cookie) match {
+     case (Some(cname), None) =>
+       logger.warn("Search context was provided without cookie. Not validating user.")
+       None
+     case (None, Some(nomNom)) =>
+        logger.warn("Cookie provided without search context. Not validating user.")
+        None
+     case (Some(cname), Some(nomNom)) => fetchUserByCookie(cname, nomNom)
+     case (None, None) => None
+    }
+  }
+
   def fetchUserByCookie(domain: String, cookie: String): Option[User] = {
     if (cookie.nonEmpty) {
       val req = coreBaseRequest

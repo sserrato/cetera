@@ -38,7 +38,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
       Params.querySimple -> "one",
       Params.showScore -> "true",
       boostedDatatypeQueryString -> "10"
-    ).mapValues(Seq(_)))
+    ).mapValues(Seq(_)), None)
     val oneBoosted = results.results.find(_.resource.dyn.`type`.! == JString(boostedDatatype.singular)).head
     val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(boostedDatatype.singular)).head
 

@@ -171,12 +171,13 @@ class SearchService(elasticSearchClient: DocumentClient,
   def prepareDomainParams(
       searchContext: Option[String],
       queryDomainNames: Option[Set[String]],
-      domainBoosts: Map[String, Float])
+      domainBoosts: Map[String, Float],
+      cookie: Option[String])
     : (Option[Domain], Set[Domain], Map[Int, Float], Long) = {
 
     // If searchContext is missing, findRelevantDomains will throw DomainNotFound exception
     val (searchContextDomain, queryDomains, domainSearchTime) =
-      domainClient.findRelevantDomains(searchContext, queryDomainNames)
+      domainClient.findRelevantDomains(searchContext, queryDomainNames, cookie)
 
     // WARN: Inner loop means polytime, but these _should_ be small
     val allDomains = (searchContextDomain ++ queryDomains)
@@ -189,7 +190,8 @@ class SearchService(elasticSearchClient: DocumentClient,
     (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime)
   }
 
-  def doSearch(queryParameters: MultiQueryParams): (SearchResults[SearchResult], InternalTimings) = {
+  def doSearch(queryParameters: MultiQueryParams,
+               cookie: Option[String]): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
 
     QueryParametersParser(queryParameters) match {
@@ -199,7 +201,7 @@ class SearchService(elasticSearchClient: DocumentClient,
 
       case Right(params) =>
         val (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime) =
-          prepareDomainParams(params.searchContext, params.domains, params.domainBoosts)
+          prepareDomainParams(params.searchContext, params.domains, params.domainBoosts, cookie)
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
@@ -239,7 +241,7 @@ class SearchService(elasticSearchClient: DocumentClient,
   // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
     try {
-      val (formattedResults, timings) = doSearch(req.multiQueryParams)
+      val (formattedResults, timings) = doSearch(req.multiQueryParams, req.header("Cookie"))
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {

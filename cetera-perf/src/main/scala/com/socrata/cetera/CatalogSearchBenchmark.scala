@@ -77,11 +77,11 @@ class CatalogSearchBenchmark {
 
   @Benchmark
   def searchDomain(): Unit = {
-    domainCnames.foreach(c => domainClient.find(c))
+    domainCnames.foreach(c => domainClient.findRelevantDomains(Some(c), None, None))
   }
 
   @Benchmark
   def query(): Unit = {
-    queryParameters.foreach(q => searchService.doSearch(q))
+    queryParameters.foreach(q => searchService.doSearch(q, None))
   }
 }

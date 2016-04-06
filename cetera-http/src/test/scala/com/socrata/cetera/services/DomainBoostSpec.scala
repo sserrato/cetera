@@ -35,7 +35,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
         Params.showScore -> "true",
         Params.context -> domain,
         Params.filterDomains -> activeDomainCnames.mkString(","),
-        s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)))
+        s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)), None)
       results.results.head.metadata(esDomainType) should be(JString(domain))
     }
   }
@@ -46,7 +46,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
         Params.showScore -> "true",
         Params.context -> domain,
         Params.filterDomains -> activeDomainCnames.mkString(","),
-        s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)))
+        s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)), None)
       results.results.head.metadata(esDomainType) shouldNot be(JString(domain))
     }
   }
@@ -56,7 +56,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
       val (results, _) = service.doSearch(
         Map(s"""boostDomains[${domain}]""" -> "2.34",
             "boostDomains[]" -> "3.45", // if I were custom metadata, I would not match any documents
-            Params.context -> domain).mapValues(Seq(_))
+            Params.context -> domain).mapValues(Seq(_)), None
       )
       results.results.size should be > 0
     }
@@ -68,7 +68,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
       val (results, _) = service.doSearch(
         Map(s"""boostDomains[${domain}]""" -> "2.34",
             "boostDomains" -> "3.45", // interpreted as custom metadata field which doesn't match any documents
-            Params.context -> domain).mapValues(Seq(_))
+            Params.context -> domain).mapValues(Seq(_)), None
       )
       results.results should contain theSameElementsAs List.empty
     }
