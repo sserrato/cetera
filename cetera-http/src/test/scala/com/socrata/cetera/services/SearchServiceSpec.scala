@@ -1,5 +1,6 @@
 package com.socrata.cetera.services
 
+import java.io.File
 import java.nio.charset.{Charset, CodingErrorAction}
 import scala.collection.JavaConverters._
 
@@ -233,11 +234,11 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   val coreClient = new TestCoreClient(httpClient, 8037)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaDir = new java.io.File("balboa_test_trash")
+  val balboaDir = new File("balboa_test_trash")
   val balboaClient = new BalboaClient(balboaDir.getName)
   val service = new SearchService(documentClient, domainClient, balboaClient)
 
-  def emptyAndRemoveDir(dir: java.io.File): Unit = {
+  def emptyAndRemoveDir(dir: File): Unit = {
     if (dir.isDirectory) {
       dir.listFiles().foreach(f => f.delete())
     }
