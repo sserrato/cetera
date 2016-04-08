@@ -476,11 +476,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "build a faceted request" in {
       val domainId = 42
       val domain = Domain(
+        domainId, "", None, None,
         isCustomerDomain = true,
-        None,
-        "",
-        domainId,
-        None,
         moderationEnabled = false,
         routingApprovalEnabled = false,
         lockedDown = false,
@@ -838,7 +835,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   "chooseMinShouldMatch" should {
     val msm = Some("2<-25% 9<-3") // I can be an involved string
-    val sc = Domain(false, None, "example.com", 1, Some("Example! (dotcom)"), false, false, false, false)
+    val sc = Domain(1, "example.com", Some("Example! (dotcom)"), None, false, false, false, false, false)
 
     "choose minShouldMatch if present" in {
       documentClient.chooseMinShouldMatch(msm, None) should be (msm)

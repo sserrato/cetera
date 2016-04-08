@@ -56,7 +56,9 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("dylan.demo.socrata.com", 0),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
-      Count("petercetera.net", 4))
+      Count("petercetera.net", 4),
+      Count("api.locked.demo.com", 0),
+      Count("double.locked.demo.com", 0))
     val (res, _) = service.doAggregate(Map.empty)
     res.results should contain theSameElementsAs expectedResults
   }

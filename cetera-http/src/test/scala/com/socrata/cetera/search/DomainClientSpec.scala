@@ -24,11 +24,11 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
   "find" should {
     "return the domain if it exists : petercetera.net" in {
       val expectedDomain = Domain(
-        isCustomerDomain = true,
-        organization = Some(""),
-        domainCname = "petercetera.net",
         domainId = 0,
+        domainCname = "petercetera.net",
         siteTitle = Some("Temporary URI"),
+        organization = Some("org"),
+        isCustomerDomain = true,
         moderationEnabled = false,
         routingApprovalEnabled = false,
         lockedDown = false,
@@ -39,11 +39,11 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
 
     "return the domain if it exists : opendata-demo.socrata.com" in {
       val expectedDomain = Domain(
-        isCustomerDomain = false,
-        organization = Some(""),
-        domainCname = "opendata-demo.socrata.com",
         domainId = 1,
+        domainCname = "opendata-demo.socrata.com",
         siteTitle = Some("And other things"),
+        organization = Some("org"),
+        isCustomerDomain = false,
         moderationEnabled = true,
         routingApprovalEnabled = false,
         lockedDown = false,
@@ -66,13 +66,13 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData with
 
     "return only domains with an exact match" in {
       val expectedDomain = Domain(
-        isCustomerDomain = true,
-        organization = Some(""),
-        domainCname = "dylan.demo.socrata.com",
         domainId = 4,
-        siteTitle = Some("Temporary URI"),
+        domainCname = "dylan.demo.socrata.com",
+        siteTitle = Some("Skid Row"),
+        organization = Some("Hair Metal Bands"),
+        isCustomerDomain = true,
         moderationEnabled = false,
-        routingApprovalEnabled = false,
+        routingApprovalEnabled = true,
         lockedDown = false,
         apiLockedDown = false)
 

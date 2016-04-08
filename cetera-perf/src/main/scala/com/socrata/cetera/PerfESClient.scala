@@ -77,11 +77,11 @@ class PerfESClient(testSuiteName: String = "catalog")
       Random.shuffle(tlds).head
     ).mkString(".")
     Domain(
-      Random.nextBoolean(),
-      Some(Random.alphanumeric.take(8).force.mkString),
-      domainCname,
       domainId,
+      domainCname,
       Some(Random.alphanumeric.take(16).force.mkString),
+      Some(Random.alphanumeric.take(8).force.mkString),
+      Random.nextBoolean(),
       Random.nextBoolean(),
       Random.nextBoolean(),
       Random.nextBoolean(),

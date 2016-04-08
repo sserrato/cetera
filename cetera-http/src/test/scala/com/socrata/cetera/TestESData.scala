@@ -78,20 +78,6 @@ trait TestESData {
       |}
     """.stripMargin
 
-  val esDomainTemplate: String =
-    """{
-      | "domain_cname": %s,
-      | "domain_id": %s,
-      | "site_title": %s,
-      | "organization": %s,
-      | "is_customer_domain": %s,
-      | "moderation_enabled": %s,
-      | "routing_approval_enabled": %s,
-      | "locked_down": %s,
-      | "api_locked_down": %s
-      |}
-    """.stripMargin
-
   private def quoteQualify(s: String): String = "\"%s\"".format(s)
   private def quoteQualify(ss: Seq[String]): String = ss.map(quoteQualify).mkString(",\n")
   private def quoteQualifyScore(sm: Map[String,Float]): String = sm.map { kvp =>
@@ -164,15 +150,8 @@ trait TestESData {
     doc
   }
 
-  private def buildEsDomain(domainCname: String, domainId: Int, siteTitle: String, organization: String,
-                            isCustomerDomain: Boolean, moderationEnabled: Boolean, routingApprovalEnabled: Boolean,
-                            lockedDown: Boolean, apiLockedDown: Boolean) =
-    esDomainTemplate.format(quoteQualify(domainCname), domainId.toString, quoteQualify(siteTitle), quoteQualify(organization),
-                            isCustomerDomain.toString, moderationEnabled.toString, routingApprovalEnabled.toString,
-                            lockedDown.toString, apiLockedDown.toString)
-
   private def buildEsDocByIndex(i: Int): String = {
-    val domainId = i % domainCnames.length
+    val domainId = i % domainsWithData.length
     val domainApprovalIds = approvingDomainIds(i % approvingDomainIds.length)
     buildEsDoc(
       socrataIdDatasetIds(i % socrataIdDatasetIds.length),
@@ -206,24 +185,7 @@ trait TestESData {
       updateFreqs(i % updateFreqs.length))
   }
 
-  private def buildEsDomainByIndex(cname:String, i: Int): String = {
-    buildEsDomain(cname,
-                  i,
-                  siteTitles(i % siteTitles.length),
-                  defaultSocrataIdOrg,
-                  isCustomerDomains(i % isCustomerDomains.length),
-                  isDomainModerated(i % isDomainModerated.length),
-                  hasRoutingApproval(i % hasRoutingApproval.length),
-                  false,
-                  false)
-  }
-
-  val domainCnames = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
-  val siteTitles = Seq("Temporary URI", "And other things", "Fame and Fortune", "Socrata Demo")
-  val defaultSocrataIdOrg = ""
-  val isCustomerDomains = Seq(true, false, true, true)
-  val isDomainModerated = Seq(false, true, false, true)
-  val hasRoutingApproval = Seq(false, false, true, true)
+  val domainsWithData = Seq("petercetera.net", "opendata-demo.socrata.com", "blue.org", "annabelle.island.net")
 
   val defaultResourceUpdatedAt = DateTime.now().toString
   val defaultResourceCreatedAt = DateTime.now().toString
@@ -281,21 +243,41 @@ trait TestESData {
     typeMapping.!.toString()
   }
 
+  private def buildEsDomain(tsvLine: Array[String]): String = {
+    val domain = new Domain(
+      domainId = tsvLine(0).toInt,
+      domainCname = tsvLine(1),
+      siteTitle = if (tsvLine(2).isEmpty) None else Some(tsvLine(2)),
+      organization = if (tsvLine(3).isEmpty) None else Some(tsvLine(3)),
+      isCustomerDomain = tsvLine(4).toBoolean,
+      moderationEnabled = tsvLine(5).toBoolean,
+      routingApprovalEnabled = tsvLine(6).toBoolean,
+      lockedDown = tsvLine(7).toBoolean,
+      apiLockedDown = tsvLine(8).toBoolean
+    )
+    JsonUtil.renderJson[Domain](domain)
+  }
+
   def bootstrapData(): Unit = {
     ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
 
-    val additionalCnames = Seq("dylan.demo.socrata.com", "dylan2.demo.socrata.com")
-
-    (domainCnames ++ additionalCnames).zipWithIndex.foreach { case (cname: String, i: Int) =>
-      client.client.prepareIndex(testSuiteName, esDomainType)
-        .setSource(buildEsDomainByIndex(cname, i))
-        .setId(i.toString)
-        .setRefresh(true)
-        .execute.actionGet
+    // load domains
+    val domainTSV = Source.fromInputStream(getClass.getResourceAsStream("/domains.tsv"))
+    val iter = domainTSV.getLines().map(_.split("\t"))
+    iter.foreach { tsvLine =>
+      if (tsvLine(0) != "id") { // this is the column header line
+        client.client.prepareIndex(testSuiteName, esDomainType)
+          .setSource(buildEsDomain(tsvLine))
+          .setId(tsvLine(0))
+          .setRefresh(true)
+          .execute.actionGet
+      }
     }
+
+    // load data
     Datatypes.materialized.zipWithIndex.foreach { case (datatype: Materialized, i: Int) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
-        .setParent((i % domainCnames.length).toString)
+        .setParent((i % domainsWithData.length).toString)
         .setSource(buildEsDocByIndex(i))
         .setRefresh(true)
         .execute.actionGet

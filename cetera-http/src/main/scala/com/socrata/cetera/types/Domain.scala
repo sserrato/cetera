@@ -6,11 +6,11 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera.util.JsonDecodeException
 
 @JsonKeyStrategy(Strategy.Underscore)
-case class Domain(isCustomerDomain: Boolean,
-                  organization: Option[String],
+case class Domain(domainId: Int,
                   domainCname: String,
-                  domainId: Int,
                   siteTitle: Option[String],
+                  organization: Option[String],
+                  isCustomerDomain: Boolean,
                   moderationEnabled: Boolean,
                   routingApprovalEnabled: Boolean,
                   lockedDown: Boolean,

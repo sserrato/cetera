@@ -27,7 +27,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
   }
 
   test("retrieve all visible domain facets") {
-    val (datatypes, categories, tags, facets) = domainCnames.map { cname =>
+    val (datatypes, categories, tags, facets) = domainsWithData.map { cname =>
       val (facets, timings) = service.doAggregate(cname)
       timings.searchMillis.headOption should be('defined)
 

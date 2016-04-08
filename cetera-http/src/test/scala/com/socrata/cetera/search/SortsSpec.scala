@@ -94,11 +94,11 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
       val expected = Sorts.sortScoreDesc
 
       val searchContext = Domain(
-        isCustomerDomain = false,
-        organization = Some("SDP"),
-        domainCname = "peterschneider.net",
         domainId = 1,
+        domainCname = "peterschneider.net",
         siteTitle = Some("Temporary URI"),
+        organization = Some("SDP"),
+        isCustomerDomain = false,
         moderationEnabled = false,
         routingApprovalEnabled = true,
         lockedDown = false,

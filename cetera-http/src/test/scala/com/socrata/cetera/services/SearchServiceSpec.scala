@@ -95,11 +95,11 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
   test("extract and format resources from SearchResponse") {
     val domain = Domain(
-      isCustomerDomain = true,
-      Some("Temp Org"),
-      "tempuri.org",
       1,
+      "tempuri.org",
       Some("Title"),
+      Some("Temp Org"),
+      isCustomerDomain = true,
       moderationEnabled = false,
       routingApprovalEnabled = false,
       lockedDown = false,
