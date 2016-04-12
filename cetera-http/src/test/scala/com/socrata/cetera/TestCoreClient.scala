@@ -8,7 +8,7 @@ import com.socrata.http.client.HttpClientHttpClient
 import com.socrata.cetera.authentication.CoreClient
 
 class TestCoreClient(httpClient: TestHttpClient, port: Int) extends
-  CoreClient(httpClient.client, "localhost", port, 2000, "appToken")
+  CoreClient(httpClient.client, "localhost", port, 2000, None)
 
 class TestHttpClient {
   implicit val shutdownTimeout = Resource.executorShutdownNoTimeout

@@ -40,7 +40,7 @@ class BalboaConfig(config: Config, root: String) extends ConfigClass(config, roo
 class CoreConfig(config: Config, root: String) extends ConfigClass(config, root) {
   val host = getString("host")
   val port = getInt("port")
-  val appToken = getString("appToken")
+  val appToken = optionally(getString("appToken"))
   val defaultTimeoutMs = 2000
   val connectionTimeoutMs = optionally(getInt("connectionTimeoutMs")).getOrElse(defaultTimeoutMs)
 }

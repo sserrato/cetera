@@ -7,15 +7,17 @@ import com.socrata.http.client.{RequestBuilder, HttpClientHttpClient}
 import org.apache.http.HttpStatus._
 import org.slf4j.LoggerFactory
 
-class CoreClient(httpClient: HttpClientHttpClient, host: String,
-                 port: Int, connectTimeoutMs: Int, appToken: String) {
+class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
+                 connectTimeoutMs: Int, appToken: Option[String]) {
 
   val logger = LoggerFactory.getLogger(getClass)
+  val headers = List(("Content-Type", "application/json; charset=utf-8")) ++
+    appToken.map(("X-App-Token", _))
+
   val coreBaseRequest = RequestBuilder(host, secure = false)
     .port(port)
     .connectTimeoutMS(connectTimeoutMs)
-    .addHeader(("Content-Type", "application/json; charset=utf-8"))
-    .addHeader(("X-App-Token", appToken))
+    .addHeaders(headers)
 
   def fetchUserByCookie(domain: String, cookie: String): Option[User] = {
     if (cookie.nonEmpty) {
