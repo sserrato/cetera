@@ -81,7 +81,7 @@ object Deps {
   // airbrake-java includes log4j
   lazy val logging = Seq(
     "org.slf4j" % "slf4j-log4j12" % "1.7.10",
-    "io.airbrake" % "airbrake-java" % "2.2.8" % "provided"
+    "io.airbrake" % "airbrake-java" % "2.2.8" exclude("commons-logging", "commons-logging")
   )
 
   lazy val rojoma = Seq(
