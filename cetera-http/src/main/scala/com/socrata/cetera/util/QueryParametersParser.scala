@@ -151,6 +151,7 @@ object QueryParametersParser {
 
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
+    // TODO: EN-1401 - don't just take head, allow for mulitple selections
     val ms = Params.remaining(queryParamsNonEmpty).mapValues(_.head).toSet
     if (ms.nonEmpty) Some(ms) else None
   }

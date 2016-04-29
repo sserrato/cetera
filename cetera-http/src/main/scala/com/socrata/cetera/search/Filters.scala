@@ -59,19 +59,31 @@ object DocumentFilters {
   def isApprovedByParentDomainFilter(aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + "is_approved_by_parent_domain", true)
 
+  // TODO:  should we score metadata by making this a query?
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
-    metadata.map { ss =>
-      orFilter(
-        ss.map { case (key, value) =>
-          nestedFilter(
-            DomainMetadataFieldType.fieldName,
-            andFilter(
-              termsFilter(DomainMetadataFieldType.Key.rawFieldName, key),
-              termsFilter(DomainMetadataFieldType.Value.rawFieldName, value)
-            )
-          )
-        }.toSeq: _*
-      )
+    metadata.flatMap {
+      case metadataKeyValues: Set[(String, String)] if metadataKeyValues.nonEmpty =>
+        val metadataGroupedByKey = metadataKeyValues
+          .groupBy { case (k, v) => k }
+          .map { case (key, set) => key -> set.map(_._2) }
+        val unionWithinKeys = metadataGroupedByKey.map { case (k, vs) =>
+          vs.foldLeft(boolFilter()) { (b, v) =>
+            b.should(nestedFilter(
+              DomainMetadataFieldType.fieldName,
+              boolFilter()
+                .must(termsFilter(DomainMetadataFieldType.Key.rawFieldName, k))
+                .must(termsFilter(DomainMetadataFieldType.Value.rawFieldName, v))
+            ))
+          }
+        }
+
+        if (metadataGroupedByKey.size == 1) {
+          unionWithinKeys.headOption // no need to create an intersection for 1 key
+        } else {
+          val intersectAcrossKeys = unionWithinKeys.foldLeft(boolFilter()) { (b, q) => b.must(q) }
+          Some(intersectAcrossKeys)
+        }
+      case _ => None  // no filter to build from the empty set
     }
 
   /**
