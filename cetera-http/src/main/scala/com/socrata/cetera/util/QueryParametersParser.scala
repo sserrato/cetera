@@ -32,9 +32,12 @@ case class OnlyError(override val message: String) extends ParseError
 
 // Parses and validates
 object QueryParametersParser {
-  val defaultPageOffset: Int = 0
-  val defaultPageLength: Int = 100
-  val filterDelimiter: String = "," // to be deprecated
+  val defaultPageOffset = 0
+  val defaultPageLength = 100
+
+  val filterDelimiter = "," // to be deprecated
+
+  val limitLimit = 10000
 
   def validated[T](x: Either[ParamConversionFailure, T]): T = x match {
     case Right(v) => v
@@ -209,9 +212,12 @@ object QueryParametersParser {
   }
 
   def prepareLimit(queryParameters: MultiQueryParams): Int = {
-    validated(
-      queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))
-    ).value
+    Math.min(
+      limitLimit,
+      validated(
+        queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))
+      ).value
+    )
   }
 
   //

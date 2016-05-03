@@ -381,6 +381,24 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
   }
+
+  test("an upper bound of 10000 is imposed on the limit parameter") {
+    val limit = Map("limit" -> Seq("100000"))
+
+    QueryParametersParser(limit) match {
+      case Right(params) => params.limit should be(10000)
+      case _ => fail()
+    }
+  }
+
+  test("a limit param of less than 10000 is allowed") {
+    val limit = Map("limit" -> Seq("100"))
+
+    QueryParametersParser(limit) match {
+      case Right(params) => params.limit should be(100)
+      case _ => fail()
+    }
+  }
 }
 
 class ParamsSpec extends FunSuiteLike with Matchers {
