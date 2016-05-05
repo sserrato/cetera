@@ -1,12 +1,18 @@
 package com.socrata.cetera.services
 
+import javax.servlet.http.HttpServletRequest
 import scala.collection.mutable.ArrayBuffer
 
+import com.socrata.http.server.HttpRequest
+import com.socrata.http.server.HttpRequest.AugmentedHttpServletRequest
+import org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR
+import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
-import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, TestESData}
+import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient(testSuiteName)
@@ -85,5 +91,39 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
       FacetCount("tags", 0, ArrayBuffer()))
     facets should contain theSameElementsAs expectedFacets
     facets.foreach(f => f.count should be(f.values.map(_.count).sum))
+  }
+}
+
+class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {
+  //  ES is broken within this class because it's not Bootstrapped
+  val testSuiteName = "BrokenES"
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8036)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val service = new FacetService(documentClient, domainClient)
+
+  test("non fatal exceptions throw friendly error string") {
+    val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
+
+    val servReq = mock[HttpServletRequest]
+    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
+    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getQueryString)().returns("only=datasets")
+
+    val augReq = new AugmentedHttpServletRequest(servReq)
+
+    val httpReq = mock[HttpRequest]
+    httpReq.expects('servletRequest)().anyNumberOfTimes.returning(augReq)
+
+    val response = new MockHttpServletResponse()
+
+    val cname = "something.com"
+
+    service.aggregate(cname)(httpReq)(response)
+    response.getStatus shouldBe SC_INTERNAL_SERVER_ERROR
+    response.getHeader("Access-Control-Allow-Origin") shouldBe "*"
+    response.getContentAsString shouldBe expectedResults
   }
 }

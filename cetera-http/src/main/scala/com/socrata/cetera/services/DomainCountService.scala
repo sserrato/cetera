@@ -86,7 +86,7 @@ class DomainCountService(domainClient: DomainClient) {
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")
-        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(s"Database error", esError)
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
     }
   }
 

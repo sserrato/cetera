@@ -256,7 +256,7 @@ class SearchService(elasticSearchClient: DocumentClient,
         val msg = "Cetera search service error"
         val esError = ElasticsearchError(e)
         logger.error(s"$msg: $esError")
-        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError(msg, esError)
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
     }
   }
 

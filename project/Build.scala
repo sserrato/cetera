@@ -67,7 +67,7 @@ object Deps {
     Classpaths.sbtPluginReleases
   )
 
-  lazy val http = common ++ logging ++ rojoma ++ socrata
+  lazy val http = common ++ logging ++ rojoma ++ socrata ++ testing
   lazy val perf = common ++ rojoma
 
   lazy val common = Seq(
@@ -95,4 +95,9 @@ object Deps {
     "com.socrata" %% "socrata-thirdparty-utils" % "4.0.12",
     "com.socrata" %% "balboa-client" % "0.16.15"
   ).map { _.excludeAll(ExclusionRule(organization = "com.rojoma")) }
+
+  lazy val testing = Seq(
+    "org.scalamock" %% "scalamock-scalatest-support" % "3.2.2" % "test",
+    "org.springframework" % "spring-test" % "3.2.10.RELEASE" % "test"
+  )
 }

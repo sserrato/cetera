@@ -7,7 +7,7 @@ Basically a wrapper around elasticsearch to enable keyword search to return data
 By default, cetera runs on port 5704.
 
 ## Run locally
-`sbt run`
+`sbt cetera-http/run`
 
 ## Endpoints!
 

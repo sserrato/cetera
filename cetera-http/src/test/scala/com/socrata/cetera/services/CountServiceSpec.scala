@@ -1,14 +1,21 @@
 package com.socrata.cetera.services
 
+import javax.servlet.http.HttpServletRequest
+
 import com.rojoma.json.v3.ast.{JNumber, JString}
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.interpolation._
+import com.socrata.http.server.HttpRequest
+import com.socrata.http.server.HttpRequest.AugmentedHttpServletRequest
+import org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR
+import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.springframework.mock.web.MockHttpServletResponse
 
-import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESData, TestESClient}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.SearchResults
+import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
@@ -152,5 +159,39 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
     val expectedResults = List(Count("1-one",3), Count("3-three",1))
     val (res, _) = service.doAggregate(DomainTagsFieldType, Map.empty, None)
     res.results should contain theSameElementsAs expectedResults
+  }
+}
+
+class CountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {
+//  ES is broken within this class because it's not Bootstrapped
+  val testSuiteName = "BrokenES"
+  val client: ElasticSearchClient = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8033)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val service = new CountService(documentClient, domainClient)
+
+  test("non fatal exceptions throw friendly error string") {
+    val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
+
+    val servReq = mock[HttpServletRequest]
+    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
+    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getQueryString)().returns("only=datasets")
+
+    val augReq = new AugmentedHttpServletRequest(servReq)
+
+    val httpReq = mock[HttpRequest]
+    httpReq.expects('servletRequest)().anyNumberOfTimes.returning(augReq)
+
+    val response = new MockHttpServletResponse()
+
+    val field = DomainCategoryFieldType
+
+    service.aggregate(field)(httpReq)(response)
+    response.getStatus shouldBe SC_INTERNAL_SERVER_ERROR
+    response.getHeader("Access-Control-Allow-Origin") shouldBe "*"
+    response.getContentAsString shouldBe expectedResults
   }
 }

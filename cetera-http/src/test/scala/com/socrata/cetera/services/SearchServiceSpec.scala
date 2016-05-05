@@ -2,11 +2,15 @@ package com.socrata.cetera.services
 
 import java.io.File
 import java.nio.charset.{Charset, CodingErrorAction}
+import javax.servlet.http.HttpServletRequest
 import scala.collection.JavaConverters._
 
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.simplearm.v2.managed
+import com.socrata.http.server.HttpRequest
+import com.socrata.http.server.HttpRequest.AugmentedHttpServletRequest
+import org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR
 import org.elasticsearch.action.search._
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.text.StringText
@@ -15,7 +19,9 @@ import org.elasticsearch.search.facet.{Facet, InternalFacets}
 import org.elasticsearch.search.internal._
 import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
+import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
@@ -491,3 +497,38 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     }
   }
 }
+
+class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {
+  //  ES is broken within this class because it's not Bootstrapped
+  val testSuiteName = "BrokenES"
+  val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8037)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
+  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
+  val balboaDir = new File("balboa_test_trash")
+  val balboaClient = new BalboaClient(balboaDir.getName)
+  val service = new SearchService(documentClient, domainClient, balboaClient)
+
+  test("non fatal exceptions throw friendly error string") {
+    val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
+
+    val servReq = mock[HttpServletRequest]
+    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
+    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getQueryString)().returns("only=datasets")
+
+    val augReq = new AugmentedHttpServletRequest(servReq)
+
+    val httpReq = mock[HttpRequest]
+    httpReq.expects('servletRequest)().anyNumberOfTimes.returning(augReq)
+
+    val response = new MockHttpServletResponse()
+
+    service.search(httpReq)(response)
+    response.getStatus shouldBe SC_INTERNAL_SERVER_ERROR
+    response.getHeader("Access-Control-Allow-Origin") shouldBe "*"
+    response.getContentAsString shouldBe expectedResults
+  }
+}
+
