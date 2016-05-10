@@ -266,6 +266,23 @@
               }
             }
           }
+        },
+        "owner": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "index": "not_analyzed"
+            },
+            "screen_name": {
+              "type": "string",
+              "analyzer": "case_insensitive_en",
+              "fields": {
+                "analyzed": { "type": "string", "analyzer": "snowball_en" },
+                "raw": { "type": "string", "index": "not_analyzed" }
+              },
+              "copy_to": [ "fts_analyzed", "fts_raw" ]
+            }
+          }
         }
       }
     },

@@ -153,6 +153,27 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     }
   }
 
+  "DocumentFilters: userFilter" should {
+    "return the expected filter if no user is given" in {
+      val userFilter = DocumentFilters.userFilter(None)
+      userFilter should be(None)
+    }
+
+    "return the expected filter if some user is given" in {
+      val userFilter = DocumentFilters.userFilter(Some("wonder-woman"))
+      val expected = j"""{ "terms": { "owner.id": [ "wonder-woman" ] } }"""
+      val actual = JsonReader.fromString(userFilter.get.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter if a prefix is used" in {
+      val userFilter = DocumentFilters.userFilter(Some("wonder-woman"), "document.")
+      val expected = j"""{ "terms": { "document.owner.id": [ "wonder-woman" ] } }"""
+      val actual = JsonReader.fromString(userFilter.get.toString)
+      actual should be(expected)
+    }
+  }
+
   "DocumentFilters: domainIdsFilter" should {
     "return the expected filter if one id is given" in {
       val domainIdFilter = DocumentFilters.domainIdsFilter(Set(1))

@@ -20,7 +20,8 @@ case class ValidatedQueryParameters(
     showScore: Boolean,
     offset: Int,
     limit: Int,
-    sortOrder: Option[String]
+    sortOrder: Option[String],
+    user: Option[String]
 )
 
 // NOTE: this is really a validation error, not a parse error
@@ -146,6 +147,10 @@ object QueryParametersParser {
     restrictParamFilterType(queryParameters.first(Params.filterType))
   }
 
+  def prepareUsers(queryParameters: MultiQueryParams): Option[String] = {
+    queryParameters.first(Params.filterUser)
+  }
+
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
     // TODO: EN-1401 - don't just take head, allow for mulitple selections
@@ -255,7 +260,8 @@ object QueryParametersParser {
             prepareShowScore(queryParameters),
             prepareOffset(queryParameters),
             prepareLimit(queryParameters),
-            prepareSortOrder(queryParameters)
+            prepareSortOrder(queryParameters),
+            prepareUsers(queryParameters)
           )
         )
       case Left(e) => Left(Seq(e))
@@ -271,6 +277,7 @@ object Params {
   val filterTags = "tags"
   val filterTagsArray = "tags[]"
   val filterType = "only"
+  val filterUser = "for_user"
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
@@ -342,6 +349,7 @@ object Params {
     filterCategories,
     filterTags,
     filterType,
+    filterUser,
     queryAdvanced,
     querySimple,
     boostColumns,

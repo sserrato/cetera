@@ -215,6 +215,7 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
           params.categories,
           params.tags,
           params.only,
+          params.user,
           params.fieldBoosts,
           params.datatypeBoosts,
           domainIdBoosts,
@@ -225,7 +226,6 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
           params.sortOrder
         )
         logger.info(LogHelper.formatEsRequest(req))
-
         val res = req.execute.actionGet
         val count = res.getHits.getTotalHits
 

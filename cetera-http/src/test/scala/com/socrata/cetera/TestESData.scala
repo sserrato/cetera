@@ -93,7 +93,11 @@ trait TestESData {
       | "customer_tags": [
       |   %s
       | ],
-      | "update_freq": %s
+      | "update_freq": %s,
+      | "owner" : {
+      |   "id": %s,
+      |   "screen_name": %s
+      | }
       |}
     """.stripMargin
 
@@ -134,7 +138,9 @@ trait TestESData {
                          pageViewsTotal: String,
                          customerCategory: String,
                          customerTags: Seq[String],
-                         updateFreq: Long): String = {
+                         updateFreq: Long,
+                         ownerId: String,
+                         ownerScreenName: String): String = {
     val doc = esDocTemplate.format(
       quoteQualify(socrataIdDatasetId),
       domainId.toString,
@@ -165,7 +171,9 @@ trait TestESData {
       pageViewsTotal,
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
-      updateFreq.toString)
+      updateFreq.toString,
+      quoteQualify(ownerId),
+      quoteQualify(ownerScreenName))
     doc
   }
 
@@ -201,7 +209,9 @@ trait TestESData {
       pageViewsTotal(i % pageViewsTotal.length),
       domainCategories(i % domainCategories.length),
       domainTags(i % domainTags.length),
-      updateFreqs(i % updateFreqs.length))
+      updateFreqs(i % updateFreqs.length),
+      ownerIds(i % ownerIds.length),
+      ownerScreenNames(i % ownerScreenNames.length))
   }
 
   val domainsWithData = domains.slice(0,4).map(d => d.domainCname)
@@ -238,6 +248,8 @@ trait TestESData {
   val domainCategories = Seq("Alpha", "Beta", "Gamma", "")
   val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
   val updateFreqs = Seq(1, 2, 3, 4)
+  val ownerIds = Seq("robin-hood", "lil-john")
+  val ownerScreenNames = Seq("Robin Hood", "Little John")
 
   private def indexSettings: String = {
     val s = Source.fromInputStream(getClass.getResourceAsStream("/esSettings.json")).getLines().mkString("\n")
@@ -292,7 +304,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L
+        "42", "Fun", Seq.empty, 0L, "robin-hood", "Robin Hood"
       )),
       (3, buildEsDoc(
         "zeta-0002", 3,
@@ -302,7 +314,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L
+        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John"
       )),
       (0, buildEsDoc(
         "zeta-0003", 0,
@@ -312,7 +324,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Private", Seq.empty, 0L
+        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood"
       )),
       (0, buildEsDoc(
         "zeta-0004", 0,
@@ -322,7 +334,16 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isDefaultView = false, None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Standalone", Seq.empty, 0L
+        "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John"
+      )),
+      (3, buildEsDoc(
+        "zeta-0005", 3,
+        "another john owned document", "zeta-0005", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0005", Seq.empty, "", Map.empty, Map.empty,
+        TypeDatasets.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty, Map.empty,
+        isPublic = true, isDefaultView = true, Some(true), Seq(3), isApprovedByParentDomain = true,
+        "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane"
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)

@@ -35,14 +35,16 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     mockDomainClient.expects('findRelevantDomains)(None, None, Some("c=cookie"), Some("1"))
       .returns((None, Set.empty, 123L, expectedSetCookie))
 
-    mockDocumentClient.expects('buildSearchRequest)(NoQuery, Set(), None, None, None, None, None, Map(), Map(), Map(), None, None, 0, 100, None)
+    mockDocumentClient.expects('buildSearchRequest)(NoQuery, Set(), None, None, None, None, None, None,
+      Map(), Map(), Map(), None, None, 0, 100, None)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]
     servReq.expects('getMethod)().anyNumberOfTimes.returns("GET")
     servReq.expects('getRequestURI)().anyNumberOfTimes.returns("/test")
     servReq.expects('getHeaderNames)().anyNumberOfTimes.returns(Collections.emptyEnumeration[String]())
-    servReq.expects('getInputStream)().anyNumberOfTimes.returns(new DelegatingServletInputStream(new ByteArrayInputStream("".getBytes)))
+    servReq.expects('getInputStream)().anyNumberOfTimes.returns(
+      new DelegatingServletInputStream(new ByteArrayInputStream("".getBytes)))
     servReq.expects('getHeader)(HeaderCookieKey).returns("c=cookie")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(null)
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")

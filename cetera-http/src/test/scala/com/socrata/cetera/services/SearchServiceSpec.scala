@@ -353,8 +353,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         fxf-3   t   n   0   f
         fxf-7   f   n   2   f
         zeta-2  f   t   2,3 t
+        zeta-5  t   n   3   t
      */
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002")
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005")
     // this shows that:
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
@@ -408,6 +409,29 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     // only these fxfs are approved by search context AND parent domain:
     val expectedFxfs = Set("fxf-10", "zeta-0002")
     val res = service.doSearch(params, None, None, None)._1.results
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("if a user is provided, only datasets owned by that user should show up") {
+    val params = Map(
+      "for_user" -> "robin-hood"
+    ).mapValues(Seq(_))
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001")
+    val res = service.doSearch(params, None, None, None)._1.results
+
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("if a user's name is queried, datasets with a matching owner:screen_name should show up") {
+    val params = Map(
+      "q" -> "John"
+    ).mapValues(Seq(_))
+
+    val expectedFxfs = Set("zeta-0002", "zeta-0005")
+    val res = service.doSearch(params, None, None, None)._1.results
+
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }

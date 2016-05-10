@@ -20,19 +20,21 @@ import com.socrata.cetera.util._
 
 class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
+  val bucketName = "buckets"
 
   // Possibly belongs in the client
   def extract(body: JValue): Either[DecodeError, Seq[JValue]]= {
     val buckets = Variable.decodeOnly[Seq[JValue]]
 
-    // These have to jive with 'terms' and 'nested' fields in
-    // ../search/Aggregations.scala
+    // This defines how to extract the buckets from the search defined in DocumentAggregations.
+    // The key in the aggregations object should match the 'terms' defined in the AggregationBuilders there.
     val pattern = PObject(
       "aggregations" -> FirstOf(
-        PObject("domains" -> PObject("buckets" -> buckets)),
-        PObject("domain_categories" -> PObject("buckets" -> buckets)),
-        PObject("domain_tags" -> PObject("buckets" -> buckets)),
-        PObject("annotations" -> PObject("names" -> PObject("buckets" -> buckets)))))
+        PObject("domains" -> PObject(bucketName -> buckets)),
+        PObject("domain_categories" -> PObject(bucketName -> buckets)),
+        PObject("domain_tags" -> PObject(bucketName -> buckets)),
+        PObject("annotations" -> PObject("names" -> PObject(bucketName -> buckets))),
+        PObject("owners" -> PObject(bucketName -> buckets))))
 
     pattern.matches(body).right.map(buckets)
   }
@@ -65,7 +67,8 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
           searchContext,
           params.categories,
           params.tags,
-          params.only
+          params.only,
+          params.user
         )
         logger.info(LogHelper.formatEsRequest(search))
 
@@ -90,6 +93,7 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
       case TagsFieldType => Count.encode("tag")
       case DomainCategoryFieldType => Count.encode("domain_category")
       case DomainTagsFieldType => Count.encode("domain_tag")
+      case OwnerIdFieldType => Count.encode("owner_id")
     }
 
     try {

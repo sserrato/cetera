@@ -9,8 +9,7 @@ import com.socrata.cetera._
 import com.socrata.cetera.types._
 
 object DocumentAggregations {
-  // The 'terms' and 'nested' fields need to jive with
-  // ../services/CountService.scala
+  // The 'terms' used in the AggregationBuilders below need to be accounted for in the CountService val 'pattern'.
 
   private val aggSize = 0 // agg count unlimited
 
@@ -50,6 +49,13 @@ object DocumentAggregations {
           .size(aggSize)
       )
 
+  val owners =
+    AggregationBuilders
+      .terms("owners")
+      .field(OwnerIdFieldType.rawFieldName)
+      .order(Terms.Order.count(false)) // count desc
+      .size(aggSize)
+
   def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
     field match {
       case DomainCategoryFieldType => domainCategories
@@ -57,6 +63,8 @@ object DocumentAggregations {
 
       case CategoriesFieldType => categories
       case TagsFieldType => tags
+
+      case OwnerIdFieldType => owners
     }
 }
 

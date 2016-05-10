@@ -52,6 +52,12 @@ object DocumentFilters {
     termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)
   }
 
+  def userFilter(user: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
+    user.map(userFilter(_, aggPrefix))
+
+  def userFilter(user: String, aggPrefix: String): FilterBuilder =
+    termsFilter(aggPrefix + OwnerIdFieldType.fieldName, user)
+
   // Don't call me unless you actually want to build a filter
   def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): FilterBuilder =
     termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)

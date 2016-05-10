@@ -72,7 +72,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     showScore = false,
     offset = 10,
     limit = 20,
-    sortOrder = Option("relevance") // should be the same as None
+    sortOrder = Option("relevance"), // should be the same as None
+    user = None
   )
 
   val shouldMatch = j"""{
@@ -338,6 +339,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         tags = None,
         domainMetadata = None,
         only = None,
+        user = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
         domainIdBoosts = Map.empty[Int, Float],
@@ -370,6 +372,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         tags = None,
         domainMetadata = None,
         only = None,
+        user = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
         domainIdBoosts = Map.empty[Int, Float],
@@ -402,6 +405,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         tags = None,
         domainMetadata = None,
         only = None,
+        user = None,
         fieldBoosts = params.fieldBoosts,
         datatypeBoosts = Map.empty,
         domainIdBoosts = Map.empty[Int, Float],
@@ -457,7 +461,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
-        only = params.only
+        only = params.only,
+        user = None
       )
 
       val actual = JsonReader.fromString(request.toString)
@@ -628,6 +633,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         tags = params.tags,
         domainMetadata = None,
         only = params.only,
+        user = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
         domainIdBoosts = Map.empty[Int, Float],
@@ -683,6 +689,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         tags = params.tags,
         domainMetadata = None,
         only = params.only,
+        user = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
         domainIdBoosts = Map.empty[Int, Float],

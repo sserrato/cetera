@@ -32,7 +32,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("count domains from unmoderated search context") {
     val expectedResults = List(
-      Count("annabelle.island.net", 1),
+      Count("annabelle.island.net", 2),
       Count("blue.org", 1),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 4))
@@ -45,7 +45,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("count domains from moderated search context") {
     val expectedResults = List(
-      Count("annabelle.island.net", 1),
+      Count("annabelle.island.net", 2),
       Count("blue.org", 0),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 1))
@@ -58,7 +58,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("count domains default to include only unlocked customer domains") {
     val expectedResults = List(
-      Count("annabelle.island.net", 1),
+      Count("annabelle.island.net", 2),
       Count("blue.org", 1),
       Count("dylan.demo.socrata.com", 0),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden

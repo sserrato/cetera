@@ -51,6 +51,11 @@ sealed trait Rawable extends CeteraFieldType {
   lazy val rawFieldName: String = fieldName + ".raw"
 }
 
+// For fields that are natively "raw", i.e. "not_analyzed"
+sealed trait NativelyRawable extends Rawable {
+  override lazy val rawFieldName: String = fieldName
+}
+
 // For key-value things like custom metadata fields
 sealed trait Mapable extends CeteraFieldType {
   val Key: NestedField
@@ -103,6 +108,10 @@ case object TagsFieldType extends DocumentFieldType with Scorable with Rawable {
 // opposed to a Socrata-specific canonical category).
 case object DomainCategoryFieldType extends DocumentFieldType with Countable with Rawable {
   val fieldName: String = "customer_category"
+}
+
+case object OwnerIdFieldType extends DocumentFieldType with Countable with NativelyRawable {
+  val fieldName: String = "owner.id"
 }
 
 

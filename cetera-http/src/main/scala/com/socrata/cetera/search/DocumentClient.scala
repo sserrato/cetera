@@ -17,6 +17,7 @@ trait BaseDocumentClient {
                           categories: Option[Set[String]],
                           tags: Option[Set[String]],
                           only: Option[Seq[String]],
+                          user: Option[String],
                           fieldBoosts: Map[CeteraFieldType with Boostable, Float],
                           datatypeBoosts: Map[Datatype, Float],
                           domainIdBoosts: Map[Int, Float],
@@ -34,7 +35,8 @@ trait BaseDocumentClient {
                          searchContext: Option[Domain],
                          categories: Option[Set[String]],
                          tags: Option[Set[String]],
-                         only: Option[Seq[String]])
+                         only: Option[Seq[String]],
+                         user: Option[String])
   : SearchRequestBuilder
 
   def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
@@ -131,6 +133,7 @@ class DocumentClient(
   private def buildDomainSpecificFilter(
       domains: Set[Domain],
       datatypes: Option[Seq[String]],
+      user: Option[String],
       searchContext: Option[Domain],
       domainMetadata: Option[Set[(String, String)]])
     : FilterBuilder = {
@@ -149,6 +152,7 @@ class DocumentClient(
     val filter = FilterBuilders.boolFilter()
     List.concat(
       datatypeFilter(datatypes), // I don't belong here
+      userFilter(user),  // This doesn't belong here either
       Some(domainFilter), // TODO: remove me since I am the superset!
       Some(publicFilter()),
       Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
@@ -160,6 +164,7 @@ class DocumentClient(
 
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
+      user: Option[String],
       domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -183,16 +188,16 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
-    // TODO: move datatypes and domainIds here from domainSpecificFilter
+    // TODO: move datatypes, user and domainIds here from domainSpecificFilter
     val categoriesAndTagsQuery =
       if (categoriesAndTags.nonEmpty) {
         categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
       } else { query }
 
     // domain-specific filter is largely about R&A, moderation, visibility, custom metadata
-    // but there are two filters there that don't really belong there: datatypes and domains
+    // but there are three filters there that don't really belong there: datatypes, user and domains
     val domainSpecificFilter =
-      buildDomainSpecificFilter(domains, datatypes, searchContext, domainMetadata)
+      buildDomainSpecificFilter(domains, datatypes, user, searchContext, domainMetadata)
 
     QueryBuilders.filteredQuery(
       categoriesAndTagsQuery,
@@ -244,6 +249,7 @@ class DocumentClient(
       tags: Option[Set[String]],
       domainMetadata: Option[Set[(String, String)]],
       only: Option[Seq[String]],
+      user: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
       domainIdBoosts: Map[Int, Float],
@@ -264,6 +270,7 @@ class DocumentClient(
 
     // Wrap basic match query in filtered query for filtering
     val filteredQuery = buildFilteredQuery(only,
+      user,
       domains,
       searchContext,
       categories,
@@ -293,6 +300,7 @@ class DocumentClient(
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       only: Option[Seq[String]],
+      user: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
       domainIdBoosts: Map[Int, Float],
@@ -311,6 +319,7 @@ class DocumentClient(
       tags,
       domainMetadata,
       only,
+      user,
       fieldBoosts,
       datatypeBoosts,
       domainIdBoosts,
@@ -338,7 +347,8 @@ class DocumentClient(
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
-      only: Option[Seq[String]])
+      only: Option[Seq[String]],
+      user: Option[String])
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
@@ -351,6 +361,7 @@ class DocumentClient(
       tags,
       None,
       only,
+      user,
       Map.empty,
       Map.empty,
       Map.empty,
@@ -394,7 +405,7 @@ class DocumentClient(
           .size(aggSize)))
 
     val domainSpecificFilter = domain
-      .map(d => buildDomainSpecificFilter(Set(d), None, None, None))
+      .map(d => buildDomainSpecificFilter(Set(d), None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders
