@@ -51,4 +51,13 @@ object LogHelper {
 
     sb.toString()
   }
+
+  def formatHttpResponseHeaders(headers: Seq[String]): String = {
+    val sb = StringBuilder.newBuilder
+
+    sb.append(s"sending http response with headers:\n")
+    sb.append(s"${headers.mkString("\n")}\n")
+
+    sb.toString()
+  }
 }

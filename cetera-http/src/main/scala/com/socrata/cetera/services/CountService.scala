@@ -7,7 +7,7 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{FirstOf, PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
+import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
@@ -46,7 +46,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
                   cookie: Option[String],
                   extendedHost: Option[String],
                   requestId: Option[String]
-                 ): (SearchResults[Count], InternalTimings) = {
+                 ): (SearchResults[Count], InternalTimings, Seq[String]) = {
     val now = Timings.now()
 
     QueryParametersParser(queryParameters, extendedHost) match {
@@ -55,7 +55,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (searchContext, queryDomains, domainSearchTime) =
+        val (searchContext, queryDomains, domainSearchTime, setCookies) =
           domainClient.findRelevantDomains(params.searchContext, params.domains, cookie, requestId)
 
         val search = documentClient.buildCountRequest(
@@ -79,7 +79,7 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
             throw new Exception("error!  ERROR!! DOES NOT COMPUTE")
         }
         val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
-        (formattedResults, timings)
+        (formattedResults, timings, setCookies)
     }
   }
 
@@ -97,9 +97,10 @@ class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
       val extendedHost = req.header(HeaderXSocrataHostKey)
       val requestId = req.header(HeaderXSocrataRequestIdKey)
 
-      val (formattedResults, timings) = doAggregate(field, req.multiQueryParams, cookie, extendedHost, requestId)
+      val (formattedResults, timings, setCookies) =
+        doAggregate(field, req.multiQueryParams, cookie, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
-      OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
+      Http.decorate(Json(formattedResults, pretty = true), OK, setCookies)
     } catch {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)

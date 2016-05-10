@@ -63,22 +63,26 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       domains: Set[Domain],
       cookie: Option[String],
       requestid: Option[String])
-    : (Option[Domain], Set[Domain]) = {
+    : (Option[Domain], Set[Domain], Seq[String]) = {
     val contextLocked = context.exists(_.isLocked)
     val (lockedDomains, unlockedDomains) = domains.partition(_.isLocked)
 
     if (!contextLocked && lockedDomains.isEmpty) {
-      (context, domains)
+      (context, domains, Seq.empty)
     } else {
-      val loggedInUser = coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
+      val (loggedInUser, setCookies) =
+        coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
       val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewCatalog))
       loggedInUser match {
         case Some(u) =>
           val viewableLockedDomains =
-            lockedDomains.filter(d => coreClient.fetchUserById(d.domainCname, u.id, requestid).exists(_.canViewCatalog))
-          (viewableContext, unlockedDomains ++ viewableLockedDomains)
+            lockedDomains.filter { d =>
+              val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
+              userId.exists(_.canViewCatalog)
+            }
+          (viewableContext, unlockedDomains ++ viewableLockedDomains, setCookies)
         case None => // user is not logged in and thus can see no locked data
-          (viewableContext, unlockedDomains)
+          (viewableContext, unlockedDomains, setCookies)
       }
     }
   }
@@ -90,7 +94,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       domainCnames: Option[Set[String]],
       cookie: Option[String],
       requestId: Option[String])
-    : (Option[Domain], Set[Domain], Long) = {
+    : (Option[Domain], Set[Domain], Long, Seq[String]) = {
 
     // We want to fetch all relevant domains (search context and relevant domains) in a single query
     // NOTE: the searchContext may be present as both the context and in the relevant domains
@@ -108,10 +112,10 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFound(c))
 
     // Remove domains that are locked domain and should be hidden from the user
-    val (viewableSearchContext, viewableDomains) =
+    val (viewableSearchContext, viewableDomains, setCookies) =
       removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie, requestId)
 
-    (viewableSearchContext, viewableDomains, timings)
+    (viewableSearchContext, viewableDomains, timings, setCookies)
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query

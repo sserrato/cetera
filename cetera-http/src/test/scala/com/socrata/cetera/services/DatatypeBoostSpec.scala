@@ -32,7 +32,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   }
 
   test("datatype boost - increases score when datatype matches") {
-    val (results, _) = service.doSearch(Map(
+    val (results, _, _) = service.doSearch(Map(
       Params.context -> "petercetera.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net",
       Params.querySimple -> "one",

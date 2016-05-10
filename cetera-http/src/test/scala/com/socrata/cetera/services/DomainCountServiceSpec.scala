@@ -36,7 +36,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("blue.org", 1),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 4))
-    val (res, _) = service.doAggregate(Map(
+    val (res, _, _) = service.doAggregate(Map(
       Params.context -> "petercetera.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), None, None, None)
@@ -49,7 +49,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("blue.org", 0),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 1))
-    val (res, _) = service.doAggregate(Map(
+    val (res, _, _) = service.doAggregate(Map(
       Params.context -> "annabelle.island.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), None, None, None)
@@ -64,7 +64,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 4))
-    val (res, _) = service.doAggregate(Map.empty, None, None, None)
+    val (res, _, _) = service.doAggregate(Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }

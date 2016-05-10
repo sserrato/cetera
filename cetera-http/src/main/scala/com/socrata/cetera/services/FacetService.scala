@@ -4,7 +4,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
+import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.search.aggregations.bucket.filter.Filter
@@ -37,9 +37,9 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings) = doAggregate(cname, cookie, requestId)
+          val (facets, timings, setCookies) = doAggregate(cname, cookie, requestId)
           logger.info(LogHelper.formatRequest(req, timings))
-          OK ~> HeaderAclAllowOriginAll ~> Json(facets)
+          Http.decorate(Json(facets, pretty = true), OK, setCookies)
         } catch {
           case DomainNotFound(e) =>
             val msg = s"Domain not found: $e"
@@ -57,10 +57,10 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   def doAggregate(cname: String,
                   cookie: Option[String],
                   requestId: Option[String]
-                 ): (Seq[FacetCount], InternalTimings) = {
+                 ): (Seq[FacetCount], InternalTimings, Seq[String]) = {
     val startMs = Timings.now()
 
-    val (domain, _, domainSearchTime) =
+    val (domain, _, domainSearchTime, setCookies) =
       domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie, requestId)
     domain match {
       case Some(d) => // domain exists and is viewable by user
@@ -93,11 +93,11 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
 
         val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
         val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
-        (facets, timings)
+        (facets, timings, setCookies)
       case None => // domain exists (otherwise DomainNotFound would be thrown) but user isn't authed to see this domain
         val facets = Seq.empty[FacetCount]
         val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
-        (facets, timings)
+        (facets, timings, setCookies)
     }
   }
 }
