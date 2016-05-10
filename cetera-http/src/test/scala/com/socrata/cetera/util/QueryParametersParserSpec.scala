@@ -72,7 +72,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
         "boostTitle" -> "9.0",
         "boostDesc" -> "8.0"
-      ).mapValues(Seq(_)))
+      ).mapValues(Seq(_)), None)
 
     vqps match {
       case Left(_) => fail("a ValidatedQueryParameters should be returned")
@@ -96,28 +96,28 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("no datatype boost params results in empty datatype boosts map") {
-    QueryParametersParser(Map("query" -> "crime").mapValues(Seq(_))) match {
+    QueryParametersParser(Map("query" -> "crime").mapValues(Seq(_)), None) match {
       case Right(params) => params.datatypeBoosts should have size 0
       case _ => fail()
     }
   }
 
   test("malformed datatype boost params result in empty datatype boosts map") {
-    QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0").mapValues(Seq(_))) match {
+    QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0").mapValues(Seq(_)), None) match {
       case Right(params) => params.datatypeBoosts should have size 0
       case _ => fail()
     }
   }
 
   test("well-formed datatype boost params validate") {
-    QueryParametersParser(Map("query" -> "crime", "boostDatasets" -> "5.0", "boostMaps" -> "2.0").mapValues(Seq(_))) match {
+    QueryParametersParser(Map("query" -> "crime", "boostDatasets" -> "5.0", "boostMaps" -> "2.0").mapValues(Seq(_)), None) match {
       case Right(params) => params.datatypeBoosts should have size 2
       case _ => fail()
     }
   }
 
   test("allow category with commas") {
-    QueryParametersParser(Map("categories" -> "Traffic, Parking, and Transportation").mapValues(Seq(_))) match {
+    QueryParametersParser(Map("categories" -> "Traffic, Parking, and Transportation").mapValues(Seq(_)), None) match {
       case Right(params) =>
         params.categories should be('defined)
         params.categories.get should have size 1
@@ -127,7 +127,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("allow tag with commas") {
-    QueryParametersParser(Map("tags" -> "this, probably, doesn't, happen, on, any, customer, sites").mapValues(Seq(_))) match {
+    QueryParametersParser(Map("tags" -> "this, probably, doesn't, happen, on, any, customer, sites").mapValues(Seq(_)), None) match {
       case Right(params) =>
         params.tags should be('defined)
         params.tags.get should have size 1
@@ -137,7 +137,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("allow multiple category parameters") {
-    QueryParametersParser(Map("categories" -> Seq("Traffic", "Parking", "Transportation"))) match {
+    QueryParametersParser(Map("categories" -> Seq("Traffic", "Parking", "Transportation")), None) match {
       case Right(params) =>
         params.categories should be('defined)
         params.categories.get should have size 3
@@ -147,7 +147,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("allow multiple tag parameters") {
-    QueryParametersParser(Map("tags" -> Seq("Traffic", "Parking", "Transportation"))) match {
+    QueryParametersParser(Map("tags" -> Seq("Traffic", "Parking", "Transportation")), None) match {
       case Right(params) =>
         params.tags should be('defined)
         params.tags.get should have size 3
@@ -157,7 +157,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("also allow categories[] parameters") {
-    QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz"))) match {
+    QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz")), None) match {
       case Right(params) =>
         params.categories should be('defined)
         params.categories.get should have size 4
@@ -167,7 +167,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("also allow tags[] parameters") {
-    QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz"))) match {
+    QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz")), None) match {
       case Right(params) =>
         params.tags should be('defined)
         params.tags.get should have size 4
@@ -261,7 +261,8 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
         knownNumericParams ++
         knownStringParams ++
         knownArrayParams ++
-        domainBoostExamples
+        domainBoostExamples,
+      None
     ) match {
       case Right(params) =>
         params.domainMetadata shouldNot be('defined)
@@ -271,7 +272,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   // just documenting that we do not support boostDomains without the []
   test ("boostDomains without [] gets interpreted as custom metadata") {
-    QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34"))) match {
+    QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34")), None) match {
       case Right(params) => params.domainMetadata match {
         case Some(metadata) => metadata should be(Set("boostDomains" -> "1.23", "pants" -> "2.34"))
         case None => fail("expected to see boostDomains show up in metadata")
@@ -282,7 +283,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&
   test("handle empty query string param key") {
-    QueryParametersParser(Map("" -> Seq())) match {
+    QueryParametersParser(Map("" -> Seq()), None) match {
       case Right(params) => ()
       case _ => fail()
     }
@@ -290,7 +291,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&one+extra
   test("handle empty query string param value") {
-    QueryParametersParser(Map("one extra" -> Seq())) match {
+    QueryParametersParser(Map("one extra" -> Seq()), None) match {
       case Right(params) => ()
       case _ => fail()
     }
@@ -302,7 +303,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[data.seattle.gov]" -> Seq("4.56")
     )
 
-    QueryParametersParser(domainBoosts) match {
+    QueryParametersParser(domainBoosts, None) match {
       case Right(params) => params.domainBoosts should be(
         Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f)
       )
@@ -316,7 +317,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[data.seattle.gov]" -> Seq("4.56")
     )
 
-    QueryParametersParser(domainBoosts) match {
+    QueryParametersParser(domainBoosts, None) match {
       case Right(params) => params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
@@ -330,7 +331,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[]" -> Seq()
     )
 
-    QueryParametersParser(domainBoosts) match {
+    QueryParametersParser(domainBoosts, None) match {
       case Right(params) => params.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
@@ -341,7 +342,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[boostDomains[example.com]]" -> Seq("1.23")
     )
 
-    QueryParametersParser(domainBoosts) match {
+    QueryParametersParser(domainBoosts, None) match {
       case Right(params) => params.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
       case _ => fail()
     }
@@ -353,7 +354,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       Params.boostDomains + "[example.com]" -> Seq("1.23")
     )
 
-    QueryParametersParser(params) match {
+    QueryParametersParser(params, None) match {
       case Right(p) => p.domainBoosts should be(Map("example.com" -> 1.23f))
       case _ => fail()
     }
@@ -367,7 +368,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       Params.boostDomains -> Seq("1.23")
     )
 
-    QueryParametersParser(params) match {
+    QueryParametersParser(params, None) match {
       case Right(p) => p.domainBoosts should be(Map.empty[String, Float])
       case _ => fail()
     }
@@ -376,7 +377,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   test("sort order can be parsed") {
     val sortOrder = Map("order" -> Seq("page_views_total"))
 
-    QueryParametersParser(sortOrder) match {
+    QueryParametersParser(sortOrder, None) match {
       case Right(params) => params.sortOrder should be(Some("page_views_total"))
       case _ => fail()
     }
@@ -385,7 +386,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   test("an upper bound of 10000 is imposed on the limit parameter") {
     val limit = Map("limit" -> Seq("100000"))
 
-    QueryParametersParser(limit) match {
+    QueryParametersParser(limit, None) match {
       case Right(params) => params.limit should be(10000)
       case _ => fail()
     }
@@ -394,7 +395,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   test("a limit param of less than 10000 is allowed") {
     val limit = Map("limit" -> Seq("100"))
 
-    QueryParametersParser(limit) match {
+    QueryParametersParser(limit, None) match {
       case Right(params) => params.limit should be(100)
       case _ => fail()
     }

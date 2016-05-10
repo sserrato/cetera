@@ -9,10 +9,10 @@ import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
+import com.socrata.cetera._
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.Params
-import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
   val client = new TestESClient(testSuiteName)
@@ -39,7 +39,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     val (res, _) = service.doAggregate(Map(
       Params.context -> "petercetera.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
-      .mapValues(Seq(_)), None)
+      .mapValues(Seq(_)), None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -52,7 +52,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     val (res, _) = service.doAggregate(Map(
       Params.context -> "annabelle.island.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
-      .mapValues(Seq(_)), None)
+      .mapValues(Seq(_)), None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -64,7 +64,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 4))
-    val (res, _) = service.doAggregate(Map.empty, None)
+    val (res, _) = service.doAggregate(Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }
@@ -82,8 +82,9 @@ class DomainCountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
-    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
-    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
+    servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
+    servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
     servReq.expects('getQueryString)().returns("only=datasets")
 
     val augReq = new AugmentedHttpServletRequest(servReq)

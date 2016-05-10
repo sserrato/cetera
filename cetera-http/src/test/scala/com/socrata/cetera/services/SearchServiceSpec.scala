@@ -1,7 +1,8 @@
 package com.socrata.cetera.services
 
-import java.io.File
+import java.io.{ByteArrayInputStream, File}
 import java.nio.charset.{Charset, CodingErrorAction}
+import java.util.Collections
 import javax.servlet.http.HttpServletRequest
 import scala.collection.JavaConverters._
 
@@ -21,7 +22,7 @@ import org.elasticsearch.search.suggest.Suggest
 import org.elasticsearch.search.{SearchHitField, SearchShardTarget}
 import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
-import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.mock.web.{DelegatingServletInputStream, MockHttpServletResponse}
 
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
@@ -273,7 +274,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   }
 
   test("search response contains pretty and perma links") {
-    service.doSearch(Map.empty, None)._1.results.foreach { r =>
+    service.doSearch(Map.empty, None, None, None)._1.results.foreach { r =>
       val dsid = r.resource.dyn.id.!.asInstanceOf[JString].string
 
       val perma = "(d|stories/s|view)"
@@ -292,7 +293,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "opendata-demo.socrata.com",
       "q" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, None)._1.results
+    service.doSearch(params, None, None, None)._1.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
   }
@@ -304,7 +305,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "opendata-demo.socrata.com",
       "q_internal" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, None)._1.results
+    service.doSearch(params, None, None, None)._1.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
   }
@@ -315,7 +316,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "domains" -> "opendata-demo.socrata.com,petercetera.net",
       "q" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, None)._1.results
+    service.doSearch(params, None, None, None)._1.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(false)
   }
@@ -358,7 +359,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
     //   * that non-customer domains don't show up
-    val (res, _) = service.doSearch(Map.empty, None)
+    val (res, _) = service.doSearch(Map.empty, None, None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -369,7 +370,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       Params.filterDomains -> "petercetera.net",
       Params.context -> "petercetera.net",
       Params.querySimple -> "private"
-    ).mapValues(Seq(_)), None)
+    ).mapValues(Seq(_)), None, None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -382,7 +383,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // of those fxfs, only show: fxf-1 is approved and fxf-8 is a default view
     val expectedFxfs = Set("fxf-1", "fxf-8")
-    val res = service.doSearch(params, None)._1.results
+    val res = service.doSearch(params, None, None, None)._1.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -394,7 +395,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // only these fxfs are approved by parent domain:
     val expectedFxfs = Set("fxf-10")
-    val res = service.doSearch(params, None)._1.results
+    val res = service.doSearch(params, None, None, None)._1.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -406,7 +407,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // only these fxfs are approved by search context AND parent domain:
     val expectedFxfs = Set("fxf-10", "zeta-0002")
-    val res = service.doSearch(params, None)._1.results
+    val res = service.doSearch(params, None, None, None)._1.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -419,9 +420,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None)
-    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None)
-    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None)
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None, None, None)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None, None, None)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None, None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -436,9 +437,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None)
-    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None)
-    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None)
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None, None, None)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None, None, None)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None, None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -452,9 +453,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None)
-    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None)
-    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None)
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None, None, None)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None, None, None)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None, None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -469,9 +470,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None)
-    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None)
-    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None)
+    val (resultsTitleCase, _) = service.doSearch(paramsTitleCase, None, None, None)
+    val (resultsLowerCase, _) = service.doSearch(paramsLowerCase, None, None, None)
+    val (resultsUpperCase, _) = service.doSearch(paramsUpperCase, None, None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -479,7 +480,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("sorting by name works") {
     val params = Map("order" -> Seq("name"))
-    val (results, _) = service.doSearch(params, None)
+    val (results, _) = service.doSearch(params, None, None, None)
     val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.head
     val firstResult = results.results.head.resource.dyn("name").? match {
       case Right(n) => n should be (JString(expected))
@@ -489,7 +490,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("sorting by name DESC works") {
     val params = Map("order" -> Seq("name DESC"))
-    val (results, _) = service.doSearch(params, None)
+    val (results, _) = service.doSearch(params, None, None, None)
     val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.last
     val firstResult = results.results.head.resource.dyn("name").? match {
       case Right(n) => n should be (JString(expected))
@@ -514,8 +515,13 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
-    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
-    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getMethod)().anyNumberOfTimes.returns("GET")
+    servReq.expects('getRequestURI)().anyNumberOfTimes.returns("/test")
+    servReq.expects('getHeaderNames)().anyNumberOfTimes.returns(Collections.emptyEnumeration[String]())
+    servReq.expects('getInputStream)().anyNumberOfTimes.returns(new DelegatingServletInputStream(new ByteArrayInputStream("".getBytes)))
+    servReq.expects('getHeader)(HeaderCookieKey).returns("ricky=awesome")
+    servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(null)
+    servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
     servReq.expects('getQueryString)().returns("only=datasets")
 
     val augReq = new AugmentedHttpServletRequest(servReq)
@@ -531,4 +537,3 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
     response.getContentAsString shouldBe expectedResults
   }
 }
-

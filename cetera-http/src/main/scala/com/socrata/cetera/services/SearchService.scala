@@ -172,15 +172,16 @@ class SearchService(elasticSearchClient: DocumentClient,
       searchContext: Option[String],
       queryDomainNames: Option[Set[String]],
       domainBoosts: Map[String, Float],
-      cookie: Option[String])
+      cookie: Option[String],
+      requestId: Option[String])
     : (Option[Domain], Set[Domain], Map[Int, Float], Long) = {
 
     // If searchContext is missing, findRelevantDomains will throw DomainNotFound exception
     val (searchContextDomain, queryDomains, domainSearchTime) =
-      domainClient.findRelevantDomains(searchContext, queryDomainNames, cookie)
+      domainClient.findRelevantDomains(searchContext, queryDomainNames, cookie, requestId)
 
     // WARN: Inner loop means polytime, but these _should_ be small
-    val allDomains = (searchContextDomain ++ queryDomains)
+    val allDomains = searchContextDomain ++ queryDomains
     val domainIdBoosts = domainBoosts.flatMap { case (cname: String, weight: Float) =>
       allDomains.collect { case d: Domain if d.domainCname == cname =>
         d.domainId -> weight
@@ -191,17 +192,20 @@ class SearchService(elasticSearchClient: DocumentClient,
   }
 
   def doSearch(queryParameters: MultiQueryParams,
-               cookie: Option[String]): (SearchResults[SearchResult], InternalTimings) = {
+               cookie: Option[String],
+               extendedHost: Option[String],
+               requestId: Option[String]
+              ): (SearchResults[SearchResult], InternalTimings) = {
     val now = Timings.now()
 
-    QueryParametersParser(queryParameters) match {
+    QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
         val (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime) =
-          prepareDomainParams(params.searchContext, params.domains, params.domainBoosts, cookie)
+          prepareDomainParams(params.searchContext, params.domains, params.domainBoosts, cookie, requestId)
 
         val req = elasticSearchClient.buildSearchRequest(
           params.searchQuery,
@@ -228,7 +232,7 @@ class SearchService(elasticSearchClient: DocumentClient,
         val idCnames = extractDomainCnames(
           queryDomains.map(d => d.domainId -> d.domainCname).toMap,
           res.getHits
-        ).toMap
+        )
 
         val formattedResults: SearchResults[SearchResult] = format(idCnames, params.showScore, res)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
@@ -240,10 +244,16 @@ class SearchService(elasticSearchClient: DocumentClient,
 
   // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
+    logger.debug(LogHelper.formatHttpRequestVerbose(req))
+
+    val cookie = req.header(HeaderCookieKey)
+    val extendedHost = req.header(HeaderXSocrataHostKey)
+    val requestId = req.header(HeaderXSocrataRequestIdKey)
+
     try {
-      val (formattedResults, timings) = doSearch(req.multiQueryParams, req.header("Cookie"))
-          logger.info(LogHelper.formatRequest(req, timings))
-          OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
+      val (formattedResults, timings) = doSearch(req.multiQueryParams, cookie, extendedHost, requestId)
+      logger.info(LogHelper.formatRequest(req, timings))
+      OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)

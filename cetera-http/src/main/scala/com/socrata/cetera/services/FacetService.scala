@@ -27,13 +27,17 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
 
   def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
-    QueryParametersParser(req) match {
+    val cookie = req.header(HeaderCookieKey)
+    val extendedHost = req.header(HeaderXSocrataHostKey)
+    val requestId = req.header(HeaderXSocrataRequestIdKey)
+
+    QueryParametersParser(req.multiQueryParams, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings) = doAggregate(cname, req.header("Cookie"))
+          val (facets, timings) = doAggregate(cname, cookie, requestId)
           logger.info(LogHelper.formatRequest(req, timings))
           OK ~> HeaderAclAllowOriginAll ~> Json(facets)
         } catch {
@@ -50,10 +54,14 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
   // $COVERAGE-ON$
 
-  def doAggregate(cname: String, cookie: Option[String]): (Seq[FacetCount], InternalTimings) = {
+  def doAggregate(cname: String,
+                  cookie: Option[String],
+                  requestId: Option[String]
+                 ): (Seq[FacetCount], InternalTimings) = {
     val startMs = Timings.now()
 
-    val (domain, _, domainSearchTime) = domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie)
+    val (domain, _, domainSearchTime) =
+      domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie, requestId)
     domain match {
       case Some(d) => // domain exists and is viewable by user
         val request = documentClient.buildFacetRequest(domain)

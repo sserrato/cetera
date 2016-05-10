@@ -3,9 +3,12 @@ package com.socrata.cetera.authentication
 import scala.util.control.NonFatal
 
 import com.rojoma.simplearm.v2.{ResourceScope, using}
-import com.socrata.http.client.{RequestBuilder, HttpClientHttpClient}
+import com.socrata.http.client.{HttpClientHttpClient, RequestBuilder}
 import org.apache.http.HttpStatus._
 import org.slf4j.LoggerFactory
+
+import com.socrata.cetera._
+import com.socrata.cetera.util.LogHelper
 
 class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
                  connectTimeoutMs: Int, appToken: Option[String]) {
@@ -19,28 +22,45 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
     .connectTimeoutMS(connectTimeoutMs)
     .addHeaders(headers)
 
-  def optionallyGetUserByCookie(domain: Option[String], cookie: Option[String]): Option[User] = {
-   (domain, cookie) match {
-     case (Some(cname), None) =>
-       logger.warn("Search context was provided without cookie. Not validating user.")
-       None
-     case (None, Some(nomNom)) =>
+  private def coreRequest(paths: Iterable[String],
+                          params: Map[String, String],
+                          domain: Option[String] = None,
+                          cookie: Option[String] = None,
+                          requestId: Option[String] = None
+                         ): RequestBuilder = {
+    val headers = List(
+      domain.map((HeaderXSocrataHostKey, _)),
+      cookie.map((HeaderCookieKey, _)),
+      requestId.map((HeaderXSocrataRequestIdKey, _))
+    ).flatten
+
+    coreBaseRequest
+      .addPaths(paths)
+      .addParameters(params)
+      .addHeaders(headers)
+  }
+
+  def optionallyGetUserByCookie(domain: Option[String],
+                                cookie: Option[String],
+                                requestId: Option[String]
+                               ): Option[User] = {
+    (domain, cookie) match {
+      case (Some(cname), None) =>
+        logger.warn("Search context was provided without cookie. Not validating user.")
+        None
+      case (None, Some(nomNom)) =>
         logger.warn("Cookie provided without search context. Not validating user.")
         None
-     case (Some(cname), Some(nomNom)) => fetchUserByCookie(cname, nomNom)
-     case (None, None) => None
+      case (Some(cname), Some(nomNom)) => fetchUserByCookie(cname, nomNom, requestId)
+      case (None, None) => None
     }
   }
 
-  def fetchUserByCookie(domain: String, cookie: String): Option[User] = {
+  def fetchUserByCookie(domain: String, cookie: String, requestId: Option[String]): Option[User] = {
     if (cookie.nonEmpty) {
-      val req = coreBaseRequest
-        .addPath("users.json")
-        .addParameters(Map("method" -> "getCurrent"))
-        .addHeader(("X-Socrata-Host", domain))
-        .addHeader(("Cookie", cookie))
-
+      val req = coreRequest(List("users.json"), Map("method" -> "getCurrent"), Some(domain), Some(cookie), requestId)
       logger.info(s"Validating user on domain $domain")
+      logger.debug(LogHelper.formatSimpleHttpRequestBuilderVerbose(req))
       using(new ResourceScope(s"retrieving current user from core")) { rs =>
         try {
           val res = httpClient.execute(req.get, rs)
@@ -69,12 +89,11 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
     }
   }
 
-  def fetchUserById(domain: String, id: String): Option[User] = {
-    val req = coreBaseRequest
-      .path(List("users", id))
-      .addHeader(("X-Socrata-Host", domain))
+  def fetchUserById(domain: String, id: String, requestId: Option[String]): Option[User] = {
+    val req = coreRequest(List("users", id), Map.empty, Some(domain), None, requestId)
 
     logger.info(s"Looking up user $id on domain $domain")
+    logger.debug(LogHelper.formatSimpleHttpRequestBuilderVerbose(req))
     using(new ResourceScope(s"retrieving user from core")) { rs =>
       try {
         val res = httpClient.execute(req.get, rs)
@@ -97,4 +116,3 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
     }
   }
 }
-

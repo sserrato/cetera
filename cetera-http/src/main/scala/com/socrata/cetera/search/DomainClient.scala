@@ -61,7 +61,8 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   def removeLockedDomainsForbiddenToUser(
       context: Option[Domain],
       domains: Set[Domain],
-      cookie: Option[String])
+      cookie: Option[String],
+      requestid: Option[String])
     : (Option[Domain], Set[Domain]) = {
     val contextLocked = context.exists(_.isLocked)
     val (lockedDomains, unlockedDomains) = domains.partition(_.isLocked)
@@ -69,12 +70,12 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     if (!contextLocked && lockedDomains.isEmpty) {
       (context, domains)
     } else {
-      val loggedInUser = coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie)
+      val loggedInUser = coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
       val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewCatalog))
       loggedInUser match {
         case Some(u) =>
           val viewableLockedDomains =
-            lockedDomains.filter(d => coreClient.fetchUserById(d.domainCname, u.id).exists(_.canViewCatalog))
+            lockedDomains.filter(d => coreClient.fetchUserById(d.domainCname, u.id, requestid).exists(_.canViewCatalog))
           (viewableContext, unlockedDomains ++ viewableLockedDomains)
         case None => // user is not logged in and thus can see no locked data
           (viewableContext, unlockedDomains)
@@ -87,7 +88,8 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   def findRelevantDomains(
       searchContextCname: Option[String],
       domainCnames: Option[Set[String]],
-      cookie: Option[String])
+      cookie: Option[String],
+      requestId: Option[String])
     : (Option[Domain], Set[Domain], Long) = {
 
     // We want to fetch all relevant domains (search context and relevant domains) in a single query
@@ -107,7 +109,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
 
     // Remove domains that are locked domain and should be hidden from the user
     val (viewableSearchContext, viewableDomains) =
-      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie)
+      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie, requestId)
 
     (viewableSearchContext, viewableDomains, timings)
   }

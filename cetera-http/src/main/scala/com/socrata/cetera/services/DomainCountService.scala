@@ -38,17 +38,20 @@ class DomainCountService(domainClient: DomainClient) {
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.documents.visible.doc_count.!) })
 
   def doAggregate(queryParameters: MultiQueryParams,
-                  cookie: Option[String]): (SearchResults[Count], InternalTimings) = {
+                  cookie: Option[String],
+                  extendedHost: Option[String],
+                  requestId: Option[String]
+                 ): (SearchResults[Count], InternalTimings) = {
     val now = Timings.now()
 
-    QueryParametersParser(queryParameters) match {
+    QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
         val (searchContext, queryDomains, domainSearchTime) =
-          domainClient.findRelevantDomains(params.searchContext, params.domains, cookie)
+          domainClient.findRelevantDomains(params.searchContext, params.domains, cookie, requestId)
 
         val search = domainClient.buildCountRequest(queryDomains, searchContext)
         logger.info(LogHelper.formatEsRequest(search))
@@ -72,7 +75,11 @@ class DomainCountService(domainClient: DomainClient) {
     implicit val cEncode = Count.encode(esDomainType)
 
     try {
-      val (formattedResults, timings) = doAggregate(req.multiQueryParams, req.header("Cookie"))
+      val cookie = req.header(HeaderCookieKey)
+      val extendedHost = req.header(HeaderXSocrataHostKey)
+      val requestId = req.header(HeaderXSocrataRequestIdKey)
+
+      val (formattedResults, timings) = doAggregate(req.multiQueryParams, cookie, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
       OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
     } catch {

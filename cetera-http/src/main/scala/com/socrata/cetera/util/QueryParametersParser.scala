@@ -1,7 +1,5 @@
 package com.socrata.cetera.util
 
-import com.socrata.http.server.HttpRequest
-
 import com.socrata.cetera.search.Sorts
 import com.socrata.cetera.types._
 
@@ -110,10 +108,6 @@ object QueryParametersParser {
   def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
     queryParameters.typedFirst[SortOrderString](Params.sortOrder).map(validated(_).value)
 
-  def apply(req: HttpRequest): Either[Seq[ParseError], ValidatedQueryParameters] =
-    apply(req.multiQueryParams)
-
-
   //////////////////
   // PARAM PREPARERS
   //
@@ -133,8 +127,9 @@ object QueryParametersParser {
     )
   }
 
-  def prepareSearchContext(queryParameters: MultiQueryParams): Option[String] = {
-    queryParameters.first(Params.context).map(_.toLowerCase)
+  // if query string includes search context use that; otherwise default to the http header X-Socrata-Host
+  def prepareSearchContext(queryParameters: MultiQueryParams, extendedHost: Option[String]): Option[String] = {
+    Seq(queryParameters.first(Params.context).map(_.toLowerCase), extendedHost).flatten.headOption
   }
 
   def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] = {
@@ -230,7 +225,9 @@ object QueryParametersParser {
   // NOTE: Watch out for case sensitivity in params
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
-  def apply(queryParameters: MultiQueryParams): Either[Seq[ParseError], ValidatedQueryParameters] = {
+  def apply(queryParameters: MultiQueryParams,
+            extendedHost: Option[String]
+           ): Either[Seq[ParseError], ValidatedQueryParameters] = {
     // NOTE! We don't have to run most of these if just any of them fail validation
 
     val only = prepareOnly(queryParameters)
@@ -244,7 +241,7 @@ object QueryParametersParser {
             prepareSearchQuery(queryParameters),
             prepareDomains(queryParameters),
             prepareDomainMetadata(queryParameters),
-            prepareSearchContext(queryParameters),
+            prepareSearchContext(queryParameters, extendedHost),
             prepareCategories(queryParameters),
             prepareTags(queryParameters),
             o,

@@ -7,7 +7,7 @@ import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.{TestHttpClient, TestCoreClient}
+import com.socrata.cetera._
 
 class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll with BeforeAndAfterEach {
 
@@ -44,7 +44,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       request()
         .withMethod("GET")
         .withPath("/users.json")
-        .withHeader("X-Socrata-Host", domain)
+        .withHeader(HeaderXSocrataHostKey, domain)
     ).respond(
       response()
         .withStatusCode(200)
@@ -60,7 +60,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       request()
         .withMethod("GET")
         .withPath("/users.json")
-        .withHeader("X-Socrata-Host", domain)
+        .withHeader(HeaderXSocrataHostKey, domain)
     ).respond(
       response()
         .withStatusCode(200)
@@ -72,8 +72,8 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
   "The optionallyGetUserByCookie method" should {
     "return None if no cookie is given" in {
       setUpMockWithAuthorizedUser()
-      val userWithoutContext = coreClient.optionallyGetUserByCookie(None, None)
-      val userWithContext = coreClient.optionallyGetUserByCookie(Some(domain), None)
+      val userWithoutContext = coreClient.optionallyGetUserByCookie(None, None, None)
+      val userWithContext = coreClient.optionallyGetUserByCookie(Some(domain), None, None)
 
       userWithoutContext should be(None)
       userWithContext should be(None)
@@ -81,16 +81,16 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
 
     "return None if no context is given" in {
       setUpMockWithAuthorizedUser()
-      val userWithoutCookie = coreClient.optionallyGetUserByCookie(None, None)
-      val userWithCookie = coreClient.optionallyGetUserByCookie(None, Some(cookie))
+      val userWithoutCookie = coreClient.optionallyGetUserByCookie(None, None, None)
+      val userWithCookie = coreClient.optionallyGetUserByCookie(None, Some(cookie), None)
 
       userWithoutCookie should be(None)
       userWithCookie should be(None)
     }
 
-    "return Some user if both the context and cookie are given" in {
+    "return Some user if both the valid context and correct cookie are given" in {
       setUpMockWithAuthorizedUser()
-      val user = coreClient.optionallyGetUserByCookie(Some(domain), Some(cookie))
+      val user = coreClient.optionallyGetUserByCookie(Some(domain), Some(cookie), None)
 
       user should be('defined)
       user.get should have('id ("boo-bear"))
@@ -101,6 +101,29 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
     // WARNING: Socrata-http requires that cookies have the form key=value, otherwise it will respond with
     // 'The target server failed to respond'
 
+    "pass along requestid in core request" in {
+      val userBody = j"""["bar"]"""
+      val reqId = "42"
+      val expectedRequest =
+        request()
+          .withMethod("GET")
+          .withPath(s"/users.json")
+          .withHeader(HeaderXSocrataHostKey, domain)
+          .withHeader(HeaderXSocrataRequestIdKey, reqId)
+
+      mockServer.when(
+        expectedRequest
+      ).respond(
+        response()
+          .withStatusCode(200)
+          .withHeader("Content-Type", "application/json; charset=utf-8")
+          .withBody(CompactJsonWriter.toString(userBody))
+      )
+
+      coreClient.fetchUserByCookie(domain, cookie, Some(reqId))
+      mockServer.verify(expectedRequest)
+    }
+
     "return the user if core returns a 200 and an empowered user" in {
       setUpMockWithAuthorizedUser()
       val expectedUser = User(
@@ -109,7 +132,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
         Some(List("steal_honey", "scare_tourists")),
         Some(List("admin")))
 
-      val actualUser = coreClient.fetchUserByCookie(domain, cookie)
+      val actualUser = coreClient.fetchUserByCookie(domain, cookie, None)
       actualUser.get should be(expectedUser)
     }
 
@@ -117,14 +140,14 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       setUpMockWithUnauthorizeddUser()
       val expectedUser = User("lazy-bear", None, None, None)
 
-      val actualUser = coreClient.fetchUserByCookie(domain, cookie)
+      val actualUser = coreClient.fetchUserByCookie(domain, cookie, None)
       actualUser.get should be(expectedUser)
     }
 
 
     "return None without calling core if passed an empty cookie" in {
       setUpMockWithAuthorizedUser()
-      coreClient.fetchUserByCookie(domain, "") should be(None)
+      coreClient.fetchUserByCookie(domain, "", None) should be(None)
     }
 
     "return None if core returns a 401" in {
@@ -139,7 +162,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(401)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie) should be(None)
+      coreClient.fetchUserByCookie(domain, cookie, None) should be(None)
     }
 
     "return None if core returns a 403" in {
@@ -154,7 +177,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(403)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie) should be(None)
+      coreClient.fetchUserByCookie(domain, cookie, None) should be(None)
     }
 
     "return None if core returns a 500" in {
@@ -169,11 +192,35 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(500)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie) should be(None)
+      coreClient.fetchUserByCookie(domain, cookie, None) should be(None)
     }
   }
 
   "The fetchUserById method" should {
+    "pass along requestid in core request" in {
+      val fxf = "foo-bear"
+      val userBody = j"""["bar"]"""
+      val reqId = "42"
+      val expectedRequest =
+        request()
+          .withMethod("GET")
+          .withPath(s"/users/$fxf")
+          .withHeader(HeaderXSocrataHostKey, domain)
+          .withHeader(HeaderXSocrataRequestIdKey, reqId)
+
+      mockServer.when(
+        expectedRequest
+      ).respond(
+        response()
+          .withStatusCode(200)
+          .withHeader("Content-Type", "application/json; charset=utf-8")
+          .withBody(CompactJsonWriter.toString(userBody))
+      )
+
+      coreClient.fetchUserById(domain, fxf, Some(reqId))
+      mockServer.verify(expectedRequest)
+    }
+
     "return the user if core returns a 200" in {
       val fxf = "boo-bear"
       val userBody =
@@ -191,7 +238,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
         request()
           .withMethod("GET")
           .withPath(s"/users/$fxf")
-          .withHeader("X-Socrata-Host", domain)
+          .withHeader(HeaderXSocrataHostKey, domain)
       ).respond(
         response()
           .withStatusCode(200)
@@ -206,7 +253,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
         Some(List("admin"))
       )
 
-      val actualUser = coreClient.fetchUserById(domain, fxf)
+      val actualUser = coreClient.fetchUserById(domain, fxf, None)
       actualUser.get should be(expectedUser)
     }
 
@@ -222,14 +269,14 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
         request()
           .withMethod("GET")
           .withPath(s"/users/$fxf")
-          .withHeader("X-Socrata-Host", domain)
+          .withHeader(HeaderXSocrataHostKey, domain)
       ).respond(
         response()
           .withStatusCode(200)
           .withHeader("Content-Type", "application/json; charset=utf-8")
           .withBody(CompactJsonWriter.toString(userBody))
       )
-      coreClient.fetchUserById(domain, fxf) should be(None)
+      coreClient.fetchUserById(domain, fxf, None) should be(None)
     }
 
     "return None if core returns a 405" in {
@@ -245,7 +292,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(405)
         )
 
-      coreClient.fetchUserById(domain, fxf) should be(None)
+      coreClient.fetchUserById(domain, fxf, None) should be(None)
     }
   }
 }
@@ -261,13 +308,13 @@ class CoreClientlessSpec extends WordSpec with ShouldMatchers {
 
   "When core is not reachable, the fetchUserByCookie method" should {
     "return None" in {
-      coreClient.fetchUserByCookie(domain, cookie) should be(None)
+      coreClient.fetchUserByCookie(domain, cookie, None) should be(None)
     }
   }
 
   "When core is not reachable, the fetchUserById method" should {
     "return None" in {
-      coreClient.fetchUserById(domain, "four-four") should be(None)
+      coreClient.fetchUserById(domain, "four-four", None) should be(None)
     }
   }
 }
