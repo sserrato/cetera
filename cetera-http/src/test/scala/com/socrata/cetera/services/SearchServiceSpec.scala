@@ -522,7 +522,7 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
     servReq.expects('getHeader)(HeaderCookieKey).returns("ricky=awesome")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(null)
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
-    servReq.expects('getQueryString)().returns("only=datasets")
+    servReq.expects('getQueryString)().anyNumberOfTimes.returns("only=datasets")
 
     val augReq = new AugmentedHttpServletRequest(servReq)
 

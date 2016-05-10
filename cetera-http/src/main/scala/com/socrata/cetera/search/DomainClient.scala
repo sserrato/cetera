@@ -11,7 +11,23 @@ import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomai
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
-class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String) {
+trait BaseDomainClient {
+  def fetch(id: Int): Option[Domain]
+
+  def findRelevantDomains(searchContextCname: Option[String],
+                          domainCnames: Option[Set[String]],
+                          cookie: Option[String],
+                          requestId: Option[String])
+  : (Option[Domain], Set[Domain], Long, Seq[String])
+
+  def calculateIdsAndModRAStatuses(domains: Set[Domain]): (Set[Int], Set[Int], Set[Int], Set[Int])
+
+  def buildCountRequest(domains: Set[Domain], searchContext: Option[Domain]): SearchRequestBuilder
+}
+
+class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String)
+  extends BaseDomainClient {
+
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {

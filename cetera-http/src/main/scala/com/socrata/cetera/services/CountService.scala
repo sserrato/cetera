@@ -13,12 +13,12 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DocumentClient, DomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses.jsonError
 import com.socrata.cetera.util._
 
-class CountService(documentClient: DocumentClient, domainClient: DomainClient) {
+class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
 
   // Possibly belongs in the client

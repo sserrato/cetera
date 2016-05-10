@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{DocumentClient, DomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
@@ -43,8 +43,8 @@ object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
 }
 
-class SearchService(elasticSearchClient: DocumentClient,
-                    domainClient: DomainClient,
+class SearchService(elasticSearchClient: BaseDocumentClient,
+                    domainClient: BaseDomainClient,
                     balboaClient: BalboaClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
@@ -242,7 +242,6 @@ class SearchService(elasticSearchClient: DocumentClient,
     }
   }
 
-  // $COVERAGE-OFF$ jetty wiring
   def search(req: HttpRequest): HttpResponse = {
     logger.debug(LogHelper.formatHttpRequestVerbose(req))
 
@@ -270,6 +269,7 @@ class SearchService(elasticSearchClient: DocumentClient,
     }
   }
 
+  // $COVERAGE-OFF$ jetty wiring
   object Service extends SimpleResource {
     override def get: HttpService = search
   }
