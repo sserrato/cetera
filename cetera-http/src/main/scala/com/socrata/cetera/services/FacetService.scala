@@ -4,7 +4,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
+import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.elasticsearch.search.aggregations.bucket.filter.Filter
@@ -13,12 +13,12 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DocumentClient, DomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util._
 
-class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
+class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
   // $COVERAGE-OFF$ jetty wiring
@@ -27,15 +27,19 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
 
   def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
-    QueryParametersParser(req) match {
+    val cookie = req.header(HeaderCookieKey)
+    val extendedHost = req.header(HeaderXSocrataHostKey)
+    val requestId = req.header(HeaderXSocrataRequestIdKey)
+
+    QueryParametersParser(req.multiQueryParams, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings) = doAggregate(cname, req.header("Cookie"))
+          val (facets, timings, setCookies) = doAggregate(cname, cookie, requestId)
           logger.info(LogHelper.formatRequest(req, timings))
-          OK ~> HeaderAclAllowOriginAll ~> Json(facets)
+          Http.decorate(Json(facets, pretty = true), OK, setCookies)
         } catch {
           case DomainNotFound(e) =>
             val msg = s"Domain not found: $e"
@@ -50,10 +54,14 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
   }
   // $COVERAGE-ON$
 
-  def doAggregate(cname: String, cookie: Option[String]): (Seq[FacetCount], InternalTimings) = {
+  def doAggregate(cname: String,
+                  cookie: Option[String],
+                  requestId: Option[String]
+                 ): (Seq[FacetCount], InternalTimings, Seq[String]) = {
     val startMs = Timings.now()
 
-    val (domain, _, domainSearchTime) = domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie)
+    val (domain, _, domainSearchTime, setCookies) =
+      domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie, requestId)
     domain match {
       case Some(d) => // domain exists and is viewable by user
         val request = documentClient.buildFacetRequest(domain)
@@ -85,11 +93,11 @@ class FacetService(documentClient: DocumentClient, domainClient: DomainClient) {
 
         val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
         val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
-        (facets, timings)
+        (facets, timings, setCookies)
       case None => // domain exists (otherwise DomainNotFound would be thrown) but user isn't authed to see this domain
         val facets = Seq.empty[FacetCount]
         val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
-        (facets, timings)
+        (facets, timings, setCookies)
     }
   }
 }

@@ -8,13 +8,45 @@ import com.socrata.cetera._
 import com.socrata.cetera.search.DocumentAggregations._
 import com.socrata.cetera.types._
 
+trait BaseDocumentClient {
+  def buildSearchRequest( // scalastyle:ignore parameter.number
+                          searchQuery: QueryType,
+                          domains: Set[Domain],
+                          domainMetadata: Option[Set[(String, String)]],
+                          searchContext: Option[Domain],
+                          categories: Option[Set[String]],
+                          tags: Option[Set[String]],
+                          only: Option[Seq[String]],
+                          fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+                          datatypeBoosts: Map[Datatype, Float],
+                          domainIdBoosts: Map[Int, Float],
+                          minShouldMatch: Option[String],
+                          slop: Option[Int],
+                          offset: Int,
+                          limit: Int,
+                          sortOrder: Option[String])
+  : SearchRequestBuilder
+
+  def buildCountRequest(
+                         field: DocumentFieldType with Countable with Rawable,
+                         searchQuery: QueryType,
+                         domains: Set[Domain],
+                         searchContext: Option[Domain],
+                         categories: Option[Set[String]],
+                         tags: Option[Set[String]],
+                         only: Option[Seq[String]])
+  : SearchRequestBuilder
+
+  def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
+}
+
 class DocumentClient(
     esClient: ElasticSearchClient,
-    domainClient: DomainClient,
+    domainClient: BaseDomainClient,
     indexAliasName: String,
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
-    scriptScoreFunctions: Set[ScriptScoreFunction]) {
+    scriptScoreFunctions: Set[ScriptScoreFunction]) extends BaseDocumentClient {
 
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match

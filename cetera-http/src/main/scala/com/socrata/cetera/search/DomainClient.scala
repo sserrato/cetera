@@ -11,7 +11,23 @@ import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomai
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
-class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String) {
+trait BaseDomainClient {
+  def fetch(id: Int): Option[Domain]
+
+  def findRelevantDomains(searchContextCname: Option[String],
+                          domainCnames: Option[Set[String]],
+                          cookie: Option[String],
+                          requestId: Option[String])
+  : (Option[Domain], Set[Domain], Long, Seq[String])
+
+  def calculateIdsAndModRAStatuses(domains: Set[Domain]): (Set[Int], Set[Int], Set[Int], Set[Int])
+
+  def buildCountRequest(domains: Set[Domain], searchContext: Option[Domain]): SearchRequestBuilder
+}
+
+class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String)
+  extends BaseDomainClient {
+
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: Int): Option[Domain] = {
@@ -61,23 +77,28 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   def removeLockedDomainsForbiddenToUser(
       context: Option[Domain],
       domains: Set[Domain],
-      cookie: Option[String])
-    : (Option[Domain], Set[Domain]) = {
+      cookie: Option[String],
+      requestid: Option[String])
+    : (Option[Domain], Set[Domain], Seq[String]) = {
     val contextLocked = context.exists(_.isLocked)
     val (lockedDomains, unlockedDomains) = domains.partition(_.isLocked)
 
     if (!contextLocked && lockedDomains.isEmpty) {
-      (context, domains)
+      (context, domains, Seq.empty)
     } else {
-      val loggedInUser = coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie)
+      val (loggedInUser, setCookies) =
+        coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
       val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewCatalog))
       loggedInUser match {
         case Some(u) =>
           val viewableLockedDomains =
-            lockedDomains.filter(d => coreClient.fetchUserById(d.domainCname, u.id).exists(_.canViewCatalog))
-          (viewableContext, unlockedDomains ++ viewableLockedDomains)
+            lockedDomains.filter { d =>
+              val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
+              userId.exists(_.canViewCatalog)
+            }
+          (viewableContext, unlockedDomains ++ viewableLockedDomains, setCookies)
         case None => // user is not logged in and thus can see no locked data
-          (viewableContext, unlockedDomains)
+          (viewableContext, unlockedDomains, setCookies)
       }
     }
   }
@@ -87,8 +108,9 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   def findRelevantDomains(
       searchContextCname: Option[String],
       domainCnames: Option[Set[String]],
-      cookie: Option[String])
-    : (Option[Domain], Set[Domain], Long) = {
+      cookie: Option[String],
+      requestId: Option[String])
+    : (Option[Domain], Set[Domain], Long, Seq[String]) = {
 
     // We want to fetch all relevant domains (search context and relevant domains) in a single query
     // NOTE: the searchContext may be present as both the context and in the relevant domains
@@ -106,10 +128,10 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFound(c))
 
     // Remove domains that are locked domain and should be hidden from the user
-    val (viewableSearchContext, viewableDomains) =
-      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie)
+    val (viewableSearchContext, viewableDomains, setCookies) =
+      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie, requestId)
 
-    (viewableSearchContext, viewableDomains, timings)
+    (viewableSearchContext, viewableDomains, timings, setCookies)
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query

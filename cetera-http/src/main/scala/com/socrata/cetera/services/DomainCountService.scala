@@ -7,18 +7,18 @@ import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.matcher.{PObject, Variable}
 import com.socrata.http.server.implicits._
-import com.socrata.http.server.responses.{BadRequest, InternalServerError, Json, NotFound, OK}
+import com.socrata.http.server.responses._
 import com.socrata.http.server.routing.SimpleResource
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.{DomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.JsonResponses.jsonError
 import com.socrata.cetera.util._
 
-class DomainCountService(domainClient: DomainClient) {
+class DomainCountService(domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
 
   private def extract(json: JValue): Either[DecodeError, Seq[JValue]] = {
@@ -38,17 +38,20 @@ class DomainCountService(domainClient: DomainClient) {
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.documents.visible.doc_count.!) })
 
   def doAggregate(queryParameters: MultiQueryParams,
-                  cookie: Option[String]): (SearchResults[Count], InternalTimings) = {
+                  cookie: Option[String],
+                  extendedHost: Option[String],
+                  requestId: Option[String]
+                 ): (SearchResults[Count], InternalTimings, Seq[String]) = {
     val now = Timings.now()
 
-    QueryParametersParser(queryParameters) match {
+    QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
       case Right(params) =>
-        val (searchContext, queryDomains, domainSearchTime) =
-          domainClient.findRelevantDomains(params.searchContext, params.domains, cookie)
+        val (searchContext, queryDomains, domainSearchTime, setCookies) =
+          domainClient.findRelevantDomains(params.searchContext, params.domains, cookie, requestId)
 
         val search = domainClient.buildCountRequest(queryDomains, searchContext)
         logger.info(LogHelper.formatEsRequest(search))
@@ -63,7 +66,7 @@ class DomainCountService(domainClient: DomainClient) {
             throw new JsonDecodeException(error)
         }
         val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
-        (formattedResults, timings)
+        (formattedResults, timings, setCookies)
     }
   }
 
@@ -72,9 +75,13 @@ class DomainCountService(domainClient: DomainClient) {
     implicit val cEncode = Count.encode(esDomainType)
 
     try {
-      val (formattedResults, timings) = doAggregate(req.multiQueryParams, req.header("Cookie"))
+      val cookie = req.header(HeaderCookieKey)
+      val extendedHost = req.header(HeaderXSocrataHostKey)
+      val requestId = req.header(HeaderXSocrataRequestIdKey)
+
+      val (formattedResults, timings, setCookies) = doAggregate(req.multiQueryParams, cookie, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
-      OK ~> HeaderAclAllowOriginAll ~> Json(formattedResults, pretty = true)
+      Http.decorate(Json(formattedResults, pretty = true), OK, setCookies)
     } catch {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)

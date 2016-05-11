@@ -10,9 +10,9 @@ import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
+import com.socrata.cetera._
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
-import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 
 class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient(testSuiteName)
@@ -34,7 +34,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
 
   test("retrieve all visible domain facets") {
     val (datatypes, categories, tags, facets) = domainsWithData.map { cname =>
-      val (facets, timings) = service.doAggregate(cname, None)
+      val (facets, timings, _) = service.doAggregate(cname, None, None)
       timings.searchMillis.headOption should be('defined)
 
       val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
@@ -108,8 +108,9 @@ class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
-    servReq.expects('getHeader)("Cookie").returns("ricky=awesome")
-    servReq.expects('getHeader)("X-Socrata-RequestId").returns("1")
+    servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
+    servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
+    servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
     servReq.expects('getQueryString)().returns("only=datasets")
 
     val augReq = new AugmentedHttpServletRequest(servReq)
