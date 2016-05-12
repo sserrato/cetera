@@ -11,6 +11,11 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     qpp.validated(Right(100)) should be (100)
   }
 
+  test("'only' query parameter allows blank to indicate no filter") {
+    qpp.restrictParamFilterType(None) should be(Right(None))
+    qpp.restrictParamFilterType(Some("")) should be(Right(None))
+  }
+
   test("'only' query parameter allows all datatypes") {
     Datatypes.all.foreach { datatype =>
       qpp.restrictParamFilterType(Some(datatype.plural)) should be(Right(Some(datatype.names)))

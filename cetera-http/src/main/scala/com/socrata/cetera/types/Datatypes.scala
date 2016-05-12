@@ -18,7 +18,7 @@ trait Datatype {
 
 object Datatype {
   def apply(s: String): Option[Datatype] = {
-    Datatypes.all.find(d => d.plural == s || d.singular == s).headOption
+    Datatypes.all.find(d => d.plural == s || d.singular == s)
   }
   def apply(so: Option[String]): Option[Datatype] = {
     so.flatMap(Datatype(_))

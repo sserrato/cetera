@@ -85,11 +85,13 @@ object QueryParametersParser {
 
   // This can stay case-sensitive because it is so specific
   def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
-    only.map { s =>
-      Datatype(s) match {
-        case None => Left(OnlyError(s"'only' must be one of $allowedFilterTypes; got $s"))
-        case Some(d) => Right(Some(d.names))
-      }
+    only.map {
+      case s: String if s.nonEmpty =>
+        Datatype(s) match {
+          case None => Left(OnlyError(s"'only' must be one of $allowedFilterTypes; got $s"))
+          case Some(d) => Right(Some(d.names))
+        }
+      case _ => Right(None)
     }.getOrElse(Right(None))
 
   // for extracting `example.com` from `boostDomains[example.com]`
