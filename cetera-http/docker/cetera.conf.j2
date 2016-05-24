@@ -14,6 +14,7 @@ com.socrata {
 
   log4j {
     rootLogger = {{ LOG_PATHS }}
+    logger.com.socrata.cetera = {{ LOG_LEVEL_CETERA_SPECIFIC }}
     appender {
       airbrake.class = airbrake.AirbrakeAppender
       airbrake.props {
