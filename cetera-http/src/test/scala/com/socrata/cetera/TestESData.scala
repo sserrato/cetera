@@ -2,10 +2,8 @@ package com.socrata.cetera
 
 import scala.io.Source
 
-import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.util.JsonUtil
 import org.elasticsearch.common.joda.time.DateTime
-import org.scalatest.exceptions.TestCanceledException
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
@@ -20,16 +18,34 @@ trait TestESData {
     val iter = domainTSV.getLines().map(_.split("\t"))
     iter.drop(1) // drop the header columns
     iter.map { tsvLine =>
-      new Domain(
+      Domain(
         domainId = tsvLine(0).toInt,
         domainCname = tsvLine(1),
-        siteTitle = if (tsvLine(2).isEmpty) None else Some(tsvLine(2)),
-        organization = if (tsvLine(3).isEmpty) None else Some(tsvLine(3)),
+        siteTitle = Option(tsvLine(2)).filter(_.nonEmpty),
+        organization = Option(tsvLine(3)).filter(_.nonEmpty),
         isCustomerDomain = tsvLine(4).toBoolean,
         moderationEnabled = tsvLine(5).toBoolean,
         routingApprovalEnabled = tsvLine(6).toBoolean,
         lockedDown = tsvLine(7).toBoolean,
         apiLockedDown = tsvLine(8).toBoolean
+      )
+    }.toSeq
+  }
+
+  val users = {
+    val userTSV = Source.fromInputStream(getClass.getResourceAsStream("/users.tsv"))
+    userTSV.getLines()
+    val iter = userTSV.getLines().map(_.split("\t"))
+    iter.drop(1) // drop the header columns
+    iter.map { tsvLine =>
+      User(
+        id = tsvLine(0),
+        screenName = Option(tsvLine(1)).filter(_.nonEmpty),
+        email = Option(tsvLine(2)).filter(_.nonEmpty),
+        roleName = Option(tsvLine(3)).filter(_.nonEmpty),
+        profileImageUrlLarge = Option(tsvLine(4)).filter(_.nonEmpty),
+        profileImageUrlMedium = Option(tsvLine(5)).filter(_.nonEmpty),
+        profileImageUrlSmall = Option(tsvLine(6)).filter(_.nonEmpty)
       )
     }.toSeq
   }
@@ -251,37 +267,23 @@ trait TestESData {
   val ownerIds = Seq("robin-hood", "lil-john")
   val ownerScreenNames = Seq("Robin Hood", "Little John")
 
-  private def indexSettings: String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/esSettings.json")).getLines().mkString("\n")
-    val sj = JsonUtil.parseJson[JValue](s) match {
-      case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
-      case Right(j) => j
-    }
-    sj.dyn.settings.!.toString()
-  }
-
-  private def datatypeMappings(datatype: String): String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/esMappings.json")).getLines().mkString("\n")
-    val sj = JsonUtil.parseJson[JValue](s) match {
-      case Left(e) => throw new TestCanceledException(s"json decode failed: ${e.english}", 0)
-      case Right(j) => j
-    }
-    val mappings = sj.dyn.mappings
-    val typeMapping = datatype match {
-      case s: String if s == "domain" => mappings.domain
-      case s: String if s == "document" => mappings.document
-    }
-    typeMapping.!.toString()
-  }
-
   def bootstrapData(): Unit = {
     ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
 
     // load domains
-    domains.foreach{ d =>
+    domains.foreach { d =>
       client.client.prepareIndex(testSuiteName, esDomainType)
         .setSource(JsonUtil.renderJson[Domain](d))
         .setId(d.domainId.toString)
+        .setRefresh(true)
+        .execute.actionGet
+    }
+
+    // load users
+    users.foreach { u =>
+      client.client.prepareIndex(testSuiteName, esUserType)
+        .setSource(JsonUtil.renderJson[User](u))
+        .setId(u.id)
         .setRefresh(true)
         .execute.actionGet
     }
