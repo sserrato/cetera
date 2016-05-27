@@ -3,21 +3,59 @@
     "index": {
       "analysis": {
         "filter": {
+          "email": {
+            "type": "pattern_capture",
+            "preserve_original": 0,
+            "patterns": [
+              "([^@]+)",
+              "(\\p{L}{2,})",
+              "(\\d+)",
+              "@(.{2,})"
+            ]
+          },
           "lowercase_en": {
             "type": "lowercase"
+          },
+          "stopwords": {
+            "type": "stop",
+            "stopwords": "_english_"
+          }
+        },
+        "tokenizer": {
+          "word": {
+            "type": "pattern",
+            "pattern": "[\\p{C}\\p{P}\\p{Sm}\\p{Sk}\\p{So}\\p{Z}&&[^\\&]]+",
+            "flags": "CASE_INSENSITIVE"
           }
         },
         "analyzer": {
-          "snowball_en": {
-            "type": "snowball",
-            "language": "English"
-          },
           "case_insensitive_en": {
             "type": "custom",
             "filter": [
               "lowercase_en"
             ],
             "tokenizer": "keyword"
+          },
+          "email": {
+            "tokenizer": "uax_url_email",
+            "filter": [
+              "email",
+              "lowercase_en",
+              "unique",
+              "stopwords"
+            ]
+          },
+          "screen_name": {
+            "tokenizer": "word",
+            "filter": [
+              "lowercase_en",
+              "unique",
+              "stopwords"
+            ]
+          },
+          "snowball_en": {
+            "type": "snowball",
+            "language": "English"
           }
         }
       },
