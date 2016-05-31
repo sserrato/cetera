@@ -9,29 +9,55 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.authentication.{CoreClient, User => AuthUser}
 import com.socrata.cetera.search.UserClient
 import com.socrata.cetera.types.User
 import com.socrata.cetera.util.JsonResponses._
 import com.socrata.cetera.util.{InternalTimings, SearchResults, Timings, _}
 
-class UserSearchService(userClient: UserClient) {
+class UserSearchService(userClient: UserClient, coreClient: CoreClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)
+
+  // Hi, my name is Werner Brandes. My voice is my passport, verify me.
+  def verifyUserAuthorization(
+      cookie: Option[String],
+      extendedHost: Option[String],
+      requestId: Option[String])
+  : (Boolean, Seq[String]) = {
+    (cookie, extendedHost) match {
+      case (Some(c), Some(h)) =>
+        val (authUser, setCookies) = coreClient.fetchUserByCookie(h, c, requestId)
+        (authUser.exists(_.canViewUsers), setCookies)
+      case _ =>
+        (false, Seq.empty[String])
+    }
+  }
 
   def doSearch(
       queryParameters: MultiQueryParams,
       cookie: Option[String],
       extendedHost: Option[String],
       requestId: Option[String])
-  : (SearchResults[User], InternalTimings, Seq[String]) = {
+  : (StatusResponse, SearchResults[User], InternalTimings, Seq[String]) = {
     val now = Timings.now()
 
-    val query: Option[String] = queryParameters.getOrElse("q", Seq.empty).headOption
-    val (results, timing) = userClient.search(query)
+    val (authorized, setCookies) = verifyUserAuthorization(cookie, extendedHost, requestId)
 
-    val formattedResults: SearchResults[User] = new SearchResults[User](results.toSeq)
-    val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(timing))
+    val (status, results: SearchResults[User], timings) =
+      if (authorized) {
+        val query = queryParameters.getOrElse("q", Seq.empty).headOption
+        val (results, timing) = userClient.search(query)
 
-    (formattedResults.copy(resultSetSize = Some(results.size), timings = Some(timings)), timings)
+        val formattedResults = new SearchResults[User](results.toSeq)
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(timing))
+
+        (OK, formattedResults.copy(resultSetSize = Some(results.size), timings = Some(timings)), timings)
+      } else {
+        logger.warn(s"user failed authorization $cookie $extendedHost $requestId")
+        (Unauthorized, new SearchResults(Seq.empty), InternalTimings(Timings.elapsedInMillis(now), Seq.empty))
+      }
+
+    (status, results, timings, setCookies)
   }
 
   // $COVERAGE-OFF$ jetty wiring
@@ -43,9 +69,9 @@ class UserSearchService(userClient: UserClient) {
     val requestId = req.header(HeaderXSocrataRequestIdKey)
 
     try {
-      val (formattedResults, timings) = doSearch(req.multiQueryParams, cookie, extendedHost, requestId)
+      val (status, results, timings, setCookies) = doSearch(req.multiQueryParams, cookie, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
-      Http.decorate(Json(formattedResults, pretty = true), OK, Seq.empty)
+      Http.decorate(Json(results, pretty = true), status, setCookies)
     } catch {
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)

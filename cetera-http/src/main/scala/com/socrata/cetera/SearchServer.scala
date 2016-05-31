@@ -94,8 +94,8 @@ object SearchServer extends App {
     logger.info("Initializing CountService with document and domain clients")
     val countService = new CountService(documentClient, domainClient)
 
-    logger.info("Initializing UserSearchService with user client")
-    val userSearchService = new UserSearchService(userClient)
+    logger.info("Initializing UserSearchService with user and core clients")
+    val userSearchService = new UserSearchService(userClient, coreClient)
 
     logger.info("Initializing router with services")
     val router = new Router(
