@@ -16,7 +16,8 @@ class Router(
     catalogResource: => HttpService,
     facetResource: String => HttpService,
     domainCountResource: => HttpService,
-    countResource: DocumentFieldType with Countable with Rawable => HttpService) {
+    countResource: DocumentFieldType with Countable with Rawable => HttpService,
+    userSearchResource: => HttpService) {
 
   val routes = Routes(
     // /version is for internal use
@@ -48,7 +49,11 @@ class Router(
 
     // document counts for queries grouped by domain_tags
     Route("/catalog/domain_tags", countResource(DomainTagsFieldType)),
-    Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType))
+    Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType)),
+
+    // internal user search
+    Route("/users", userSearchResource),
+    Route("/users/v1", userSearchResource)
   )
 
   def route(req: HttpRequest): HttpResponse =
