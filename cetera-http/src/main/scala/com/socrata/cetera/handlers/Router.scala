@@ -52,8 +52,8 @@ class Router(
     Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType)),
 
     // internal user search
-    Route("/users", userSearchResource),
-    Route("/users/v1", userSearchResource)
+    Route("/whitepages", userSearchResource),
+    Route("/whitepages/v1", userSearchResource)
   )
 
   def route(req: HttpRequest): HttpResponse =
