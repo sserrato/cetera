@@ -12,6 +12,7 @@ sealed trait CeteraFieldType {
 
 sealed trait DocumentFieldType extends CeteraFieldType
 sealed trait DomainFieldType extends CeteraFieldType
+sealed trait UserFieldType extends CeteraFieldType
 
 // A field that can be boosted (i.e, fields like title or description that can
 // have extra weight given to then when matching keyword queries).
@@ -231,4 +232,16 @@ case object CreatedAtFieldType extends DocumentFieldType with Sortable {
 
 case object NameFieldType extends DocumentFieldType with Sortable {
   val fieldName: String = "indexed_metadata.name.raw"
+}
+
+
+////////////////
+// U'sarians
+
+case object ScreenName extends UserFieldType with Rawable {
+  val fieldName: String = "screen_name"
+}
+
+case object Email extends UserFieldType with Rawable {
+  val fieldName: String = "email"
 }

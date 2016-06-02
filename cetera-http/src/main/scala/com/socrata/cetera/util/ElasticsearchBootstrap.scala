@@ -9,7 +9,6 @@ import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.config.ElasticSearchConfig
 import com.socrata.cetera.search.ElasticSearchClient
 
 object ElasticsearchBootstrap {
@@ -30,8 +29,9 @@ object ElasticsearchBootstrap {
     }
     val mappings = sj.dyn.mappings
     val typeMapping = datatype match {
-      case s: String if s == "domain" => mappings.domain
       case s: String if s == "document" => mappings.document
+      case s: String if s == "domain" => mappings.domain
+      case s: String if s == "user" => mappings.user
     }
     typeMapping.!.toString()
   }
@@ -57,6 +57,11 @@ object ElasticsearchBootstrap {
         client.client.admin.indices.preparePutMapping(index)
           .setType(esDocumentType)
           .setSource(datatypeMappings(esDocumentType))
+          .execute.actionGet
+
+        client.client.admin.indices.preparePutMapping(index)
+          .setType(esUserType)
+          .setSource(datatypeMappings(esUserType))
           .execute.actionGet
 
         logger.info(s"aliasing $indexAliasName -> $index")

@@ -7,12 +7,12 @@ case class User(id: String,
                 rights: Option[Seq[String]],
                 flags: Option[Seq[String]]) {
 
-  def canViewCatalog: Boolean = {
-    val isAdmin = flags.exists(_.contains("admin"))
-    val hasRole = roleName.nonEmpty
+  def isAdmin: Boolean = flags.exists(_.contains("admin"))
+  def hasRole: Boolean = roleName.nonEmpty
+  def hasRole(role: String): Boolean = roleName.contains(role)
 
-    hasRole || isAdmin
-  }
+  def canViewCatalog: Boolean = hasRole || isAdmin
+  def canViewUsers: Boolean = hasRole("administrator") || isAdmin
 }
 
 object User {

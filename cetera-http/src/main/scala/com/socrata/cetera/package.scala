@@ -11,4 +11,5 @@ package object cetera {
 
   val esDocumentType = "document"
   val esDomainType = "domain"
+  val esUserType = "user"
 }

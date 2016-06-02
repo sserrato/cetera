@@ -15,7 +15,7 @@ import com.socrata.cetera.authentication.CoreClient
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, ElasticSearchClient, UserClient}
 import com.socrata.cetera.services._
 import com.socrata.cetera.types.ScriptScoreFunction
 
@@ -71,6 +71,7 @@ object SearchServer extends App {
       config.elasticSearch.functionScoreScripts.flatMap(fnName =>
       ScriptScoreFunction.getScriptFunction(fnName)).toSet
     )
+    val userClient = new UserClient(esClient, config.elasticSearch.indexAliasName)
 
     logger.info("ElasticSearchClient initialized on nodes " +
                   esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)
@@ -93,13 +94,17 @@ object SearchServer extends App {
     logger.info("Initializing CountService with document and domain clients")
     val countService = new CountService(documentClient, domainClient)
 
+    logger.info("Initializing UserSearchService with user and core clients")
+    val userSearchService = new UserSearchService(userClient, coreClient)
+
     logger.info("Initializing router with services")
     val router = new Router(
       versionService.Service,
       searchService.Service,
       facetService.Service,
       domainCountService.Service,
-      countService.Service
+      countService.Service,
+      userSearchService.Service
     )
 
     logger.info("Initializing handler")
