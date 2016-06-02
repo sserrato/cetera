@@ -77,6 +77,7 @@ object DomainAggregations {
               routingApprovalDisabledDomainIds: Set[Int]
              ): AbstractAggregationBuilder = {
     val publicFilter = DocumentFilters.publicFilter(isDomainAgg = true)
+    val publishedFilter = DocumentFilters.publishedFilter(isDomainAgg = true)
     val moderationFilter = DocumentFilters.moderationStatusFilter(
       searchContextIsModerated,
       moderatedDomainIds,
@@ -101,11 +102,9 @@ object DomainAggregations {
               .filter("visible") // "visible" is an agg of documents matching the following filter
               .filter(FilterBuilders.boolFilter()
                 // is customer domain filter must be applied above this aggregation
-                // apply isPublic filter
                 .must(publicFilter)
-                // apply moderation filter
+                .must(publishedFilter)
                 .must(moderationFilter)
-                // apply routing & approval filter
                 .must(routingApprovalFilter)
               )
           )

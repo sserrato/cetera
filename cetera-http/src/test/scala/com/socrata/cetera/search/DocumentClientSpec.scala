@@ -177,11 +177,20 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
+  val publishedFilter = j"""{
+    "not": {
+      "filter": {
+        "term": { "is_published": false }
+      }
+    }
+  }"""
+
   val defaultFilter = j"""{
     "bool": {
       "must": [
         ${domainIdsFilterEmpty},
         ${publicFilter},
+        ${publishedFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
       ]
@@ -192,6 +201,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "bool": {
       "must": [
         ${publicFilter},
+        ${publishedFilter},
         ${domainFilter},
         ${moderationFilter},
         ${routingApprovalFilter}
@@ -286,6 +296,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             ${datatypeDatasetsFilter},
             ${domainIdsFilterEmpty},
             ${publicFilter},
+            ${publishedFilter},
             ${moderationFilter},
             ${routingApprovalFilter}
         ]
@@ -503,6 +514,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |              "filter" : {
         |                "term" : {
         |                  "is_public" : false
+        |                }
+        |              }
+        |            }
+        |          }, {
+        |            "not" : {
+        |              "filter" : {
+        |                "term" : {
+        |                  "is_published" : false
         |                }
         |              }
         |            }

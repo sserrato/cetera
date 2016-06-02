@@ -338,6 +338,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         zeta-1  f   t   0         t       (mod=t anomaly)
         zeta-3  t   t   0,1,2,3   f       (isPublic=false)
         zeta-4  f   n   0,1,2,3   f       (unapproved datalens_chart/map should not be visible)
+        zeta-6  t   t   0,1,2,3   f       (isPublished=false)
       1   opendata-demo.socrata.com f     t     f (not customer domain)
         fxf     def mod r&a visible
         fxf-1   f   t   2   f / t
@@ -371,6 +372,17 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       Params.filterDomains -> "petercetera.net",
       Params.context -> "petercetera.net",
       Params.querySimple -> "private"
+    ).mapValues(Seq(_)), None, None, None)
+    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("unpublished documents should always be hidden") {
+    val expectedFxfs = Set.empty
+    val (res, _, _) = service.doSearch(Map(
+      Params.filterDomains -> "petercetera.net",
+      Params.context -> "petercetera.net",
+      Params.querySimple -> "unpublished"
     ).mapValues(Seq(_)), None, None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs

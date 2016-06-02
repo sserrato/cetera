@@ -307,4 +307,40 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
 
     }
   }
+
+  "DocumentFilters: publicFilter" should {
+    "return the expected filter" in {
+      val filter = DocumentFilters.publicFilter(false)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected =
+        j"""{
+        "not" : {
+          "filter" : {
+            "term" : {
+              "is_public" : false
+            }
+          }
+        }
+      }"""
+      actual should be(expected)
+    }
+  }
+
+  "DocumentFilters: publishedFilter" should {
+    "return the expected filter" in {
+      val filter = DocumentFilters.publishedFilter(false)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected =
+        j"""{
+        "not" : {
+          "filter" : {
+            "term" : {
+              "is_published" : false
+            }
+          }
+        }
+      }"""
+      actual should be(expected)
+    }
+  }
 }

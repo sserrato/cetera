@@ -197,6 +197,11 @@ object DocumentFilters {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
     notFilter(termFilter(prefix + IsPublicFieldType.fieldName, false))
   }
+
+  def publishedFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+    val prefix = if (isDomainAgg) esDocumentType + "." else ""
+    notFilter(termFilter(prefix + IsPublishedFieldType.fieldName, false))
+  }
 }
 
 object DomainFilters {

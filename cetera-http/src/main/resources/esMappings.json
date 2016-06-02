@@ -34,6 +34,9 @@
         "is_public" : {
           "type" : "boolean"
         },
+        "is_published" : {
+          "type" : "boolean"
+        },
         "is_moderation_approved" : {
           "type" : "boolean"
         },

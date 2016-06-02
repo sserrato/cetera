@@ -155,6 +155,7 @@ class DocumentClient(
       userFilter(user),  // This doesn't belong here either
       Some(domainFilter), // TODO: remove me since I am the superset!
       Some(publicFilter()),
+      Some(publishedFilter()),
       Some(moderationStatusFilter(contextModerated, moderatedDomainIds, unmoderatedDomainIds)),
       Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
       searchContext.flatMap(_ => domainMetadataFilter(domainMetadata)) // I make it hard to de-option
