@@ -54,11 +54,13 @@ trait TestESData {
     """{
       | "socrata_id": {
       |   "dataset_id": %s,
+      |   "parent_dataset_id": %s,
       |   "domain_id": %s
       | },
       | "resource": {
       |   "description": %s,
       |   "nbe_fxf": %s,
+      |   "parent_fxf": %s,
       |   "updatedAt": %s,
       |   "createdAt": %s,
       |   "type": %s,
@@ -119,6 +121,7 @@ trait TestESData {
     """.stripMargin
 
   private def quoteQualify(s: String): String = "\"%s\"".format(s)
+  private def quoteQualify(s: Option[String]): String = s.map("\"%s\"".format(_)).getOrElse("null")
   private def quoteQualify(ss: Seq[String]): String = ss.map(quoteQualify).mkString(",\n")
   private def quoteQualifyScore(sm: Map[String,Float]): String = sm.map { kvp =>
     """{ "name":  "%s", "score": %s } """.format(kvp._1, kvp._2.toString)
@@ -128,6 +131,7 @@ trait TestESData {
   }.mkString(",\n")
 
   private def buildEsDoc(socrataIdDatasetId: String,
+                         parentDatasetId: Option[String],
                          domainId: Int,
                          resourceDescription: String,
                          resourceNbeFxf: String,
@@ -161,9 +165,11 @@ trait TestESData {
                          ownerScreenName: String): String = {
     val doc = esDocTemplate.format(
       quoteQualify(socrataIdDatasetId),
+      quoteQualify(parentDatasetId),
       domainId.toString,
       quoteQualify(resourceDescription),
       quoteQualify(resourceNbeFxf),
+      quoteQualify(parentDatasetId),
       quoteQualify(resourceUpdatedAt),
       quoteQualify(resourceCreatedAt),
       quoteQualify(datatype),
@@ -201,6 +207,7 @@ trait TestESData {
     val domainApprovalIds = approvingDomainIds(i % approvingDomainIds.length)
     buildEsDoc(
       socrataIdDatasetIds(i % socrataIdDatasetIds.length),
+      parentDatasetIds(i % socrataIdDatasetIds.length),
       domainId,
       resourceDescriptions(i % resourceDescriptions.length),
       resourceNbeFxfs(i % resourceNbeFxfs.length),
@@ -247,6 +254,7 @@ trait TestESData {
 
   val numericIds = 0 to Datatypes.materialized.length
   val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
+  val parentDatasetIds = socrataIdDatasetIds.map(s => if (s != "fxf-0") Some("fxf-0") else None)
   val resourceDescriptions = Seq(
     "We're number one",
     "Second the best",
@@ -304,7 +312,7 @@ trait TestESData {
     // TODO: more refined test document creation
     Seq(
       (0, buildEsDoc(
-        "zeta-0001", 0,
+        "zeta-0001", None, 0,
         "a stale moderation status", "zeta-0001", DateTime.now.toString, DateTime.now.toString,
         "zeta-0001", Seq.empty, "", Map.empty, Map.empty,
         TypeDatasets.singular, viewtype = "", 0F,
@@ -314,7 +322,7 @@ trait TestESData {
         "42", "Fun", Seq.empty, 0L, "robin-hood", "Robin Hood"
       )),
       (3, buildEsDoc(
-        "zeta-0002", 3,
+        "zeta-0002", None, 3,
         "full routing & approval", "zeta-0002", DateTime.now.toString, DateTime.now.toString,
         "zeta-0002", Seq.empty, "", Map.empty, Map.empty,
         TypeDatasets.singular, viewtype = "", 0F,
@@ -324,7 +332,7 @@ trait TestESData {
         "42", "Fun", Seq.empty, 0L, "lil-john", "Little John"
       )),
       (0, buildEsDoc(
-        "zeta-0003", 0,
+        "zeta-0003", None, 0,
         "private dataset", "zeta-0003", DateTime.now.toString, DateTime.now.toString,
         "zeta-0003", Seq.empty, "", Map.empty, Map.empty,
         TypeDatasets.singular, viewtype = "", 0F,
@@ -334,7 +342,7 @@ trait TestESData {
         "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood"
       )),
       (0, buildEsDoc(
-        "zeta-0004", 0,
+        "zeta-0004", None, 0,
         "standalone visualization", "zeta-0004", DateTime.now.toString, DateTime.now.toString,
         "zeta-0004", Seq.empty, "", Map.empty, Map.empty,
         TypeDatalensCharts.singular, viewtype = "", 0F,
@@ -344,7 +352,7 @@ trait TestESData {
         "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John"
       )),
       (3, buildEsDoc(
-        "zeta-0005", 3,
+        "zeta-0005", None, 3,
         "another john owned document", "zeta-0005", DateTime.now.toString, DateTime.now.toString,
         "zeta-0005", Seq.empty, "", Map.empty, Map.empty,
         TypeDatasets.singular, viewtype = "", 0F,
@@ -353,7 +361,7 @@ trait TestESData {
         "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane"
       )),
       (0, buildEsDoc(
-        "zeta-0006", 0,
+        "zeta-0006", None, 0,
         "unpublished dataset", "zeta-0006", DateTime.now.toString, DateTime.now.toString,
         "zeta-0006", Seq.empty, "", Map.empty, Map.empty,
         TypeDatasets.singular, viewtype = "", 0F,

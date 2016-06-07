@@ -6,12 +6,13 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera.util.JsonDecodeException
 
 @JsonKeyStrategy(Strategy.Underscore)
-case class SocrataId(datasetId: String, domainId: Int)
+case class SocrataId(datasetId: String, parentDatasetid: Option[String], domainId: Int)
 object SocrataId { implicit val jCodec = AutomaticJsonCodecBuilder[SocrataId] }
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Resource(description: String,
                     nbeFxf: String,
+                    parentFxf: Option[String],
                     updatedAt: String,
                     createdAt: String,
                     @JsonKey("type") datatype: String,

@@ -12,6 +12,7 @@ case class ValidatedQueryParameters(
     categories: Option[Set[String]],
     tags: Option[Set[String]],
     only: Option[Seq[String]],
+    parentDatasetId: Option[String],
     fieldBoosts: Map[CeteraFieldType with Boostable, Float],
     datatypeBoosts: Map[Datatype, Float],
     domainBoosts: Map[String, Float],
@@ -151,6 +152,9 @@ object QueryParametersParser {
     queryParameters.first(Params.filterUser)
   }
 
+  def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
+    queryParameters.first(Params.filterParentDatasetId)
+
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
     // TODO: EN-1401 - don't just take head, allow for mulitple selections
@@ -252,6 +256,7 @@ object QueryParametersParser {
             prepareCategories(queryParameters),
             prepareTags(queryParameters),
             o,
+            prepareParentDatasetId(queryParameters),
             prepareFieldBoosts(queryParameters),
             prepareDatatypeBoosts(queryParameters),
             prepareDomainBoosts(queryParameters),
@@ -278,6 +283,7 @@ object Params {
   val filterTagsArray = "tags[]"
   val filterType = "only"
   val filterUser = "for_user"
+  val filterParentDatasetId = "derived_from"
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
@@ -350,6 +356,7 @@ object Params {
     filterTags,
     filterType,
     filterUser,
+    filterParentDatasetId,
     queryAdvanced,
     querySimple,
     boostColumns,

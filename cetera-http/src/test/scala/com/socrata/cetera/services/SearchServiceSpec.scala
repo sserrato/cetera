@@ -449,6 +449,18 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
+  test("if a parent dataset is provided, response should only include views derived from that dataset") {
+    val params = Map(
+      Params.filterParentDatasetId -> "fxf-0"
+    ).mapValues(Seq(_))
+
+    val expectedFxfs = Set("fxf-4", "fxf-8", "fxf-10")
+    val res = service.doSearch(params, None, None, None)._1.results
+
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
   test("categories filter should be case insensitive") {
     val paramsTitleCase = Map(
       "domains" -> Seq("petercetera.net"),

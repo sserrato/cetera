@@ -18,6 +18,7 @@ trait BaseDocumentClient {
                           tags: Option[Set[String]],
                           only: Option[Seq[String]],
                           user: Option[String],
+                          parentDatasetId: Option[String],
                           fieldBoosts: Map[CeteraFieldType with Boostable, Float],
                           datatypeBoosts: Map[Datatype, Float],
                           domainIdBoosts: Map[Int, Float],
@@ -134,6 +135,7 @@ class DocumentClient(
       domains: Set[Domain],
       datatypes: Option[Seq[String]],
       user: Option[String],
+      parentDatasetId: Option[String],
       searchContext: Option[Domain],
       domainMetadata: Option[Set[(String, String)]])
     : FilterBuilder = {
@@ -153,6 +155,7 @@ class DocumentClient(
     List.concat(
       datatypeFilter(datatypes), // I don't belong here
       userFilter(user),  // This doesn't belong here either
+      parentDatasetFilter(parentDatasetId),  // Nothing belongs here it seems
       Some(domainFilter), // TODO: remove me since I am the superset!
       Some(publicFilter()),
       Some(publishedFilter()),
@@ -163,9 +166,11 @@ class DocumentClient(
     filter
   }
 
+  // scalastyle:ignore parameter.number
   private def buildFilteredQuery(
       datatypes: Option[Seq[String]],
       user: Option[String],
+      parentDatasetId: Option[String],
       domains: Set[Domain],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
@@ -198,7 +203,7 @@ class DocumentClient(
     // domain-specific filter is largely about R&A, moderation, visibility, custom metadata
     // but there are three filters there that don't really belong there: datatypes, user and domains
     val domainSpecificFilter =
-      buildDomainSpecificFilter(domains, datatypes, user, searchContext, domainMetadata)
+      buildDomainSpecificFilter(domains, datatypes, user, parentDatasetId, searchContext, domainMetadata)
 
     QueryBuilders.filteredQuery(
       categoriesAndTagsQuery,
@@ -242,7 +247,7 @@ class DocumentClient(
   // * Chooses query type to be used and constructs query with applicable boosts
   // * Applies function scores (typically views and score) with applicable domain boosts
   // * Applies filters (facets and searchContext-sensitive federation preferences)
-  def buildBaseRequest( // scalastyle:ignore parameter.number
+  def buildBaseRequest( // scalastyle:ignore parameter.number method.length
       searchQuery: QueryType,
       domains: Set[Domain],
       searchContext: Option[Domain],
@@ -251,6 +256,7 @@ class DocumentClient(
       domainMetadata: Option[Set[(String, String)]],
       only: Option[Seq[String]],
       user: Option[String],
+      parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
       domainIdBoosts: Map[Int, Float],
@@ -272,6 +278,7 @@ class DocumentClient(
     // Wrap basic match query in filtered query for filtering
     val filteredQuery = buildFilteredQuery(only,
       user,
+      parentDatasetId,
       domains,
       searchContext,
       categories,
@@ -302,6 +309,7 @@ class DocumentClient(
       tags: Option[Set[String]],
       only: Option[Seq[String]],
       user: Option[String],
+      parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
       domainIdBoosts: Map[Int, Float],
@@ -321,6 +329,7 @@ class DocumentClient(
       domainMetadata,
       only,
       user,
+      parentDatasetId,
       fieldBoosts,
       datatypeBoosts,
       domainIdBoosts,
@@ -363,6 +372,7 @@ class DocumentClient(
       None,
       only,
       user,
+      None,
       Map.empty,
       Map.empty,
       Map.empty,
@@ -406,7 +416,7 @@ class DocumentClient(
           .size(aggSize)))
 
     val domainSpecificFilter = domain
-      .map(d => buildDomainSpecificFilter(Set(d), None, None, None, None))
+      .map(d => buildDomainSpecificFilter(Set(d), None, None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders

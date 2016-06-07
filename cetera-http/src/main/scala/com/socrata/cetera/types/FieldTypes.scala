@@ -147,6 +147,10 @@ case object SocrataIdDomainIdFieldType extends DocumentFieldType {
   val fieldName: String = "socrata_id.domain_id"
 }
 
+case object ParentDatasetIdFieldType extends DocumentFieldType {
+  val fieldName: String = "socrata_id.parent_dataset_id"
+}
+
 case object IsPublicFieldType extends DocumentFieldType {
   val fieldName: String = "is_public"
 }

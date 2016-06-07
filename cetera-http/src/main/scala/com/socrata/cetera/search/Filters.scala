@@ -56,7 +56,13 @@ object DocumentFilters {
     user.map(userFilter(_, aggPrefix))
 
   def userFilter(user: String, aggPrefix: String): FilterBuilder =
-    termsFilter(aggPrefix + OwnerIdFieldType.fieldName, user)
+    termFilter(aggPrefix + OwnerIdFieldType.fieldName, user)
+
+  def parentDatasetFilter(parentDatasetId: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
+    parentDatasetId.map(parentDatasetFilter(_, aggPrefix))
+
+  def parentDatasetFilter(parentDatasetId: String, aggPrefix: String): FilterBuilder =
+    termFilter(aggPrefix + ParentDatasetIdFieldType.fieldName, parentDatasetId)
 
   // Don't call me unless you actually want to build a filter
   def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): FilterBuilder =
