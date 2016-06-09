@@ -1,6 +1,7 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.FilterBuilders._
+import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.{FilterBuilder, QueryBuilder}
 
@@ -13,7 +14,7 @@ object DocumentQueries {
       nestedQuery(
         CategoriesFieldType.fieldName,
         cs.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-          b.should(matchQuery(CategoriesFieldType.Name.fieldName, q))
+          b.should(matchQuery(CategoriesFieldType.Name.fieldName, q).`type`(PHRASE))
         }
       )
     }
@@ -23,7 +24,7 @@ object DocumentQueries {
       nestedQuery(
         TagsFieldType.fieldName,
         tags.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-          b.should(matchQuery(TagsFieldType.Name.fieldName, q))
+          b.should(matchQuery(TagsFieldType.Name.fieldName, q).`type`(PHRASE))
         }
       )
     }
@@ -31,14 +32,14 @@ object DocumentQueries {
   def domainCategoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
     categories.map { cs =>
       cs.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-        b.should(matchQuery(DomainCategoryFieldType.fieldName, q))
+        b.should(matchQuery(DomainCategoryFieldType.fieldName, q).`type`(PHRASE))
       }
     }
 
   def domainTagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
     tags.map { ts =>
       ts.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-        b.should(matchQuery(DomainTagsFieldType.fieldName, q))
+        b.should(matchQuery(DomainTagsFieldType.fieldName, q).`type`(PHRASE))
       }
     }
 }
@@ -72,6 +73,7 @@ object DocumentFilters {
     termFilter(aggPrefix + "is_approved_by_parent_domain", true)
 
   // TODO:  should we score metadata by making this a query?
+  // and if you do, remember to make the key and value both phrase matches
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
     metadata.flatMap {
       case metadataKeyValues: Set[(String, String)] if metadataKeyValues.nonEmpty =>

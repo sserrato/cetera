@@ -223,9 +223,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "query": {
         "bool": {
           "should": [
-            { "match": { "animl_annotations.categories.name" : { "query":"Social Services", "type":"boolean"} } },
-            { "match": { "animl_annotations.categories.name" : { "query":"Environment", "type":"boolean"} } },
-            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"boolean"} } }
+            { "match": { "animl_annotations.categories.name" : { "query":"Social Services", "type":"phrase" } } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Environment", "type":"phrase" } } },
+            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"phrase" } } }
           ],
           "minimum_should_match" : "1"
         }
@@ -239,9 +239,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "query": {
         "bool": {
           "should": [
-            { "match": { "animl_annotations.tags.name" : { "query":"taxi", "type":"boolean" } } },
-            { "match": { "animl_annotations.tags.name" : { "query":"art", "type":"boolean" } } },
-            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"boolean" } } }
+            { "match": { "animl_annotations.tags.name" : { "query":"taxi", "type":"phrase" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"art", "type":"phrase" } } },
+            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"phrase" } } }
           ],
           "minimum_should_match" : "1"
         }

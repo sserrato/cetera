@@ -527,6 +527,50 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
   }
 
+  test("searching for a category should include partial phrase matches") {
+    val params = Map(
+      "search_context" -> "petercetera.net",
+      "domains" -> "petercetera.net",
+      "q" -> "Alpha"
+    ).mapValues(Seq(_))
+
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
+    val res = service.doSearch(params, None, None, None)._1.results
+
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  // TODO: double check that partial phrase match on a category/tag filter is appropriate
+  test("filtering by a category should include partial phrase matches") {
+    val params = Map(
+      "search_context" -> "petercetera.net",
+      "domains" -> "petercetera.net",
+      "categories" -> "Alpha"
+    ).mapValues(Seq(_))
+
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
+    val res = service.doSearch(params, None, None, None)._1.results
+
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("filtering by a category should NOT include individual term matches") {
+    val params = Map(
+      "search_context" -> "petercetera.net",
+      "domains" -> "petercetera.net",
+      // the full category is "Alpha to Omega" and we used to include matches on any one of the terms e.g. Alpha
+      "categories" -> "Alpha Beta Gaga"
+    ).mapValues(Seq(_))
+
+    val expectedFxfs = Set.empty
+    val res = service.doSearch(params, None, None, None)._1.results
+
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
   test("sorting by name works") {
     val params = Map("order" -> Seq("name"))
     val (results, _, _) = service.doSearch(params, None, None, None)

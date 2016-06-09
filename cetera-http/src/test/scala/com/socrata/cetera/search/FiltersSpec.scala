@@ -16,7 +16,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val categoryQuery = DocumentQueries.categoriesQuery(Some(Set("Fun")))
       val expected =
         j"""{"nested": {"query": {"bool": {"should":
-          {"match": { "animl_annotations.categories.name": { "query": "Fun", "type": "boolean" }}},
+          {"match": { "animl_annotations.categories.name": { "query": "Fun", "type": "phrase" }}},
          "minimum_should_match": "1" }}, "path": "animl_annotations.categories"}
       }"""
       val actual = JsonReader.fromString(categoryQuery.get.toString)
@@ -27,9 +27,20 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val categoryQuery = DocumentQueries.categoriesQuery(Some(Set("Fun", "Times")))
       val expected =
         j"""{"nested": {"query": {"bool": {"should": [
-          {"match": { "animl_annotations.categories.name": { "query": "Fun", "type": "boolean" }}},
-          {"match": { "animl_annotations.categories.name": { "query": "Times", "type": "boolean" }}}
+          {"match": { "animl_annotations.categories.name": { "query": "Fun", "type": "phrase" }}},
+          {"match": { "animl_annotations.categories.name": { "query": "Times", "type": "phrase" }}}
          ], "minimum_should_match": "1" }}, "path": "animl_annotations.categories"}
+      }"""
+      val actual = JsonReader.fromString(categoryQuery.get.toString)
+      actual should be(expected)
+    }
+
+    "return the expected query if one category with multiple terms is given" in {
+      val categoryQuery = DocumentQueries.categoriesQuery(Some(Set("Unemployment Insurance")))
+      val expected =
+        j"""{"nested": {"query": {"bool": {"should":
+          {"match": { "animl_annotations.categories.name": { "query": "Unemployment Insurance", "type": "phrase" }}},
+         "minimum_should_match": "1" }}, "path": "animl_annotations.categories"}
       }"""
       val actual = JsonReader.fromString(categoryQuery.get.toString)
       actual should be(expected)
@@ -46,7 +57,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val tagQuery = DocumentQueries.tagsQuery(Some(Set("Fun")))
       val expected =
         j"""{"nested": {"query": {"bool": {"should":
-          {"match": { "animl_annotations.tags.name": { "query": "Fun", "type": "boolean" }}},
+          {"match": { "animl_annotations.tags.name": { "query": "Fun", "type": "phrase" }}},
          "minimum_should_match": "1" }}, "path": "animl_annotations.tags"}
       }"""
       val actual = JsonReader.fromString(tagQuery.get.toString)
@@ -57,8 +68,8 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val tagQuery = DocumentQueries.tagsQuery(Some(Set("Fun", "Times")))
       val expected =
         j"""{"nested": {"query": {"bool": {"should": [
-          {"match": { "animl_annotations.tags.name": { "query": "Fun", "type": "boolean" }}},
-          {"match": { "animl_annotations.tags.name": { "query": "Times", "type": "boolean" }}}
+          {"match": { "animl_annotations.tags.name": { "query": "Fun", "type": "phrase" }}},
+          {"match": { "animl_annotations.tags.name": { "query": "Times", "type": "phrase" }}}
          ], "minimum_should_match": "1" }}, "path": "animl_annotations.tags"}
       }"""
       val actual = JsonReader.fromString(tagQuery.get.toString)
@@ -76,7 +87,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val categoryQuery = DocumentQueries.domainCategoriesQuery(Some(Set("Fun")))
       val expected =
         j"""{"bool": {"should":
-          {"match": { "customer_category": { "query": "Fun", "type": "boolean" }}},
+          {"match": { "customer_category": { "query": "Fun", "type": "phrase" }}},
          "minimum_should_match": "1" }
       }"""
       val actual = JsonReader.fromString(categoryQuery.get.toString)
@@ -87,8 +98,8 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
       val categoryQuery = DocumentQueries.domainCategoriesQuery(Some(Set("Fun", "Times")))
       val expected =
         j"""{"bool": {"should": [
-          {"match": { "customer_category": { "query": "Fun", "type": "boolean" }}},
-          {"match": { "customer_category": { "query": "Times", "type": "boolean" }}}
+          {"match": { "customer_category": { "query": "Fun", "type": "phrase" }}},
+          {"match": { "customer_category": { "query": "Times", "type": "phrase" }}}
          ], "minimum_should_match": "1" }
       }"""
       val actual = JsonReader.fromString(categoryQuery.get.toString)
@@ -106,7 +117,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     "return the expected query if one tag is given" in {
       val tagQuery = DocumentQueries.domainTagsQuery(Some(Set("Fun")))
       val expected = j"""{"bool": {"should":
-          {"match": { "customer_tags": { "query": "Fun", "type": "boolean" }}},
+          {"match": { "customer_tags": { "query": "Fun", "type": "phrase" }}},
          "minimum_should_match": "1" }
       }"""
       val actual = JsonReader.fromString(tagQuery.get.toString)
@@ -116,8 +127,8 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     "return the expected query if multiple tags are given" in {
       val tagQuery = DocumentQueries.domainTagsQuery(Some(Set("Fun", "Times")))
       val expected = j"""{"bool": {"should": [
-          {"match": { "customer_tags": { "query": "Fun", "type": "boolean" }}},
-          {"match": { "customer_tags": { "query": "Times", "type": "boolean" }}}
+          {"match": { "customer_tags": { "query": "Fun", "type": "phrase" }}},
+          {"match": { "customer_tags": { "query": "Times", "type": "phrase" }}}
          ], "minimum_should_match": "1" }
       }"""
       val actual = JsonReader.fromString(tagQuery.get.toString)
