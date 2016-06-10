@@ -13,7 +13,7 @@ object Datatypes {
 trait Datatype {
   def plural: String
   def singular: String
-  def names: Seq[String]
+  def names: Set[String]
 }
 
 object Datatype {
@@ -27,7 +27,7 @@ object Datatype {
 
 trait DatatypeSimple extends Datatype {
   lazy val singular: String = plural.dropRight(1)
-  lazy val names: Seq[String] = Seq(singular)
+  lazy val names: Set[String] = Set(singular)
 }
 
 trait DatatypeRename extends Datatype {
@@ -69,34 +69,34 @@ case object TypeHrefs extends DatatypeSimple with Materialized {
 }
 case object TypeLinks extends DatatypeRename {
   val plural: String = "links"
-  override lazy val names: Seq[String] = TypeHrefs.names
+  override lazy val names: Set[String] = TypeHrefs.names
 }
 
 // charts
 case object TypeCharts extends DatatypeRename with Materialized {
   val plural = "charts"
-  override lazy val names: Seq[String] = Seq(TypeCharts.singular, TypeDatalensCharts.singular)
+  override lazy val names: Set[String] = Set(TypeCharts.singular, TypeDatalensCharts.singular)
 }
 case object TypeDatalensCharts extends DatatypeRename {
   val plural: String = "datalens_charts"
-  override lazy val names: Seq[String] = TypeCharts.names
+  override lazy val names: Set[String] = TypeCharts.names
 }
 
 // maps
 case object TypeMaps extends DatatypeRename with Materialized {
   val plural: String = "maps"
-  override lazy val names: Seq[String] =
-    Seq(TypeMaps.singular, TypeDatalensMaps.singular, TypeGeoMaps.singular, TypeTabularMaps.singular)
+  override lazy val names: Set[String] =
+    Set(TypeMaps.singular, TypeDatalensMaps.singular, TypeGeoMaps.singular, TypeTabularMaps.singular)
 }
 case object TypeDatalensMaps extends DatatypeRename {
   val plural: String = "datalens_maps"
-  override lazy val names: Seq[String] = TypeMaps.names
+  override lazy val names: Set[String] = TypeMaps.names
 }
 case object TypeGeoMaps extends DatatypeRename {
   val plural: String = "geo_maps"
-  override lazy val names: Seq[String] = TypeMaps.names
+  override lazy val names: Set[String] = TypeMaps.names
 }
 case object TypeTabularMaps extends DatatypeRename{
   val plural: String = "tabular_maps"
-  override lazy val names: Seq[String] = TypeMaps.names
+  override lazy val names: Set[String] = TypeMaps.names
 }

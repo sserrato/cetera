@@ -60,7 +60,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
-    only = Some(Seq("datasets")),
+    datatypes = Some(Set("datasets")),
     fieldBoosts = Map[CeteraFieldType with Boostable, Float](
       TitleFieldType -> 2.2f,
       DescriptionFieldType -> 1.1f
@@ -350,7 +350,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = None,
         tags = None,
         domainMetadata = None,
-        only = None,
+        datatypes = None,
         user = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
@@ -384,7 +384,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = None,
         tags = None,
         domainMetadata = None,
-        only = None,
+        datatypes = None,
         user = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
@@ -418,7 +418,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = None,
         tags = None,
         domainMetadata = None,
-        only = None,
+        datatypes = None,
         user = None,
         parentDatasetId = None,
         fieldBoosts = params.fieldBoosts,
@@ -476,7 +476,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
-        only = params.only,
+        datatypes = params.datatypes,
         user = None
       )
 
@@ -655,7 +655,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = params.categories,
         tags = params.tags,
         domainMetadata = None,
-        only = params.only,
+        datatypes = params.datatypes,
         user = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
@@ -712,7 +712,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = params.categories,
         tags = params.tags,
         domainMetadata = None,
-        only = params.only,
+        datatypes = params.datatypes,
         user = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,

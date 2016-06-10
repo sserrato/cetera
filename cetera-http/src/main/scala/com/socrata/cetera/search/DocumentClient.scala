@@ -10,34 +10,34 @@ import com.socrata.cetera.types._
 
 trait BaseDocumentClient {
   def buildSearchRequest( // scalastyle:ignore parameter.number
-                          searchQuery: QueryType,
-                          domains: Set[Domain],
-                          domainMetadata: Option[Set[(String, String)]],
-                          searchContext: Option[Domain],
-                          categories: Option[Set[String]],
-                          tags: Option[Set[String]],
-                          only: Option[Seq[String]],
-                          user: Option[String],
-                          parentDatasetId: Option[String],
-                          fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-                          datatypeBoosts: Map[Datatype, Float],
-                          domainIdBoosts: Map[Int, Float],
-                          minShouldMatch: Option[String],
-                          slop: Option[Int],
-                          offset: Int,
-                          limit: Int,
-                          sortOrder: Option[String])
+      searchQuery: QueryType,
+      domains: Set[Domain],
+      domainMetadata: Option[Set[(String, String)]],
+      searchContext: Option[Domain],
+      categories: Option[Set[String]],
+      tags: Option[Set[String]],
+      datatypes: Option[Set[String]],
+      user: Option[String],
+      parentDatasetId: Option[String],
+      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
+      datatypeBoosts: Map[Datatype, Float],
+      domainIdBoosts: Map[Int, Float],
+      minShouldMatch: Option[String],
+      slop: Option[Int],
+      offset: Int,
+      limit: Int,
+      sortOrder: Option[String])
   : SearchRequestBuilder
 
   def buildCountRequest(
-                         field: DocumentFieldType with Countable with Rawable,
-                         searchQuery: QueryType,
-                         domains: Set[Domain],
-                         searchContext: Option[Domain],
-                         categories: Option[Set[String]],
-                         tags: Option[Set[String]],
-                         only: Option[Seq[String]],
-                         user: Option[String])
+      field: DocumentFieldType with Countable with Rawable,
+      searchQuery: QueryType,
+      domains: Set[Domain],
+      searchContext: Option[Domain],
+      categories: Option[Set[String]],
+      tags: Option[Set[String]],
+      datatypes: Option[Set[String]],
+      user: Option[String])
   : SearchRequestBuilder
 
   def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
@@ -133,7 +133,7 @@ class DocumentClient(
 
   private def buildDomainSpecificFilter(
       domains: Set[Domain],
-      datatypes: Option[Seq[String]],
+      datatypes: Option[Set[String]],
       user: Option[String],
       parentDatasetId: Option[String],
       searchContext: Option[Domain],
@@ -168,7 +168,7 @@ class DocumentClient(
 
   // scalastyle:ignore parameter.number
   private def buildFilteredQuery(
-      datatypes: Option[Seq[String]],
+      datatypes: Option[Set[String]],
       user: Option[String],
       parentDatasetId: Option[String],
       domains: Set[Domain],
@@ -254,7 +254,7 @@ class DocumentClient(
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       domainMetadata: Option[Set[(String, String)]],
-      only: Option[Seq[String]],
+      datatypes: Option[Set[String]],
       user: Option[String],
       parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
@@ -276,7 +276,8 @@ class DocumentClient(
     }
 
     // Wrap basic match query in filtered query for filtering
-    val filteredQuery = buildFilteredQuery(only,
+    val filteredQuery = buildFilteredQuery(
+      datatypes,
       user,
       parentDatasetId,
       domains,
@@ -307,7 +308,7 @@ class DocumentClient(
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
-      only: Option[Seq[String]],
+      datatypes: Option[Set[String]],
       user: Option[String],
       parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
@@ -327,7 +328,7 @@ class DocumentClient(
       categories,
       tags,
       domainMetadata,
-      only,
+      datatypes,
       user,
       parentDatasetId,
       fieldBoosts,
@@ -357,7 +358,7 @@ class DocumentClient(
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
-      only: Option[Seq[String]],
+      datatypes: Option[Set[String]],
       user: Option[String])
     : SearchRequestBuilder = {
 
@@ -370,7 +371,7 @@ class DocumentClient(
       categories,
       tags,
       None,
-      only,
+      datatypes,
       user,
       None,
       Map.empty,

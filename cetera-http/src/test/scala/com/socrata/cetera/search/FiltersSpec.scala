@@ -143,21 +143,21 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected filter if one datatype is given" in {
-      val datatypeFilter = DocumentFilters.datatypeFilter(Some(List("datasets")))
+      val datatypeFilter = DocumentFilters.datatypeFilter(Some(Set("datasets")))
       val expected = j"""{ "terms": { "datatype": [ "dataset" ] } }"""
       val actual = JsonReader.fromString(datatypeFilter.get.toString)
       actual should be(expected)
     }
 
     "return the expected filter if multiple datatypes are given" in {
-      val datatypeFilter = DocumentFilters.datatypeFilter(Some(List("datasets", "datalens")))
+      val datatypeFilter = DocumentFilters.datatypeFilter(Some(Set("datasets", "datalens")))
       val expected = j"""{ "terms": { "datatype": [ "dataset", "datalens" ] } }"""
       val actual = JsonReader.fromString(datatypeFilter.get.toString)
       actual should be(expected)
     }
 
     "return the expected filter if a prefix is used" in {
-      val datatypeFilter = DocumentFilters.datatypeFilter(Some(List("pulses")), "new_")
+      val datatypeFilter = DocumentFilters.datatypeFilter(Some(Set("pulses")), "new_")
       val expected = j"""{ "terms": { "new_datatype": [ "pulse" ] } }"""
       val actual = JsonReader.fromString(datatypeFilter.get.toString)
       actual should be(expected)

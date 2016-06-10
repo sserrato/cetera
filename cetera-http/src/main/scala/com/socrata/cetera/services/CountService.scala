@@ -67,7 +67,7 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
           searchContext,
           params.categories,
           params.tags,
-          params.only,
+          params.datatypes,
           params.user
         )
         logger.info(LogHelper.formatEsRequest(search))

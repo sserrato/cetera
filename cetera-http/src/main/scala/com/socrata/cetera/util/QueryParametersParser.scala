@@ -11,7 +11,7 @@ case class ValidatedQueryParameters(
     searchContext: Option[String],
     categories: Option[Set[String]],
     tags: Option[Set[String]],
-    only: Option[Seq[String]],
+    datatypes: Option[Set[String]],
     parentDatasetId: Option[String],
     fieldBoosts: Map[CeteraFieldType with Boostable, Float],
     datatypeBoosts: Map[Datatype, Float],
@@ -22,16 +22,15 @@ case class ValidatedQueryParameters(
     offset: Int,
     limit: Int,
     sortOrder: Option[String],
-    user: Option[String]
-)
+    user: Option[String])
 
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
 
-case class OnlyError(override val message: String) extends ParseError
+case class DatatypeError(override val message: String) extends ParseError
 
 // Parses and validates
-object QueryParametersParser {
+object QueryParametersParser { // scalastyle:ignore number.of.methods
   val defaultPageOffset = 0
   val defaultPageLength = 100
 
@@ -57,12 +56,11 @@ object QueryParametersParser {
   }
 
   // for sort order
+  private val allowedSortOrders = Sorts.paramSortMap.keySet
   case class SortOrderString(value: String)
   implicit val sortOrderStringParamConverter = ParamConverter.filtered { (a: String) =>
     if (allowedSortOrders.contains(a)) Some(SortOrderString(a)) else None
   }
-
-  private val allowedSortOrders = Sorts.paramSortMap.keySet
 
   // If both are specified, prefer the advanced query over the search query
   private def pickQuery(advanced: Option[String], simple: Option[String]): QueryType =
@@ -77,7 +75,7 @@ object QueryParametersParser {
     if (cs.nonEmpty) Some(cs) else None
   }
 
-  // Used to support param=this,that and param[]something&param[]=more
+  // Used to support param=this,that and param[]=something&param[]=more
   private def mergeParams(queryParameters: MultiQueryParams,
                           selectKeys: Set[String],
                           transform: String => String = identity): Option[Set[String]] =
@@ -86,15 +84,17 @@ object QueryParametersParser {
   val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
 
   // This can stay case-sensitive because it is so specific
-  def restrictParamFilterType(only: Option[String]): Either[OnlyError, Option[Seq[String]]] =
-    only.map {
-      case s: String if s.nonEmpty =>
-        Datatype(s) match {
-          case None => Left(OnlyError(s"'only' must be one of $allowedFilterTypes; got $s"))
-          case Some(d) => Right(Some(d.names))
-        }
-      case _ => Right(None)
-    }.getOrElse(Right(None))
+  def restrictParamFilterDatatype(datatype: String): Either[DatatypeError, Option[Set[String]]] = datatype match {
+    case s: String if s.nonEmpty =>
+      Datatype(s) match {
+        case None => Left(DatatypeError(s"'${Params.filterDatatypes}' must be one of $allowedFilterTypes; got $s"))
+        case Some(d) => Right(Some(d.names.toSet))
+      }
+    case _ => Right(None)
+  }
+
+  def restrictParamFilterDatatype(datatype: Option[String]): Either[DatatypeError, Option[Set[String]]] =
+    datatype.map(restrictParamFilterDatatype).getOrElse(Right(None))
 
   // for extracting `example.com` from `boostDomains[example.com]`
   class FieldExtractor(val key: String) {
@@ -144,8 +144,23 @@ object QueryParametersParser {
     mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray))
   }
 
-  def prepareOnly(queryParameters: MultiQueryParams): Either[OnlyError, Option[Seq[String]]] = {
-    restrictParamFilterType(queryParameters.first(Params.filterType))
+  def prepareDatatypes(queryParameters: MultiQueryParams): Either[DatatypeError, Option[Set[String]]] = {
+    val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(","))).map(_.toSet)
+    val arrayParams = queryParameters.get(Params.filterDatatypesArray).map(_.toSet)
+    val mergedParams = mergeOptionalSets[String](Set(csvParams, arrayParams))
+
+    mergedParams.map { params =>
+      val parsedDatatypes = params.map(restrictParamFilterDatatype)
+
+      val errors = parsedDatatypes.collect { case Left(err) => err }.headOption
+      val datatypes = parsedDatatypes.collect { case Right(Some(ds)) => ds }.flatten
+
+      (errors, datatypes) match {
+        case (Some(es), _) => Left(es)
+        case (_, ds)       => Right(Some(ds))
+        case _             => Right(None)
+      }
+    }.getOrElse(Right(None))
   }
 
   def prepareUsers(queryParameters: MultiQueryParams): Option[String] = {
@@ -240,13 +255,11 @@ object QueryParametersParser {
             extendedHost: Option[String]
            ): Either[Seq[ParseError], ValidatedQueryParameters] = {
     // NOTE! We don't have to run most of these if just any of them fail validation
-
-    val only = prepareOnly(queryParameters)
-
     // TODO reorder semantically (searchContext before domainMetadata)
     // Add params to the match to provide helpful error messages
-    only match {
-      case Right(o) =>
+    prepareDatatypes(queryParameters) match {
+      case Left(e)          => Left(Seq(e))
+      case Right(datatypes) =>
         Right(
           ValidatedQueryParameters(
             prepareSearchQuery(queryParameters),
@@ -255,7 +268,7 @@ object QueryParametersParser {
             prepareSearchContext(queryParameters, extendedHost),
             prepareCategories(queryParameters),
             prepareTags(queryParameters),
-            o,
+            datatypes,
             prepareParentDatasetId(queryParameters),
             prepareFieldBoosts(queryParameters),
             prepareDatatypeBoosts(queryParameters),
@@ -269,7 +282,6 @@ object QueryParametersParser {
             prepareUsers(queryParameters)
           )
         )
-      case Left(e) => Left(Seq(e))
     }
   }
 }
@@ -281,7 +293,8 @@ object Params {
   val filterCategoriesArray = "categories[]"
   val filterTags = "tags"
   val filterTagsArray = "tags[]"
-  val filterType = "only"
+  val filterDatatypes = "only"
+  val filterDatatypesArray = "only[]"
   val filterUser = "for_user"
   val filterParentDatasetId = "derived_from"
 
@@ -354,7 +367,7 @@ object Params {
     filterDomains,
     filterCategories,
     filterTags,
-    filterType,
+    filterDatatypes,
     filterUser,
     filterParentDatasetId,
     queryAdvanced,
@@ -375,6 +388,7 @@ object Params {
   // If your param is an array like tags[]=fun&tags[]=ice+cream
   private val arrayKeys = Set(
     filterCategoriesArray,
+    filterDatatypesArray,
     filterTagsArray
   )
 

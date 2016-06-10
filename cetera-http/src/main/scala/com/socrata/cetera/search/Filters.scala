@@ -45,12 +45,12 @@ object DocumentQueries {
 }
 
 object DocumentFilters {
-  def datatypeFilter(datatypes: Option[Seq[String]], aggPrefix: String = ""): Option[FilterBuilder] =
+  def datatypeFilter(datatypes: Option[Set[String]], aggPrefix: String = ""): Option[FilterBuilder] =
     datatypes.map(ts => datatypeFilter(ts, aggPrefix))
 
-  def datatypeFilter(datatypes: Seq[String], aggPrefix: String): FilterBuilder = {
+  def datatypeFilter(datatypes: Set[String], aggPrefix: String): FilterBuilder = {
     val validatedDatatypes = datatypes.flatMap(t => Datatype(t).map(_.singular))
-    termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes: _*)
+    termsFilter(aggPrefix + DatatypeFieldType.fieldName, validatedDatatypes.toSeq: _*)
   }
 
   def userFilter(user: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
@@ -132,7 +132,7 @@ object DocumentFilters {
       Some(unmoderatedDomainIds).filter(_.nonEmpty).map(udids => domainIdsFilter(udids, aggPrefix))
 
     val datalensUniqueAndSpecialSnowflakeFilter = datatypeFilter(
-      Seq(TypeDatalenses.singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular),
+      Set(TypeDatalenses.singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular),
       aggPrefix
     )
     val documentIsNotDatalens = notFilter(datalensUniqueAndSpecialSnowflakeFilter)

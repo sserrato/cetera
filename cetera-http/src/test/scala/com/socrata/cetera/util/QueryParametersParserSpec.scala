@@ -12,40 +12,34 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("'only' query parameter allows blank to indicate no filter") {
-    qpp.restrictParamFilterType(None) should be(Right(None))
-    qpp.restrictParamFilterType(Some("")) should be(Right(None))
+    qpp.restrictParamFilterDatatype(None) should be(Right(None))
+    qpp.restrictParamFilterDatatype(Some("")) should be(Right(None))
   }
 
   test("'only' query parameter allows all datatypes") {
     Datatypes.all.foreach { datatype =>
-      qpp.restrictParamFilterType(Some(datatype.plural)) should be(Right(Some(datatype.names)))
-      qpp.restrictParamFilterType(Some(datatype.singular)) should be(Right(Some(datatype.names)))
+      qpp.restrictParamFilterDatatype(Some(datatype.plural)) should be(Right(Some(datatype.names)))
+      qpp.restrictParamFilterDatatype(Some(datatype.singular)) should be(Right(Some(datatype.names)))
     }
   }
 
   test("'only' query parameter specific instances") {
-    qpp.restrictParamFilterType(Some("calendars")) should be(Right(Some(Seq("calendar"))))
-    qpp.restrictParamFilterType(Some("datalenses")) should be(Right(Some(Seq("datalens"))))
-    qpp.restrictParamFilterType(Some("datasets")) should be(Right(Some(Seq("dataset"))))
-    qpp.restrictParamFilterType(Some("files")) should be(Right(Some(Seq("file"))))
-    qpp.restrictParamFilterType(Some("filters")) should be(Right(Some(Seq("filter"))))
-    qpp.restrictParamFilterType(Some("forms")) should be(Right(Some(Seq("form"))))
-    qpp.restrictParamFilterType(Some("stories")) should be(Right(Some(Seq("story"))))
+    qpp.restrictParamFilterDatatype(Some("calendars")) should be(Right(Some(Set("calendar"))))
+    qpp.restrictParamFilterDatatype(Some("datalenses")) should be(Right(Some(Set("datalens"))))
+    qpp.restrictParamFilterDatatype(Some("datasets")) should be(Right(Some(Set("dataset"))))
+    qpp.restrictParamFilterDatatype(Some("files")) should be(Right(Some(Set("file"))))
+    qpp.restrictParamFilterDatatype(Some("filters")) should be(Right(Some(Set("filter"))))
+    qpp.restrictParamFilterDatatype(Some("forms")) should be(Right(Some(Set("form"))))
+    qpp.restrictParamFilterDatatype(Some("stories")) should be(Right(Some(Set("story"))))
 
-    val linksExpected = Seq("href")
-    qpp.restrictParamFilterType(Some("links")) should be(Right(Some(linksExpected)))
+    val linksExpected = Set("href")
+    qpp.restrictParamFilterDatatype(Some("links")) should be(Right(Some(linksExpected)))
 
-    val chartsExpected = Seq("chart", "datalens_chart")
-    qpp.restrictParamFilterType(Some("charts")) match {
-      case Right(Some(ss)) => chartsExpected.foreach(t => ss should contain(t))
-      case _ => fail()
-    }
+    val chartsExpected = Set("chart", "datalens_chart")
+    qpp.restrictParamFilterDatatype(Some("charts")) should be(Right(Some(chartsExpected)))
 
-    val mapsExpected = Seq("datalens_map", "geo_map", "map", "tabular_map")
-    qpp.restrictParamFilterType(Some("maps")) match {
-      case Right(Some(ss)) => mapsExpected.foreach(t => ss should contain(t))
-      case _ => fail()
-    }
+    val mapsExpected = Set("datalens_map", "geo_map", "map", "tabular_map")
+    qpp.restrictParamFilterDatatype(Some("maps")) should be(Right(Some(mapsExpected)))
   }
 
   test("datatype boost parameter parses with valid datatype") {
@@ -93,10 +87,21 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     Params.remaining(input) should be(expected)
   }
 
-  test("'only' query parameter prohibits multiple selections") {
-    qpp.restrictParamFilterType(Option("datasets,datalenses")) match {
-      case Left(e: OnlyError) => ()
-      case _ => fail("an OnlyError should be returned")
+  test("'only' query parameter allows multiple selections") {
+    QueryParametersParser(Map("only" -> Seq("datasets,datalenses")), None) match {
+      case Left(_) => fail("a ValidatedQueryParameters should be returned")
+      case Right(params) =>
+        params.datatypes should be('defined)
+        params.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
+    }
+  }
+
+  test("'only[]' query parameter allows multiple selections") {
+    QueryParametersParser(Map("only[]" -> Seq("datasets", "datalenses")), None) match {
+      case Left(_) => fail("a ValidatedQueryParameters should be returned")
+      case Right(params) =>
+        params.datatypes should be('defined)
+        params.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
     }
   }
 
