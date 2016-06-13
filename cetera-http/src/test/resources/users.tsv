@@ -1,2 +1,2 @@
-id	displayName	email	roleName	imageLarge	imageMedium	imageSmall
-soul-eater	death-the-kid	death.kid@deathcity.com	headmaster	/api/users/soul-eater/profile_images/LARGE	/api/users/soul-eater/profile_images/THUMB	/api/users/soul-eater/profile_images/TINY
+id	displayName	email	domainId	roleName	imageLarge	imageMedium	imageSmall
+soul-eater	death-the-kid	death.kid@deathcity.com	0	headmaster	/api/users/soul-eater/profile_images/LARGE	/api/users/soul-eater/profile_images/THUMB	/api/users/soul-eater/profile_images/TINY

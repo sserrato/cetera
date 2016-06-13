@@ -9,7 +9,8 @@ import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
 import com.socrata.cetera._
-import com.socrata.cetera.search.UserClient
+import com.socrata.cetera.search.{DomainClient, UserClient}
+import com.socrata.cetera.types.DomainUser
 
 class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
@@ -20,8 +21,9 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
 
   val client = new TestESClient(testSuiteName)
+  val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
-  val service = new UserSearchService(userClient, coreClient)
+  val service = new UserSearchService(userClient, coreClient, domainClient)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -41,7 +43,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   }
 
   test("authenticate rejects anonymous requests") {
-    val (auth, _) = service.verifyUserAuthorization(None, None, None)
+    val (auth, _) = service.verifyUserAuthorization(None, "", None)
     auth should be(false)
   }
 
@@ -51,9 +53,16 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results.headOption should be('empty)
   }
 
-  test("search with authentication returns any and all users") {
+  test("search without domain is rejected") {
     val cookie = "Traditional = WASD"
-    val host = "Superior = ESDF"
+    val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), None, None)
+    status should be(Unauthorized)
+    results.results.headOption should be('empty)
+  }
+
+  test("search with authentication returns any and all users, with required attributes") {
+    val cookie = "Traditional = WASD"
+    val host = "petercetera.net"
 
     val authedUserBody =
       j"""{
@@ -80,11 +89,22 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     mockServer.verify(expectedRequest)
     status should be(OK)
     results.results.headOption should be('defined)
+
+    val expectedUser = DomainUser(
+      "soul-eater",
+      Some("death-the-kid"),
+      Some("death.kid@deathcity.com"),
+      Some("headmaster"),
+      Some("/api/users/soul-eater/profile_images/LARGE"),
+      Some("/api/users/soul-eater/profile_images/THUMB"),
+      Some("/api/users/soul-eater/profile_images/TINY")
+    )
+    results.results.head should be(expectedUser)
   }
 
   test("search with authentication but without authorization is rejected") {
     val cookie = "Traditional = WASD"
-    val host = "Superior = ESDF"
+    val host = "petercetera.net"
 
     val authedUserBody =
       j"""{

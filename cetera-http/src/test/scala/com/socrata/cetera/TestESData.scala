@@ -38,14 +38,14 @@ trait TestESData {
     val iter = userTSV.getLines().map(_.split("\t"))
     iter.drop(1) // drop the header columns
     iter.map { tsvLine =>
-      User(
+      EsUser(
         id = tsvLine(0),
         screenName = Option(tsvLine(1)).filter(_.nonEmpty),
         email = Option(tsvLine(2)).filter(_.nonEmpty),
-        roleName = Option(tsvLine(3)).filter(_.nonEmpty),
-        profileImageUrlLarge = Option(tsvLine(4)).filter(_.nonEmpty),
-        profileImageUrlMedium = Option(tsvLine(5)).filter(_.nonEmpty),
-        profileImageUrlSmall = Option(tsvLine(6)).filter(_.nonEmpty)
+        roles = Some(Set(Role(tsvLine(3).toInt, tsvLine(4)))),
+        profileImageUrlLarge = Option(tsvLine(5)).filter(_.nonEmpty),
+        profileImageUrlMedium = Option(tsvLine(6)).filter(_.nonEmpty),
+        profileImageUrlSmall = Option(tsvLine(7)).filter(_.nonEmpty)
       )
     }.toSeq
   }
@@ -295,7 +295,7 @@ trait TestESData {
     // load users
     users.foreach { u =>
       client.client.prepareIndex(testSuiteName, esUserType)
-        .setSource(JsonUtil.renderJson[User](u))
+        .setSource(JsonUtil.renderJson[EsUser](u))
         .setId(u.id)
         .setRefresh(true)
         .execute.actionGet
