@@ -127,7 +127,8 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
   }
 
   // WARN: This will raise if a single document has a single missing path!
-  def format(domainIdCnames: Map[Int, String], showScore: Boolean,
+  def format(domainIdCnames: Map[Int, String],
+             showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
     SearchResults(searchResponse.getHits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
@@ -191,7 +192,7 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
     (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime, setCookies)
   }
 
-  def doSearch(queryParameters: MultiQueryParams,
+  def doSearch(queryParameters: MultiQueryParams, // scalastyle:ignore parameter.number method.length
                cookie: Option[String],
                extendedHost: Option[String],
                requestId: Option[String]
@@ -216,6 +217,7 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
           params.tags,
           params.datatypes,
           params.user,
+          params.attribution,
           params.parentDatasetId,
           params.fieldBoosts,
           params.datatypeBoosts,
@@ -226,6 +228,7 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
           params.limit,
           params.sortOrder
         )
+
         logger.info(LogHelper.formatEsRequest(req))
         val res = req.execute.actionGet
         val count = res.getHits.getTotalHits

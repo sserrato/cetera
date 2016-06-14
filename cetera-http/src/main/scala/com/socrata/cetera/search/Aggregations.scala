@@ -56,6 +56,14 @@ object DocumentAggregations {
       .order(Terms.Order.count(false)) // count desc
       .size(aggSize)
 
+  val attributions =
+    AggregationBuilders
+      .terms("attributions")
+      .field(AttributionFieldType.rawFieldName)
+      .order(Terms.Order.count(false)) // count desc
+      .size(aggSize)
+
+
   def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
     field match {
       case DomainCategoryFieldType => domainCategories
@@ -65,6 +73,7 @@ object DocumentAggregations {
       case TagsFieldType => tags
 
       case OwnerIdFieldType => owners
+      case AttributionFieldType => attributions
     }
 }
 

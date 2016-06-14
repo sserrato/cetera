@@ -115,6 +115,9 @@ case object OwnerIdFieldType extends DocumentFieldType with Countable with Nativ
   val fieldName: String = "owner.id"
 }
 
+case object AttributionFieldType extends DocumentFieldType with Countable with Rawable {
+  val fieldName: String = "attribution"
+}
 
 /////////////////////
 // Catalog Visibility

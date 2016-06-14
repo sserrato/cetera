@@ -150,7 +150,7 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
   }
 
   test("domain categories count request") {
-    val expectedResults = List(Count("Alpha to Omega", 3), Count("Gamma", 1), Count("Fun", 3))
+    val expectedResults = List(Count("Alpha to Omega", 3), Count("Gamma", 1), Count("Fun", 4))
     val (res, _, _) = service.doAggregate(DomainCategoryFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
@@ -162,7 +162,7 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
   }
 
   test("owned by user count request") {
-    val expectedResults = List(Count("robin-hood", 5), Count("lil-john", 1),  Count("john-clan", 1))
+    val expectedResults = List(Count("robin-hood", 5), Count("lil-john", 2),  Count("john-clan", 1))
     val (res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }

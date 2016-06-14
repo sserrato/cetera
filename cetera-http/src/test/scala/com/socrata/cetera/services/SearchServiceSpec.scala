@@ -329,7 +329,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     /*
       Test Data domains -> documents
       id  cname                     cust  mod   r&a
-      0   petercetera.net           t     f     f (not moderated, 1 default view)
+      0   petercetera.net           t     f     f (not moderated, 4 default views)
         documents
         fxf     def mod r&a       visible
         fxf-0   f   f   0         t
@@ -339,6 +339,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         zeta-3  t   t   0,1,2,3   f       (isPublic=false)
         zeta-4  f   n   0,1,2,3   f       (unapproved datalens_chart/map should not be visible)
         zeta-6  t   t   0,1,2,3   f       (isPublished=false)
+        zeta-7  t   t   0,1,2,3   t
       1   opendata-demo.socrata.com f     t     f (not customer domain)
         fxf     def mod r&a visible
         fxf-1   f   t   2   f / t
@@ -356,7 +357,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
         zeta-2  f   t   2,3 t
         zeta-5  t   n   3   t
      */
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005")
+    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007")
     // this shows that:
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
@@ -395,7 +396,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "opendata-demo.socrata.com"
     ).mapValues(Seq(_))
     // of those fxfs, only show: fxf-1 is approved and fxf-8 is a default view
-    val expectedFxfs = Set("fxf-1", "fxf-8")
+    val expectedFxfs = Set("fxf-1", "fxf-8", "zeta-0007")
     val res = service.doSearch(params, None, None, None)._1.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -589,6 +590,38 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       case Right(n) => n should be (JString(expected))
       case Left(_) => fail("resource had no name!")
     }
+  }
+
+  test("filtering by attribution works") {
+    val params = Map("attribution" -> Seq("The Merry Men"))
+    val (results, _, _) = service.doSearch(params, None, None, None)
+    val expectedFxfs = Set("zeta-0007")
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("filtering by attribution is case sensitive") {
+    val params = Map("attribution" -> Seq("the merry men"))
+    val (results, _, _) = service.doSearch(params, None, None, None)
+    val expectedFxfs = Set.empty
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching for attribution via keyword searches should include individual term matches regardless of case") {
+    val params = Map("q" -> Seq("merry men"))
+    val (results, _, _) = service.doSearch(params, None, None, None)
+    val expectedFxfs = Set("zeta-0007")
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("attribution is included in the resulting resource") {
+    val params = Map("q" -> Seq("merry men"))
+    val (results, _, _) = service.doSearch(params, None, None, None)
+    results.results.headOption.map { case SearchResult(resource, _, _, _, _) => 
+      resource.dyn.attribution.!.asInstanceOf[JString].string
+    } should be(Some("The Merry Men"))
   }
 }
 

@@ -74,7 +74,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     offset = 10,
     limit = 20,
     sortOrder = Option("relevance"), // should be the same as None
-    user = None
+    user = None,
+    attribution = None
   )
 
   val shouldMatch = j"""{
@@ -352,6 +353,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         domainMetadata = None,
         datatypes = None,
         user = None,
+        attribution = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
@@ -386,6 +388,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         domainMetadata = None,
         datatypes = None,
         user = None,
+        attribution = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
@@ -420,6 +423,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         domainMetadata = None,
         datatypes = None,
         user = None,
+        attribution = None,
         parentDatasetId = None,
         fieldBoosts = params.fieldBoosts,
         datatypeBoosts = Map.empty,
@@ -477,7 +481,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         categories = params.categories,
         tags = params.tags,
         datatypes = params.datatypes,
-        user = None
+        user = None,
+        attribution = None
       )
 
       val actual = JsonReader.fromString(request.toString)
@@ -657,6 +662,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         domainMetadata = None,
         datatypes = params.datatypes,
         user = None,
+        attribution = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,
@@ -714,6 +720,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         domainMetadata = None,
         datatypes = params.datatypes,
         user = None,
+        attribution = None,
         parentDatasetId = None,
         fieldBoosts = Map.empty,
         datatypeBoosts = Map.empty,

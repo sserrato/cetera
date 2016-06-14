@@ -68,7 +68,8 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
           params.categories,
           params.tags,
           params.datatypes,
-          params.user
+          params.user,
+          params.attribution
         )
         logger.info(LogHelper.formatEsRequest(search))
 
@@ -94,6 +95,7 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
       case DomainCategoryFieldType => Count.encode("domain_category")
       case DomainTagsFieldType => Count.encode("domain_tag")
       case OwnerIdFieldType => Count.encode("owner_id")
+      case AttributionFieldType => Count.encode("attribution")
     }
 
     try {

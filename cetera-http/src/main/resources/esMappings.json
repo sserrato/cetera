@@ -185,7 +185,8 @@
               }
             },
             "type": { "type": "string", "index": "not_analyzed" },
-            "updatedAt": { "type": "date", "format": "dateOptionalTime" }
+            "updatedAt": { "type": "date", "format": "dateOptionalTime" },
+            "attribution": { "type": "string", "index": "no" }
           }
         },
         "socrata_id": {
@@ -212,6 +213,14 @@
               }
             }
           }
+        },
+        "attribution": {
+          "type": "string",
+          "analyzer": "case_insensitive_en",
+          "fields": {
+            "raw": { "type": "string", "index": "not_analyzed" }
+          },
+          "copy_to": [ "fts_analyzed", "fts_raw" ]
         }
       }
     },

@@ -22,7 +22,8 @@ case class ValidatedQueryParameters(
     offset: Int,
     limit: Int,
     sortOrder: Option[String],
-    user: Option[String])
+    user: Option[String],
+    attribution: Option[String])
 
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
@@ -167,6 +168,10 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     queryParameters.first(Params.filterUser)
   }
 
+  def prepareAttribution(queryParameters: MultiQueryParams): Option[String] = {
+    queryParameters.first(Params.filterAttribution)
+  }
+
   def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
     queryParameters.first(Params.filterParentDatasetId)
 
@@ -279,7 +284,8 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
             prepareOffset(queryParameters),
             prepareLimit(queryParameters),
             prepareSortOrder(queryParameters),
-            prepareUsers(queryParameters)
+            prepareUsers(queryParameters),
+            prepareAttribution(queryParameters)
           )
         )
     }
@@ -296,6 +302,7 @@ object Params {
   val filterDatatypes = "only"
   val filterDatatypesArray = "only[]"
   val filterUser = "for_user"
+  val filterAttribution = "attribution"
   val filterParentDatasetId = "derived_from"
 
   val queryAdvanced = "q_internal"

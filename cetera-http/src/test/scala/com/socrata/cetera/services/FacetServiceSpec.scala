@@ -52,7 +52,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
       ValueCount("href", 1),
       ValueCount("chart", 1),
       ValueCount("story", 1),
-      ValueCount("dataset", 1))
+      ValueCount("dataset", 2))
     datatypes should contain theSameElementsAs expectedDatatypes
 
     val expectedCategories = List(
@@ -60,7 +60,7 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
       ValueCount("Fun", 2),
       ValueCount("Beta", 1),
       ValueCount("Gamma", 1),
-      ValueCount("Fun", 1))
+      ValueCount("Fun", 2))
     categories.find(_.value == "") shouldNot be('defined)
     categories should contain theSameElementsAs expectedCategories
 
@@ -72,8 +72,8 @@ class FacetServiceSpec extends FunSuiteLike with Matchers with TestESData with B
     tags should contain theSameElementsAs expectedTags
 
     val expectedFacets = List(
-      FacetCount("datatypes", 4, ArrayBuffer(ValueCount("calendar", 1), ValueCount("dataset", 1), ValueCount("file", 1), ValueCount("href", 1))),
-      FacetCount("categories", 4, ArrayBuffer(ValueCount("Alpha to Omega", 3), ValueCount("Fun", 1))),
+      FacetCount("datatypes", 5, ArrayBuffer(ValueCount("dataset", 2), ValueCount("calendar", 1), ValueCount("file", 1), ValueCount("href", 1))),
+      FacetCount("categories", 5, ArrayBuffer(ValueCount("Alpha to Omega", 3), ValueCount("Fun", 2))),
       FacetCount("tags", 3, ArrayBuffer(ValueCount("1-one", 3))),
       FacetCount("five", 3, ArrayBuffer(ValueCount("8", 3))),
       FacetCount("one", 3, ArrayBuffer(ValueCount("1", 3))),

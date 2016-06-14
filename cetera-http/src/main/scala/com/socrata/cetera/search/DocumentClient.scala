@@ -18,6 +18,7 @@ trait BaseDocumentClient {
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
       user: Option[String],
+      attribution: Option[String],
       parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
@@ -27,9 +28,9 @@ trait BaseDocumentClient {
       offset: Int,
       limit: Int,
       sortOrder: Option[String])
-  : SearchRequestBuilder
+    : SearchRequestBuilder
 
-  def buildCountRequest(
+  def buildCountRequest( // scalastyle:ignore parameter.number
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
       domains: Set[Domain],
@@ -37,8 +38,9 @@ trait BaseDocumentClient {
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
-      user: Option[String])
-  : SearchRequestBuilder
+      user: Option[String],
+      attribution: Option[String])
+    : SearchRequestBuilder
 
   def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
 }
@@ -49,7 +51,8 @@ class DocumentClient(
     indexAliasName: String,
     defaultTitleBoost: Option[Float],
     defaultMinShouldMatch: Option[String],
-    scriptScoreFunctions: Set[ScriptScoreFunction]) extends BaseDocumentClient {
+    scriptScoreFunctions: Set[ScriptScoreFunction])
+  extends BaseDocumentClient {
 
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
@@ -131,10 +134,11 @@ class DocumentClient(
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
-  private def buildDomainSpecificFilter(
+  private def buildCompositeFilter(
       domains: Set[Domain],
       datatypes: Option[Set[String]],
       user: Option[String],
+      attribution: Option[String],
       parentDatasetId: Option[String],
       searchContext: Option[Domain],
       domainMetadata: Option[Set[(String, String)]])
@@ -153,9 +157,10 @@ class DocumentClient(
 
     val filter = FilterBuilders.boolFilter()
     List.concat(
-      datatypeFilter(datatypes), // I don't belong here
-      userFilter(user),  // This doesn't belong here either
-      parentDatasetFilter(parentDatasetId),  // Nothing belongs here it seems
+      datatypeFilter(datatypes),
+      userFilter(user),
+      attributionFilter(attribution),
+      parentDatasetFilter(parentDatasetId),
       Some(domainFilter), // TODO: remove me since I am the superset!
       Some(publicFilter()),
       Some(publishedFilter()),
@@ -163,6 +168,7 @@ class DocumentClient(
       Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
       searchContext.flatMap(_ => domainMetadataFilter(domainMetadata)) // I make it hard to de-option
     ).foreach(filter.must)
+
     filter
   }
 
@@ -170,6 +176,7 @@ class DocumentClient(
   private def buildFilteredQuery(
       datatypes: Option[Set[String]],
       user: Option[String],
+      attribution: Option[String],
       parentDatasetId: Option[String],
       domains: Set[Domain],
       searchContext: Option[Domain],
@@ -194,21 +201,18 @@ class DocumentClient(
           tagsQuery(tags))
       }
 
-    // TODO: move datatypes, user and domainIds here from domainSpecificFilter
     val categoriesAndTagsQuery =
       if (categoriesAndTags.nonEmpty) {
         categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
       } else { query }
 
-    // domain-specific filter is largely about R&A, moderation, visibility, custom metadata
-    // but there are three filters there that don't really belong there: datatypes, user and domains
-    val domainSpecificFilter =
-      buildDomainSpecificFilter(domains, datatypes, user, parentDatasetId, searchContext, domainMetadata)
+    // This is a FilterBuilder, which incorporates all of the remaining constraints.
+    // These constraints determine whether a document is considered part of the selection set, but
+    // they do not affect the relevance score of the document.
+    val compositeFilter = buildCompositeFilter(
+      domains, datatypes, user, attribution, parentDatasetId, searchContext, domainMetadata)
 
-    QueryBuilders.filteredQuery(
-      categoriesAndTagsQuery,
-      domainSpecificFilter
-    )
+    QueryBuilders.filteredQuery(categoriesAndTagsQuery, compositeFilter)
   }
 
   private def applyDefaultTitleBoost(
@@ -256,6 +260,7 @@ class DocumentClient(
       domainMetadata: Option[Set[(String, String)]],
       datatypes: Option[Set[String]],
       user: Option[String],
+      attribution: Option[String],
       parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
@@ -279,6 +284,7 @@ class DocumentClient(
     val filteredQuery = buildFilteredQuery(
       datatypes,
       user,
+      attribution,
       parentDatasetId,
       domains,
       searchContext,
@@ -310,6 +316,7 @@ class DocumentClient(
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
       user: Option[String],
+      attribution: Option[String],
       parentDatasetId: Option[String],
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
       datatypeBoosts: Map[Datatype, Float],
@@ -330,6 +337,7 @@ class DocumentClient(
       domainMetadata,
       datatypes,
       user,
+      attribution,
       parentDatasetId,
       fieldBoosts,
       datatypeBoosts,
@@ -351,7 +359,7 @@ class DocumentClient(
       .addSort(sort)
   }
 
-  def buildCountRequest(
+  def buildCountRequest( // scalastyle:ignore parameter.number
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
       domains: Set[Domain],
@@ -359,7 +367,8 @@ class DocumentClient(
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
-      user: Option[String])
+      user: Option[String],
+      attribution: Option[String])
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
@@ -373,6 +382,7 @@ class DocumentClient(
       None,
       datatypes,
       user,
+      attribution,
       None,
       Map.empty,
       Map.empty,
@@ -417,7 +427,7 @@ class DocumentClient(
           .size(aggSize)))
 
     val domainSpecificFilter = domain
-      .map(d => buildDomainSpecificFilter(Set(d), None, None, None, None, None))
+      .map(d => buildCompositeFilter(Set(d), None, None, None, None, None, None))
       .getOrElse(FilterBuilders.matchAllFilter())
 
     val filteredAggs = AggregationBuilders

@@ -59,6 +59,12 @@ object DocumentFilters {
   def userFilter(user: String, aggPrefix: String): FilterBuilder =
     termFilter(aggPrefix + OwnerIdFieldType.fieldName, user)
 
+  def attributionFilter(attribution: String, aggPrefix: String): FilterBuilder =
+    termFilter(aggPrefix + AttributionFieldType.rawFieldName, attribution)
+
+  def attributionFilter(attribution: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
+    attribution.map(attributionFilter(_, aggPrefix: String))
+
   def parentDatasetFilter(parentDatasetId: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
     parentDatasetId.map(parentDatasetFilter(_, aggPrefix))
 
