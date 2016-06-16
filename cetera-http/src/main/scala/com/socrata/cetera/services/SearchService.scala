@@ -126,37 +126,45 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
     }.toMap ++ domainIdCnames
   }
 
-  // WARN: This will raise if a single document has a single missing path!
   def format(domainIdCnames: Map[Int, String],
              showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
+
     val hits = searchResponse.getHits
-    val searchResult = hits.hits().map { hit =>
-      val json = JsonReader.fromString(hit.sourceAsString())
 
-      val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
-      val links = SearchService.links(
-        cname(domainIdCnames, json),
-        datatype(json),
-        viewtype(json),
-        datasetId(json).get,
-        domainCategoryString(json),
-        datasetName(json).get)
+    val searchResults = hits.hits.flatMap { hit =>
+      try {
+        val json = JsonReader.fromString(hit.sourceAsString)
 
-      SearchResult(
-        json.dyn.resource.!,
-        Classification(
-          categories(json),
-          tags(json),
-          domainCategory(json),
-          domainTags(json),
-          domainMetadata(json)),
-        Map(esDomainType -> JString(cname(domainIdCnames, json))) ++ score,
-        links.getOrElse("permalink", JString("")),
-        links.getOrElse("link", JString(""))
-      )
+        val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
+        val links = SearchService.links(
+          cname(domainIdCnames, json),
+          datatype(json),
+          viewtype(json),
+          datasetId(json).get,
+          domainCategoryString(json),
+          datasetName(json).get)
+
+        Some(SearchResult(
+          json.dyn.resource.!,
+          Classification(
+            categories(json),
+            tags(json),
+            domainCategory(json),
+            domainTags(json),
+            domainMetadata(json)),
+          Map(esDomainType -> JString(cname(domainIdCnames, json))) ++ score,
+          links.getOrElse("permalink", JString("")),
+          links.getOrElse("link", JString(""))
+        ))
+      }
+      catch { case e: Exception =>
+        logger.info(e.getMessage)
+        None
+      }
     }
-    SearchResults(searchResult, hits.getTotalHits)
+
+    SearchResults(searchResults, hits.getTotalHits)
   }
 
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {

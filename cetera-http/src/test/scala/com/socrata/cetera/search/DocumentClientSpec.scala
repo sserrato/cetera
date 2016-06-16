@@ -707,7 +707,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                             ]
                         }
                     },
-                    "order": "desc"
+                    "order": "desc",
+                    "missing": "_last"
                 }
             }
         ]

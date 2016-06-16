@@ -54,12 +54,12 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
 
     val res = search.execute.actionGet
     val timing = res.getTookInMillis
-    val domains = res.getHits.hits.flatMap { h =>
-      JsonUtil.parseJson[Domain](h.sourceAsString) match {
-        case Right(domain) => Some(domain)
-        case Left(err) =>
-          logger.error(err.english)
-          throw new JsonDecodeException(err)
+
+    val domains = res.getHits.hits.flatMap { hit =>
+      try { Domain(hit.sourceAsString) }
+      catch { case e: Exception =>
+        logger.info(e.getMessage)
+        None
       }
     }.toSet
 
@@ -150,9 +150,15 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
 
     val res = search.execute.actionGet
     val timing = res.getTookInMillis
-    val domains = res.getHits.hits.flatMap { h =>
-      Domain(h.getSourceAsString)
+
+    val domains = res.getHits.hits.flatMap { hit =>
+      try { Domain(hit.getSourceAsString) }
+      catch { case e: Exception =>
+        logger.info(e.getMessage)
+        None
+      }
     }.toSet
+
     (domains, timing)
   }
 
