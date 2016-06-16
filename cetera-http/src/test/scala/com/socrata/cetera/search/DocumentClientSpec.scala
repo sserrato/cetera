@@ -477,12 +477,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         CategoriesFieldType,
         searchQuery = params.searchQuery,
         domains = Set.empty[Domain],
+        domainMetadata = None,
         searchContext = None,
         categories = params.categories,
         tags = params.tags,
         datatypes = params.datatypes,
         user = None,
-        attribution = None
+        attribution = None,
+        parentDatasetId = None
       )
 
       val actual = JsonReader.fromString(request.toString)

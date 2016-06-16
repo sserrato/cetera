@@ -115,7 +115,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
 
     val searchResults = service.format(domainCnames, showScore = false, searchResponse)
 
-    searchResults.resultSetSize should be (None) // not yet added
+    searchResults.resultSetSize should be (searchResponse.getHits.getTotalHits)
     searchResults.timings should be (None) // not yet added
 
     val results = searchResults.results
@@ -619,7 +619,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("attribution is included in the resulting resource") {
     val params = Map("q" -> Seq("merry men"))
     val (results, _, _) = service.doSearch(params, None, None, None)
-    results.results.headOption.map { case SearchResult(resource, _, _, _, _) => 
+    results.results.headOption.map { case SearchResult(resource, _, _, _, _) =>
       resource.dyn.attribution.!.asInstanceOf[JString].string
     } should be(Some("The Merry Men"))
   }

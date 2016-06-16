@@ -35,7 +35,7 @@ class DomainCountService(domainClient: BaseDomainClient) {
   }
 
   private def format(counts: Seq[JValue]): SearchResults[Count] =
-    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.documents.visible.doc_count.!) })
+    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.documents.visible.doc_count.!) }, counts.size)
 
   def doAggregate(queryParameters: MultiQueryParams,
                   cookie: Option[String],

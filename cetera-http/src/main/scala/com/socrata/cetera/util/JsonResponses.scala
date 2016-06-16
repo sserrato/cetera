@@ -37,7 +37,7 @@ object InternalTimings {
 }
 
 case class SearchResults[T](results: Seq[T],
-                            resultSetSize: Option[Long] = None,
+                            resultSetSize: Long,
                             timings: Option[InternalTimings] = None)
 
 object SearchResults {

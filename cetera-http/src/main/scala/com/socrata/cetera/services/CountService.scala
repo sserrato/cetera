@@ -41,7 +41,7 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
 
   // Unhandled exception on missing key
   def format(counts: Seq[JValue]): SearchResults[Count] =
-    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) })
+    SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }, counts.size)
 
   def doAggregate(field: DocumentFieldType with Countable with Rawable,
                   queryParameters: MultiQueryParams,
@@ -64,12 +64,14 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
           field,
           params.searchQuery,
           queryDomains,
+          params.domainMetadata,
           searchContext,
           params.categories,
           params.tags,
           params.datatypes,
           params.user,
-          params.attribution
+          params.attribution,
+          params.parentDatasetId
         )
         logger.info(LogHelper.formatEsRequest(search))
 

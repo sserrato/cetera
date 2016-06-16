@@ -70,13 +70,15 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
         val query = queryParameters.getOrElse("q", Seq.empty).headOption
         val (results: Set[EsUser], userSearchTime) = userClient.search(query)
 
-        val formattedResults = SearchResults[DomainUser](results.toSeq.flatMap(u => DomainUser(domain, u)))
+        val formattedResults = SearchResults[DomainUser](results.toSeq.flatMap(u => DomainUser(domain, u)),
+          results.size)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
 
-        (OK, formattedResults.copy(resultSetSize = Some(results.size), timings = Some(timings)), timings)
+        (OK, formattedResults.copy(timings = Some(timings)), timings)
       } else {
         logger.warn(s"user failed authorization $cookie $extendedHost $requestId")
-        (Unauthorized, SearchResults(Seq.empty), InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime)))
+        (Unauthorized, SearchResults(Seq.empty, 0),
+          InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime)))
       }
 
     (status, results, timings, setCookies)

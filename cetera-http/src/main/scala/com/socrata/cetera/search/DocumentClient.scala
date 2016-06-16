@@ -34,12 +34,14 @@ trait BaseDocumentClient {
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
       domains: Set[Domain],
+      domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
       user: Option[String],
-      attribution: Option[String])
+      attribution: Option[String],
+      parentDatasetId: Option[String])
     : SearchRequestBuilder
 
   def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
@@ -363,12 +365,14 @@ class DocumentClient(
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
       domains: Set[Domain],
+      domainMetadata: Option[Set[(String, String)]],
       searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
       user: Option[String],
-      attribution: Option[String])
+      attribution: Option[String],
+      parentDatasetId: Option[String])
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
@@ -379,11 +383,11 @@ class DocumentClient(
       searchContext,
       categories,
       tags,
-      None,
+      domainMetadata,
       datatypes,
       user,
       attribution,
-      None,
+      parentDatasetId,
       Map.empty,
       Map.empty,
       Map.empty,

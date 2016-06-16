@@ -130,7 +130,8 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
   def format(domainIdCnames: Map[Int, String],
              showScore: Boolean,
              searchResponse: SearchResponse): SearchResults[SearchResult] = {
-    SearchResults(searchResponse.getHits.hits().map { hit =>
+    val hits = searchResponse.getHits
+    val searchResult = hits.hits().map { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
 
       val score = if (showScore) Seq("score" -> JNumber(hit.score)) else Seq.empty
@@ -154,7 +155,8 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
         links.getOrElse("permalink", JString("")),
         links.getOrElse("link", JString(""))
       )
-    })
+    }
+    SearchResults(searchResult, hits.getTotalHits)
   }
 
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
@@ -231,7 +233,6 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
 
         logger.info(LogHelper.formatEsRequest(req))
         val res = req.execute.actionGet
-        val count = res.getHits.getTotalHits
 
         val idCnames = extractDomainCnames(
           queryDomains.map(d => d.domainId -> d.domainCname).toMap,
@@ -242,7 +243,7 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
         logSearchTerm(searchContextDomain, params.searchQuery)
 
-        (formattedResults.copy(resultSetSize = Some(count), timings = Some(timings)), timings, setCookies)
+        (formattedResults.copy(timings = Some(timings)), timings, setCookies)
     }
   }
 

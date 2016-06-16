@@ -89,7 +89,7 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
         Count(JString("two-thirty-four.example.com"),  JNumber(234)),
         Count(JString("seven-ate-nine.com"),  JNumber(78)),
         Count(JString("poor-bono.example.com"),  JNumber(1))
-      )
+      ), 4
     )
 
     service.extract(esResponse) match {
@@ -161,7 +161,7 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
     res.results should contain theSameElementsAs expectedResults
   }
 
-  test("owned by user count request") {
+  test("owners count request") {
     val expectedResults = List(Count("robin-hood", 5), Count("lil-john", 2),  Count("john-clan", 1))
     val (res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults

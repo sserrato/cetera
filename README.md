@@ -18,6 +18,7 @@ We support a few endpoints:
 * `/catalog/domains` returns a count query grouped by domain
 * `/catalog/categories` returns a count query grouped by category
 * `/catalog/tags` returns a count query grouped by tag
+* `/catalog/owners` returns a count query grouped by owner
 
 You may specify the version if you like: `/catalog/v1?q=driver`
 
