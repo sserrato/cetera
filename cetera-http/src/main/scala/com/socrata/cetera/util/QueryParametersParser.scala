@@ -370,6 +370,7 @@ object Params {
 
   // If your param is a simple key/value pair, add it here
   private val stringKeys = Set(
+    filterAttribution,
     context,
     filterDomains,
     filterCategories,

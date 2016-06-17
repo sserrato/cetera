@@ -444,4 +444,8 @@ class ParamsSpec extends FunSuiteLike with Matchers {
   test("isCatalogKey recognized sort order") {
     Params.isCatalogKey("order") should be (true)
   }
+
+  test("isCatalogKey recognizes attribution") {
+    Params.isCatalogKey("attribution") should be (true)
+  }
 }
