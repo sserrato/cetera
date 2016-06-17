@@ -1,0 +1,48 @@
+{
+  "dynamic": "strict",
+  "properties": {
+    "id": {
+      "type": "string",
+      "index": "not_analyzed"
+    },
+    "screen_name": {
+      "type": "string",
+      "analyzer": "screen_name",
+      "fields": {
+        "raw": { "type": "string", "index": "not_analyzed" }
+      }
+    },
+    "email": {
+      "type": "string",
+      "analyzer": "email",
+      "fields": {
+        "raw": { "type": "string", "index": "not_analyzed" }
+      }
+    },
+    "roles": {
+      "type": "nested",
+      "properties": {
+        "domain_id": {
+          "type": "long",
+          "index": "not_analyzed"
+        },
+        "role_name": {
+          "type": "string",
+          "index": "not_analyzed"
+        }
+      }
+    },
+    "profile_image_url_large": {
+      "type": "string",
+      "index": "no"
+    },
+    "profile_image_url_medium": {
+      "type": "string",
+      "index": "no"
+    },
+    "profile_image_url_small": {
+      "type": "string",
+      "index": "no"
+    }
+  }
+}

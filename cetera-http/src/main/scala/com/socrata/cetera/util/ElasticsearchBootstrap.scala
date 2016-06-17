@@ -13,7 +13,7 @@ import com.socrata.cetera.search.ElasticSearchClient
 
 object ElasticsearchBootstrap {
   private def indexSettings: String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/esSettings.json")).getLines().mkString("\n")
+    val s = Source.fromInputStream(getClass.getResourceAsStream("/settings.json")).getLines().mkString("\n")
     val sj = JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new JsonDecodeException(e)
       case Right(j) => j
@@ -21,19 +21,22 @@ object ElasticsearchBootstrap {
     sj.dyn.settings.!.toString()
   }
 
-  private def datatypeMappings(datatype: String): String = {
-    val s = Source.fromInputStream(getClass.getResourceAsStream("/esMappings.json")).getLines().mkString("\n")
-    val sj = JsonUtil.parseJson[JValue](s) match {
+  private def jValueFromResource(resourcePath: String): JValue = {
+    val s = Source.fromInputStream(getClass.getResourceAsStream(resourcePath)).getLines().mkString("\n")
+    JsonUtil.parseJson[JValue](s) match {
       case Left(e) => throw new JsonDecodeException(e)
       case Right(j) => j
     }
-    val mappings = sj.dyn.mappings
+  }
+
+  private def datatypeMappings(datatype: String): String = {
     val typeMapping = datatype match {
-      case s: String if s == "document" => mappings.document
-      case s: String if s == "domain" => mappings.domain
-      case s: String if s == "user" => mappings.user
+      case s: String if s == "document" => jValueFromResource("/mapping_document.json")
+      case s: String if s == "domain" => jValueFromResource("/mapping_domain.json")
+      case s: String if s == "user" => jValueFromResource("/mapping_user.json")
     }
-    typeMapping.!.toString()
+
+    typeMapping.toString()
   }
 
   def ensureIndex(client: ElasticSearchClient,

@@ -114,6 +114,7 @@ trait TestESData {
       |   %s
       | ],
       | "update_freq": %s,
+      | "owner_id": %s,
       | "owner" : {
       |   "id": %s,
       |   "screen_name": %s
@@ -202,6 +203,7 @@ trait TestESData {
       quoteQualify(customerCategory),
       quoteQualify(customerTags),
       updateFreq.toString,
+      quoteQualify(ownerId),
       quoteQualify(ownerId),
       quoteQualify(ownerScreenName),
       quoteQualify(attribution))

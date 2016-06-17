@@ -112,7 +112,7 @@ case object DomainCategoryFieldType extends DocumentFieldType with Countable wit
 }
 
 case object OwnerIdFieldType extends DocumentFieldType with Countable with NativelyRawable {
-  val fieldName: String = "owner.id"
+  val fieldName: String = "owner_id"
 }
 
 case object AttributionFieldType extends DocumentFieldType with Countable with Rawable {
