@@ -118,31 +118,46 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   //
   // Prepare means parse and validate
 
+  private def filterNonEmptySetParams(params: Option[Set[String]]): Option[Set[String]] =
+    params.flatMap { ps: Set[String] =>
+      ps.filter(_.nonEmpty) match {
+        case filteredParams: Set[String] if filteredParams.nonEmpty => Some(filteredParams)
+        case _ => None
+      }
+    }
+
+  private def filterNonEmptyStringParams(params: Option[String]): Option[String] =
+    params.getOrElse("") match {
+      case x: String if x.nonEmpty => params
+      case _ => None
+    }
+
   def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType = {
     pickQuery(
-      queryParameters.get(Params.queryAdvanced).flatMap(_.headOption),
-      queryParameters.get(Params.querySimple).flatMap(_.headOption)
+      filterNonEmptyStringParams(queryParameters.get(Params.queryAdvanced).flatMap(_.headOption)),
+      filterNonEmptyStringParams(queryParameters.get(Params.querySimple).flatMap(_.headOption))
     )
   }
 
   // Still uses old-style comma-separation
   def prepareDomains(queryParameters: MultiQueryParams): Option[Set[String]] = {
-    queryParameters.first(Params.filterDomains).map(domain =>
+    filterNonEmptySetParams(queryParameters.first(Params.filterDomains).map(domain =>
       domain.toLowerCase.split(filterDelimiter).toSet
-    )
+    ))
   }
 
   // if query string includes search context use that; otherwise default to the http header X-Socrata-Host
   def prepareSearchContext(queryParameters: MultiQueryParams, extendedHost: Option[String]): Option[String] = {
-    Seq(queryParameters.first(Params.context).map(_.toLowerCase), extendedHost).flatten.headOption
+    val contextSet = queryParameters.first(Params.context).map(_.toLowerCase)
+    filterNonEmptyStringParams(Seq(contextSet, extendedHost).flatten.headOption)
   }
 
   def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] = {
-    mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray))
+    filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)))
   }
 
   def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] = {
-    mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray))
+    filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray)))
   }
 
   def prepareDatatypes(queryParameters: MultiQueryParams): Either[DatatypeError, Option[Set[String]]] = {
@@ -165,15 +180,16 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   def prepareUsers(queryParameters: MultiQueryParams): Option[String] = {
-    queryParameters.first(Params.filterUser)
+    filterNonEmptyStringParams(queryParameters.first(Params.filterUser))
   }
 
   def prepareAttribution(queryParameters: MultiQueryParams): Option[String] = {
-    queryParameters.first(Params.filterAttribution)
+    filterNonEmptyStringParams(queryParameters.first(Params.filterAttribution))
   }
 
-  def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
-    queryParameters.first(Params.filterParentDatasetId)
+  def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] = {
+    filterNonEmptyStringParams(queryParameters.first(Params.filterParentDatasetId))
+  }
 
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }

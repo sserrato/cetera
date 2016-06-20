@@ -307,6 +307,63 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     }
   }
 
+  test("handle empty string query param value") {
+    QueryParametersParser(Map("q" -> Seq("")), None) match {
+      case Right(params) => params.domains shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("q_internal" -> Seq("")), None) match {
+      case Right(params) => params.domains shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("domains" -> Seq("")), None) match {
+      case Right(params) => params.domains shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("search_context" -> Seq("")), None) match {
+      case Right(params) => params.searchContext shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("categories" -> Seq("")), None) match {
+      case Right(params) => params.categories shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("tags" -> Seq("")), None) match {
+      case Right(params) => params.tags shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("datatypes" -> Seq("")), None) match {
+      case Right(params) => params.datatypes shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("for_user" -> Seq("")), None) match {
+      case Right(params) => params.user shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("attribution" -> Seq("")), None) match {
+      case Right(params) => params.user shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("derived_from" -> Seq("")), None) match {
+      case Right(params) => params.parentDatasetId shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser(Map("custom_metadata" -> Seq("")), None) match {
+      case Right(params) => params.parentDatasetId shouldNot be('defined)
+      case _ => fail()
+    }
+  }
+
   test("domain boosts can be parsed") {
     val domainBoosts = Map(
       "boostDomains[example.com]" -> Seq("1.23"),
