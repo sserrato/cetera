@@ -328,116 +328,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     }
   }"""
 
-  ///////////////////
-  // buildBaseRequest
-  ///////////////////
-
-  "buildBaseRequest" should {
-    "construct a default match all query" in {
-      val query = j"""{
-        "filtered": {
-          "filter": ${defaultFilter},
-          "query": ${matchAll}
-        }
-      }"""
-
-      val expected = j"""{
-        "query": ${functionScoreQuery(query)}
-      }"""
-
-      val request = documentClient.buildBaseRequest(
-        searchQuery = NoQuery,
-        domains = Set.empty[Domain],
-        searchContext = None,
-        categories = None,
-        tags = None,
-        domainMetadata = None,
-        datatypes = None,
-        user = None,
-        attribution = None,
-        parentDatasetId = None,
-        fieldBoosts = Map.empty,
-        datatypeBoosts = Map.empty,
-        domainIdBoosts = Map.empty[Int, Float],
-        minShouldMatch = None,
-        slop = None
-      )
-      val actual = JsonReader.fromString(request.toString)
-
-      actual should be (expected)
-      request.request.types should be (Array(esDocumentType))
-    }
-
-    "construct a match query with terms" in {
-      val query = j"""{
-        "filtered": {
-          "filter": ${defaultFilter},
-          "query": ${boolQuery}
-        }
-      }"""
-
-      val expected = j"""{
-        "query": ${functionScoreQuery(query)}
-      }"""
-
-      val request = documentClient.buildBaseRequest(
-        searchQuery = params.searchQuery,
-        domains = Set.empty[Domain],
-        searchContext = None,
-        categories = None,
-        tags = None,
-        domainMetadata = None,
-        datatypes = None,
-        user = None,
-        attribution = None,
-        parentDatasetId = None,
-        fieldBoosts = Map.empty,
-        datatypeBoosts = Map.empty,
-        domainIdBoosts = Map.empty[Int, Float],
-        minShouldMatch = None,
-        slop = None
-      )
-      val actual = JsonReader.fromString(request.toString)
-
-      actual should be (expected)
-      request.request.types should be (Array(esDocumentType))
-    }
-
-    "construct a multi match query with boosted fields" in {
-      val query = j"""{
-        "filtered": {
-          "filter": ${defaultFilter},
-          "query": ${boostedBoolQuery}
-        }
-      }"""
-
-      val expected = j"""{
-        "query": ${functionScoreQuery(query)}
-      }"""
-
-      val request = documentClient.buildBaseRequest(
-        searchQuery = params.searchQuery,
-        domains = Set.empty[Domain],
-        searchContext = None,
-        categories = None,
-        tags = None,
-        domainMetadata = None,
-        datatypes = None,
-        user = None,
-        attribution = None,
-        parentDatasetId = None,
-        fieldBoosts = params.fieldBoosts,
-        datatypeBoosts = Map.empty,
-        domainIdBoosts = Map.empty[Int, Float],
-        minShouldMatch = None,
-        slop = None
-      )
-      val actual = JsonReader.fromString(request.toString)
-
-      actual should be (expected)
-      request.request.types should be (Array(esDocumentType))
-    }
-  }
 
   ////////////////////
   // buildCountRequest
@@ -794,7 +684,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         }
       }"""
 
-      val actual = documentClient.generateAdvancedQuery(
+      val actual = DocumentQueries.advancedQuery(
         "any old query string",
         Map(
           ColumnDescriptionFieldType -> 1.11f,
@@ -858,7 +748,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           }
       }"""
 
-      val actual = documentClient.generateSimpleQuery(
+      val actual = DocumentQueries.simpleQuery(
         "query string OR (query AND string)",
         Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
         Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
@@ -869,29 +759,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val actualJson = JsonReader.fromString(actual.toString)
 
       actualJson should be (expectedJson)
-    }
-  }
-
-  ///////////////////////
-  // chooseMinShouldMatch
-  ///////////////////////
-
-  "chooseMinShouldMatch" should {
-    val msm = Some("2<-25% 9<-3") // I can be an involved string
-    val sc = Domain(1, "example.com", Some("Example! (dotcom)"), None, false, false, false, false, false)
-
-    "choose minShouldMatch if present" in {
-      documentClient.chooseMinShouldMatch(msm, None) should be (msm)
-      documentClient.chooseMinShouldMatch(msm, Some(sc)) should be (msm)
-    }
-
-    // Use case here is increasing search precision on customer domains
-    "choose default MSM value if none is passed in but search context is present" in {
-      documentClient.chooseMinShouldMatch(None, Some(sc)) should be (defaultMinShouldMatch)
-    }
-
-    "choose nothing if no MSM value is passed in and no search context is present" in {
-      documentClient.chooseMinShouldMatch(None, None) should be (None)
     }
   }
 }

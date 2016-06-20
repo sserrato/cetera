@@ -1,48 +1,10 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.FilterBuilders._
-import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
-import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.{FilterBuilder, QueryBuilder}
+import org.elasticsearch.index.query.FilterBuilder
+import org.elasticsearch.index.query.FilterBuilders.{boolFilter, nestedFilter, notFilter, termFilter, termsFilter}
 
-import com.socrata.cetera._
+import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.types._
-
-object DocumentQueries {
-  def categoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
-    categories.map { cs =>
-      nestedQuery(
-        CategoriesFieldType.fieldName,
-        cs.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-          b.should(matchQuery(CategoriesFieldType.Name.fieldName, q).`type`(PHRASE))
-        }
-      )
-    }
-
-  def tagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
-    tags.map { tags =>
-      nestedQuery(
-        TagsFieldType.fieldName,
-        tags.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-          b.should(matchQuery(TagsFieldType.Name.fieldName, q).`type`(PHRASE))
-        }
-      )
-    }
-
-  def domainCategoriesQuery(categories: Option[Set[String]]): Option[QueryBuilder] =
-    categories.map { cs =>
-      cs.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-        b.should(matchQuery(DomainCategoryFieldType.fieldName, q).`type`(PHRASE))
-      }
-    }
-
-  def domainTagsQuery(tags: Option[Set[String]]): Option[QueryBuilder] =
-    tags.map { ts =>
-      ts.foldLeft(boolQuery().minimumNumberShouldMatch(1)) { (b, q) =>
-        b.should(matchQuery(DomainTagsFieldType.fieldName, q).`type`(PHRASE))
-      }
-    }
-}
 
 object DocumentFilters {
   def datatypeFilter(datatypes: Option[Set[String]], aggPrefix: String = ""): Option[FilterBuilder] =
@@ -123,10 +85,12 @@ object DocumentFilters {
     * @param searchContextIsModerated is the catalog search context view moderated?
     * @return composable filter builder
     */
-  def moderationStatusFilter(searchContextIsModerated: Boolean,
-                             moderatedDomainIds: Set[Int],
-                             unmoderatedDomainIds: Set[Int],
-                             isDomainAgg: Boolean = false): FilterBuilder = {
+  def moderationStatusFilter(
+      searchContextIsModerated: Boolean,
+      moderatedDomainIds: Set[Int],
+      unmoderatedDomainIds: Set[Int],
+      isDomainAgg: Boolean = false)
+    : FilterBuilder = {
     val aggPrefix = if (isDomainAgg) esDocumentType + "." else ""
     val documentIsDefault = termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, true)
     val documentIsAccepted = termFilter(aggPrefix + IsModerationApprovedFieldType.fieldName, true)
@@ -185,9 +149,11 @@ object DocumentFilters {
     * @param isDomainAgg is the search an aggregation on domains
     * @return composable filter builder
     */
-  def routingApprovalFilter(searchContext: Option[Domain],
-                            raOffDomainIds: Set[Int],
-                            isDomainAgg: Boolean = false): FilterBuilder = {
+  def routingApprovalFilter(
+      searchContext: Option[Domain],
+      raOffDomainIds: Set[Int],
+      isDomainAgg: Boolean = false)
+    : FilterBuilder = {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
 
     val documentIsApprovedBySearchContext = searchContext.flatMap { d =>
@@ -216,10 +182,43 @@ object DocumentFilters {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
     notFilter(termFilter(prefix + IsPublishedFieldType.fieldName, false))
   }
+
+  // TODO: (which is coming down the pike, soon I promise), remove need for that awful idsModRAStatuses param.
+  def compositeFilter(
+      domains: Set[Domain],
+      datatypes: Option[Set[String]],
+      user: Option[String],
+      attribution: Option[String],
+      parentDatasetId: Option[String],
+      searchContext: Option[Domain],
+      domainMetadata: Option[Set[(String, String)]],
+      idsModRAStatuses: (Set[Int], Set[Int], Set[Int], Set[Int]))
+    : FilterBuilder = {
+
+    val isContextModerated = searchContext.exists(_.moderationEnabled)
+    val (domainIds, moderatedDomainIds, unmoderatedDomainIds, routingApprovalDisabledDomainIds) = idsModRAStatuses
+    val domainFilter = domainIdsFilter(domainIds)
+
+    val filter = boolFilter()
+    List.concat(
+      datatypeFilter(datatypes),
+      userFilter(user),
+      attributionFilter(attribution),
+      parentDatasetFilter(parentDatasetId),
+      Some(domainFilter), // TODO: remove me since I am the superset!
+      Some(publicFilter()),
+      Some(publishedFilter()),
+      Some(moderationStatusFilter(isContextModerated, moderatedDomainIds, unmoderatedDomainIds)),
+      Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
+      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata)) // I make it hard to de-option
+    ).foreach(filter.must)
+
+    filter
+  }
 }
 
 object DomainFilters {
-  def domainIdsFilter(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
+  def idsFilter(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
 
   // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
   def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)

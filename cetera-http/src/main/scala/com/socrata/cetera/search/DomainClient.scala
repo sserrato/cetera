@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.CoreClient
-import com.socrata.cetera.search.DomainFilters.{domainIdsFilter, isCustomerDomainFilter}
+import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
@@ -184,7 +184,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       unmoderatedDomainIds,
       routingApprovalDisabledDomainIds) = calculateIdsAndModRAStatuses(domains)
 
-    val domainFilter = domainIdsFilter(domainIds)
+    val domainFilter = idsFilter(domainIds)
 
     val aggregation = DomainAggregations.domains(
       contextModerated,
