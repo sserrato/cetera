@@ -17,7 +17,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
 
   val httpClient = new TestHttpClient()
-  val coreTestPort = 8030
+  val coreTestPort = 8031
   val mockServer = startClientAndServer(coreTestPort)
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
 
@@ -41,11 +41,6 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     mockServer.stop(true)
     httpClient.close()
     super.afterAll()
-  }
-
-  test("authenticate rejects anonymous requests") {
-    val (auth, _) = service.verifyUserAuthorization(None, "", None)
-    auth should be(false)
   }
 
   test("search without authentication is rejected") {

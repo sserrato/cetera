@@ -9,7 +9,7 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.CoreClient
+import com.socrata.cetera.auth.{CoreClient, User, VerificationClient}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response.{InternalTimings, SearchResults, Timings, _}
@@ -19,42 +19,7 @@ import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
 class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)
-
-  // Hi, my name is Werner Brandes. My voice is my passport, verify me.
-  def verifyUserAuthorization(
-      cookie: Option[String],
-      domainCname: String,
-      requestId: Option[String])
-  : (Boolean, Seq[String]) = {
-    cookie match {
-      case Some(c) =>
-        val (authUser, setCookies) = coreClient.fetchUserByCookie(domainCname, c, requestId)
-        (authUser.exists(_.canViewUsers), setCookies)
-      case _ =>
-        (false, Seq.empty[String])
-    }
-  }
-
-  /** Gets the search context domains and performs authentication/authorization on the logged-in user.
-    *
-    * @param domainCname the search context (customer domain)
-    * @param cookie the currently logged-in user's core cookie
-    * @param requestId a somewhat unique identifier that helps string requests together across services
-    * @return (search context domain, elasticsearch timing, whether user is authorized, client cookies to set)
-    */
-  // TODO: clean this up to separate the two or more things this function performs
-  def fetchDomainAndUserAuthorization(
-      domainCname: Option[String],
-      cookie: Option[String],
-      requestId: Option[String])
-  : (Option[Domain], Long, Boolean, Seq[String]) =
-    domainCname.map { extendedHost =>
-      val (domainFound, domainTime) = domainClient.find(extendedHost)
-      domainFound.map { domain: Domain =>
-        val (authorized, setCookies) = verifyUserAuthorization(cookie, domain.domainCname, requestId)
-        (domainFound, domainTime, authorized, setCookies)
-      }.getOrElse((None, domainTime, false, Seq.empty[String]))
-    }.getOrElse((None, 0L, false, Seq.empty[String]))
+  val verificationClient = new VerificationClient(coreClient)
 
   def doSearch(
       queryParameters: MultiQueryParams,
@@ -64,13 +29,16 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
   : (StatusResponse, SearchResults[DomainUser], InternalTimings, Seq[String]) = {
     val now = Timings.now()
 
-    val (domain, domainSearchTime, authorized, setCookies) =
-      fetchDomainAndUserAuthorization(extendedHost, cookie, requestId)
+    val (authorized, setCookies) =
+      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, {u: User => u.canViewUsers})
 
     val (status, results: SearchResults[DomainUser], timings) =
       if (authorized) {
         val query = queryParameters.getOrElse("q", Seq.empty).headOption
         val (results: Set[EsUser], userSearchTime) = userClient.search(query)
+
+        val domainCname = extendedHost.getOrElse("")  // authorization implies a domain was given in extendedHost
+        val (domain, domainSearchTime) = domainClient.find(domainCname)
 
         val formattedResults = SearchResults[DomainUser](results.toSeq.flatMap(u => DomainUser(domain, u)),
           results.size)
@@ -79,8 +47,7 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
         (OK, formattedResults.copy(timings = Some(timings)), timings)
       } else {
         logger.warn(s"user failed authorization $cookie $extendedHost $requestId")
-        (Unauthorized, SearchResults(Seq.empty, 0),
-          InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime)))
+        (Unauthorized, SearchResults(Seq.empty, 0), InternalTimings(Timings.elapsedInMillis(now), Seq(0)))
       }
 
     (status, results, timings, setCookies)
