@@ -6,9 +6,10 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.handlers.ValidatedQueryParameters
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.{ElasticsearchBootstrap, ValidatedQueryParameters}
-import com.socrata.cetera.{TestHttpClient, TestCoreClient, TestESClient, esDocumentType}
+import com.socrata.cetera.util.ElasticsearchBootstrap
+import com.socrata.cetera.{TestCoreClient, TestESClient, TestHttpClient, esDocumentType}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness

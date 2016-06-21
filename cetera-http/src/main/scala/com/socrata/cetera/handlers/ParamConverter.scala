@@ -1,4 +1,4 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.handlers
 
 trait ParamConverter[T] {
   def convertFrom(s: String): Either[ParamConversionFailure, T]

@@ -13,10 +13,13 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.QueryParametersParser
+import com.socrata.cetera.handlers.util._
+import com.socrata.cetera.response.JsonResponses._
+import com.socrata.cetera.response.{Http, InternalTimings, Timings}
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
-import com.socrata.cetera.util._
+import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
 class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])

@@ -13,9 +13,9 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
+import com.socrata.cetera.response.SearchResults
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.SearchResults
 
 class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase

@@ -7,6 +7,7 @@ import com.socrata.http.server.HttpRequest
 import org.elasticsearch.action.search.SearchRequestBuilder
 
 import com.socrata.cetera._
+import com.socrata.cetera.response.InternalTimings
 
 object LogHelper {
   // WARN: changing this will likely break Sumo (regex-based log parser)

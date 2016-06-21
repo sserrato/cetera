@@ -25,10 +25,10 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, MockHttpServletResponse}
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.Params
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase

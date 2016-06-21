@@ -1,4 +1,4 @@
-package com.socrata.cetera
+package com.socrata.cetera.handlers
 
 import com.socrata.http.server.HttpRequest
 

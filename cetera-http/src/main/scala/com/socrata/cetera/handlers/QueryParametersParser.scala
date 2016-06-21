@@ -1,7 +1,8 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.handlers
 
 import com.socrata.cetera.search.Sorts
 import com.socrata.cetera.types._
+import com.socrata.cetera.handlers.util._
 
 // These are validated input parameters but aren't supposed to know anything about ES
 case class ValidatedQueryParameters(

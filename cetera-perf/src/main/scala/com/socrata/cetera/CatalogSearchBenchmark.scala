@@ -11,12 +11,12 @@ import org.elasticsearch.search.aggregations.AggregationBuilders.terms
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.openjdk.jmh.annotations._
 
-import com.socrata.cetera.authentication.CoreClient
+import com.socrata.cetera.auth.CoreClient
 import com.socrata.cetera.config.CeteraConfig
+import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{DocumentClient, DomainClient}
 import com.socrata.cetera.services.{DomainCountService, SearchService}
-import com.socrata.cetera.util.MultiQueryParams
 
 // scalastyle:off magic.number
 @State(Scope.Thread)

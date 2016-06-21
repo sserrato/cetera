@@ -9,11 +9,13 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.authentication.CoreClient
+import com.socrata.cetera.auth.CoreClient
+import com.socrata.cetera.handlers.util._
+import com.socrata.cetera.response.JsonResponses._
+import com.socrata.cetera.response.{InternalTimings, SearchResults, Timings, _}
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses._
-import com.socrata.cetera.util.{InternalTimings, SearchResults, Timings, _}
+import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
 class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)

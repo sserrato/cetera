@@ -1,4 +1,4 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.response
 
 import java.util.concurrent.TimeUnit
 

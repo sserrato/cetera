@@ -10,9 +10,9 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
-import com.socrata.cetera.util.Params
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
   val client = new TestESClient(testSuiteName)

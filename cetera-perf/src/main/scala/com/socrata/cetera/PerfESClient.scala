@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.file.Files
 import scala.util.Random
 
-import com.rojoma.json.v3.util.JsonUtil
+import com.rojoma.json.v3.util.{JsonKey, JsonUtil}
 import org.elasticsearch.client.{Client, Requests}
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.node.NodeBuilder._
@@ -41,15 +41,16 @@ class PerfESClient(testSuiteName: String = "catalog")
     val approved = Random.nextBoolean()
 
     Document(
-      SocrataId(fxf, domainId),
+      SocrataId(fxf, None, domainId),
       Resource(
         description,
         fxf,
+        None, // parent ID
         new DateTime(Random.nextLong()).toString,
         new DateTime(Random.nextLong()).toString,
         datatype,
         fxf,
-        Seq.empty,
+        Seq.empty, // columns
         name),
       AnimlAnnotations(Seq.empty, Seq.empty),
       datatype,

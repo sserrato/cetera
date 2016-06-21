@@ -4,9 +4,9 @@ import com.rojoma.json.v3.ast.JString
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
-import com.socrata.cetera.util.Params
 
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
   val client = new TestESClient(testSuiteName)

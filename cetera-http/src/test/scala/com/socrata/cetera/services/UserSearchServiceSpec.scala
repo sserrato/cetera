@@ -8,9 +8,10 @@ import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
-import com.socrata.cetera._
+import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types.DomainUser
+import com.socrata.cetera.HeaderXSocrataHostKey
 
 class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {

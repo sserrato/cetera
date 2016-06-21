@@ -13,10 +13,13 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.QueryParametersParser
+import com.socrata.cetera.handlers.util._
+import com.socrata.cetera.response.JsonResponses.jsonError
+import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.JsonResponses.jsonError
-import com.socrata.cetera.util._
+import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
 class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
