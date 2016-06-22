@@ -47,12 +47,12 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
 
     val res = req.execute.actionGet
     val timing = res.getTookInMillis
-    val users = res.getHits.hits.flatMap { h =>
-      JsonUtil.parseJson[EsUser](h.sourceAsString) match {
-        case Right(u) => Some(u)
-        case Left(err) =>
-          logger.error(err.english)
-          throw new JsonDecodeException(err)
+
+    val users = res.getHits.hits.flatMap { hit =>
+      try { EsUser(hit.sourceAsString) }
+      catch { case e: Exception =>
+        logger.info(e.getMessage)
+        None
       }
     }.toSet
 
