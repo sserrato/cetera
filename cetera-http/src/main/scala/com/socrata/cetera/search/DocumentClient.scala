@@ -13,9 +13,8 @@ import com.socrata.cetera.types._
 trait BaseDocumentClient {
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domainSet: DomainSet,
       domainMetadata: Option[Set[(String, String)]],
-      searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
@@ -35,9 +34,8 @@ trait BaseDocumentClient {
   def buildCountRequest( // scalastyle:ignore parameter.number
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domainSet: DomainSet,
       domainMetadata: Option[Set[(String, String)]],
-      searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
@@ -46,7 +44,7 @@ trait BaseDocumentClient {
       parentDatasetId: Option[String])
     : SearchRequestBuilder
 
-  def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder
+  def buildFacetRequest(domainSet: DomainSet): SearchRequestBuilder
 }
 
 class DocumentClient(
@@ -66,10 +64,9 @@ class DocumentClient(
   // * Chooses query type to be used and constructs query with applicable boosts
   // * Applies function scores (typically views and score) with applicable domain boosts
   // * Applies filters (facets and searchContext-sensitive federation preferences)
- private def buildBaseRequest( // scalastyle:ignore parameter.number method.length
+  private def buildBaseRequest( // scalastyle:ignore parameter.number method.length
       searchQuery: QueryType,
-      domains: Set[Domain],
-      searchContext: Option[Domain],
+      domainSet: DomainSet,
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       domainMetadata: Option[Set[(String, String)]],
@@ -85,19 +82,17 @@ class DocumentClient(
     : SearchRequestBuilder = {
 
     // Construct basic match query
-    val matchQuery = chooseMatchQuery(searchQuery, searchContext, fieldBoosts, datatypeBoosts,
+    val matchQuery = chooseMatchQuery(searchQuery, domainSet.searchContext, fieldBoosts, datatypeBoosts,
       minShouldMatch, slop, defaultTitleBoost, defaultMinShouldMatch)
 
-    val idsAndModRAStatuses = domainClient.calculateIdsAndModRAStatuses(domains)
-
+    val idsAndModRAStatuses = domainSet.calculateIdsAndModRAStatuses
     // Wrap basic match query in filtered query for filtering
     val filteredQuery = compositeFilteredQuery(
+      domainSet.searchContext,
       datatypes,
       user,
       attribution,
       parentDatasetId,
-      domains,
-      searchContext,
       categories,
       tags,
       domainMetadata,
@@ -120,9 +115,8 @@ class DocumentClient(
 
   def buildSearchRequest( // scalastyle:ignore parameter.number
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domainSet: DomainSet,
       domainMetadata: Option[Set[(String, String)]],
-      searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
@@ -141,8 +135,7 @@ class DocumentClient(
 
     val baseRequest = buildBaseRequest(
       searchQuery,
-      domains,
-      searchContext,
+      domainSet,
       categories,
       tags,
       domainMetadata,
@@ -161,7 +154,7 @@ class DocumentClient(
     // "Relevance" without a query can mean different things, so chooseSort decides
     val sort = sortOrder match {
       case Some(so) if so != "relevance" => Sorts.paramSortMap.get(so).get // will raise if invalid param got through
-      case _ => Sorts.chooseSort(searchQuery, searchContext, categories, tags)
+      case _ => Sorts.chooseSort(searchQuery, domainSet.searchContext, categories, tags)
     }
 
     baseRequest
@@ -173,9 +166,8 @@ class DocumentClient(
   def buildCountRequest( // scalastyle:ignore parameter.number
       field: DocumentFieldType with Countable with Rawable,
       searchQuery: QueryType,
-      domains: Set[Domain],
+      domainSet: DomainSet,
       domainMetadata: Option[Set[(String, String)]],
-      searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       datatypes: Option[Set[String]],
@@ -188,8 +180,7 @@ class DocumentClient(
 
     val baseRequest = buildBaseRequest(
       searchQuery,
-      domains,
-      searchContext,
+      domainSet,
       categories,
       tags,
       domainMetadata,
@@ -210,7 +201,7 @@ class DocumentClient(
       .setSize(0) // no docs, aggs only
   }
 
-  def buildFacetRequest(domain: Option[Domain]): SearchRequestBuilder = {
+  def buildFacetRequest(domainSet: DomainSet): SearchRequestBuilder = {
     val aggSize = 0 // agg count unlimited
     val searchSize = 0 // no docs, aggs only
 
@@ -239,10 +230,8 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter = domain
-      .map(d => compositeFilter(Set(d), None, None, None, None, None, None,
-        domainClient.calculateIdsAndModRAStatuses(Set(d))))
-      .getOrElse(FilterBuilders.matchAllFilter())
+    val domainSpecificFilter = compositeFilter(None, None, None, None, None, None,
+      domainSet.calculateIdsAndModRAStatuses)
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")

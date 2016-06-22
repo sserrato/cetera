@@ -15,7 +15,7 @@ import org.springframework.mock.web.{DelegatingServletInputStream, DelegatingSer
 import com.socrata.cetera._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
-import com.socrata.cetera.types.NoQuery
+import com.socrata.cetera.types.{DomainSet, NoQuery}
 
 class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
@@ -32,10 +32,10 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
   test("pass on any set-cookie headers in response") {
     val expectedSetCookie = Seq("life=42", "universe=42", "everything=42")
 
-    mockDomainClient.expects('findRelevantDomains)(None, None, Some("c=cookie"), Some("1"))
-      .returns((None, Set.empty, 123L, expectedSetCookie))
+    mockDomainClient.expects('findSearchableDomains)(None, None, true, Some("c=cookie"), Some("1"))
+      .returns((DomainSet(Set.empty, None), 123L, expectedSetCookie))
 
-    mockDocumentClient.expects('buildSearchRequest)(NoQuery, Set(), None, None, None, None, None, None, None, None,
+    mockDocumentClient.expects('buildSearchRequest)(NoQuery, DomainSet(Set(),None), None, None, None, None, None, None, None,
       Map(), Map(), Map(), None, None, 0, 100, None)
       .returns(new SearchRequestBuilder(client.client))
 

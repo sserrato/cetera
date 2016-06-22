@@ -145,12 +145,11 @@ object DocumentQueries {
   }
 
   def compositeFilteredQuery(  // scalastyle:ignore parameter.number
+      searchContext: Option[Domain],
       datatypes: Option[Set[String]],
       user: Option[String],
       attribution: Option[String],
       parentDatasetId: Option[String],
-      domains: Set[Domain],
-      searchContext: Option[Domain],
       categories: Option[Set[String]],
       tags: Option[Set[String]],
       domainMetadata: Option[Set[(String, String)]],
@@ -180,12 +179,11 @@ object DocumentQueries {
     // These constraints determine whether a document is considered part of the selection set, but
     // they do not affect the relevance score of the document.
     val compositeFilter = DocumentFilters.compositeFilter(
-      domains,
+      searchContext,
       datatypes,
       user,
       attribution,
       parentDatasetId,
-      searchContext,
       domainMetadata,
       idsModRAStatuses)
 

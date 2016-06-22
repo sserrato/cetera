@@ -8,21 +8,21 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera._
 import com.socrata.cetera.auth.CoreClient
 import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
-import com.socrata.cetera.types.{Domain, DomainCnameFieldType}
+import com.socrata.cetera.types.{Domain, DomainCnameFieldType, DomainSet}
 import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
 trait BaseDomainClient {
   def fetch(id: Int): Option[Domain]
 
-  def findRelevantDomains(searchContextCname: Option[String],
-                          domainCnames: Option[Set[String]],
-                          cookie: Option[String],
-                          requestId: Option[String])
-  : (Option[Domain], Set[Domain], Long, Seq[String])
+  def findSearchableDomains(
+      searchContextCname: Option[String],
+      domainCnames: Option[Set[String]],
+      excludeLockedDomains: Boolean,
+      cookie: Option[String],
+      requestId: Option[String])
+    : (DomainSet, Long, Seq[String])
 
-  def calculateIdsAndModRAStatuses(domains: Set[Domain]): (Set[Int], Set[Int], Set[Int], Set[Int])
-
-  def buildCountRequest(domains: Set[Domain], searchContext: Option[Domain]): SearchRequestBuilder
+  def buildCountRequest(domainSet: DomainSet): SearchRequestBuilder
 }
 
 class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String)
@@ -75,16 +75,16 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   // WARN: The search context may come back as None. This is to avoid leaking locked domains through the context.
   //       But if a search context was given this effectively pretends no context was given.
   def removeLockedDomainsForbiddenToUser(
-      context: Option[Domain],
-      domains: Set[Domain],
+      domainSet: DomainSet,
       cookie: Option[String],
       requestid: Option[String])
-    : (Option[Domain], Set[Domain], Seq[String]) = {
+    : (DomainSet, Seq[String]) = {
+    val context = domainSet.searchContext
     val contextLocked = context.exists(_.isLocked)
-    val (lockedDomains, unlockedDomains) = domains.partition(_.isLocked)
+    val (lockedDomains, unlockedDomains) = domainSet.domains.partition(_.isLocked)
 
     if (!contextLocked && lockedDomains.isEmpty) {
-      (context, domains, Seq.empty)
+      (domainSet, Seq.empty)
     } else {
       val (loggedInUser, setCookies) =
         coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
@@ -96,22 +96,19 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
               val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
               userId.exists(_.canViewCatalog)
             }
-          (viewableContext, unlockedDomains ++ viewableLockedDomains, setCookies)
+          (DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext), setCookies)
         case None => // user is not logged in and thus can see no locked data
-          (viewableContext, unlockedDomains, setCookies)
+          (DomainSet(unlockedDomains, viewableContext), setCookies)
       }
     }
   }
 
+
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
   // also looks up the search context and throws if it cannot be found
-  def findRelevantDomains(
-      searchContextCname: Option[String],
-      domainCnames: Option[Set[String]],
-      cookie: Option[String],
-      requestId: Option[String])
-    : (Option[Domain], Set[Domain], Long, Seq[String]) = {
-
+  // If lock-down is a concern, use the 'findSearchableDomains' method in lieu of this one.
+  def findDomainSet(searchContextCname: Option[String], domainCnames: Option[Set[String]])
+  : (DomainSet, Long) = {
     // We want to fetch all relevant domains (search context and relevant domains) in a single query
     // NOTE: the searchContext may be present as both the context and in the relevant domains
     val (foundDomains, timings) = domainCnames match {
@@ -119,7 +116,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       case None => customerDomainSearch
     }
     val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
-    val relevantDomains = domainCnames match {
+    val domains = domainCnames match {
       case Some(cnames) => foundDomains.filter(d => cnames.contains(d.domainCname))
       case None => foundDomains
     }
@@ -127,11 +124,25 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     // If a searchContext is specified and we can't find it, we have to bail
     searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFound(c))
 
-    // Remove domains that are locked domain and should be hidden from the user
-    val (viewableSearchContext, viewableDomains, setCookies) =
-      removeLockedDomainsForbiddenToUser(searchContextDomain, relevantDomains, cookie, requestId)
+    (DomainSet(domains, searchContextDomain), timings)
+  }
 
-    (viewableSearchContext, viewableDomains, timings, setCookies)
+  def findSearchableDomains(
+    searchContextCname: Option[String],
+    domainCnames: Option[Set[String]],
+    excludeLockedDomains: Boolean,
+    cookie: Option[String],
+    requestId: Option[String])
+  : (DomainSet, Long, Seq[String]) = {
+
+    val (domainSet, timings) = findDomainSet(searchContextCname, domainCnames)
+    if (excludeLockedDomains) {
+      val (restrictedDomainSet, setCookies) =
+        removeLockedDomainsForbiddenToUser(domainSet, cookie, requestId)
+      (restrictedDomainSet, timings, setCookies)
+    } else {
+      (domainSet, timings, Seq.empty[String])
+    }
   }
 
   // TODO: handle unlimited domain count with aggregation or scan+scroll query
@@ -162,27 +173,15 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     (domains, timing)
   }
 
-  // (pre-)calculate domain moderation and R+A status
-  def calculateIdsAndModRAStatuses(domains: Set[Domain]): (Set[Int], Set[Int], Set[Int], Set[Int]) = {
-    val ids = domains.map(_.domainId)
-    val mod = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
-    val unmod = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
-    val raOff = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
-    (ids, mod, unmod, raOff)
-  }
-
   // NOTE: I do not currently honor counting according to parameters
-  def buildCountRequest(
-      domains: Set[Domain],
-      searchContext: Option[Domain])
-    : SearchRequestBuilder = {
+  def buildCountRequest(domainSet: DomainSet): SearchRequestBuilder = {
 
-    val contextModerated = searchContext.exists(_.moderationEnabled)
+    val contextModerated = domainSet.searchContext.exists(_.moderationEnabled)
 
     val (domainIds,
       moderatedDomainIds,
       unmoderatedDomainIds,
-      routingApprovalDisabledDomainIds) = calculateIdsAndModRAStatuses(domains)
+      routingApprovalDisabledDomainIds) = domainSet.calculateIdsAndModRAStatuses
 
     val domainFilter = idsFilter(domainIds)
 

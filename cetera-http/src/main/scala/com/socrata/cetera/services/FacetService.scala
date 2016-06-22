@@ -63,11 +63,12 @@ class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
                  ): (Seq[FacetCount], InternalTimings, Seq[String]) = {
     val startMs = Timings.now()
 
-    val (domain, _, domainSearchTime, setCookies) =
-      domainClient.findRelevantDomains(Some(cname), Some(Set(cname)), cookie, requestId)
-    domain match {
+    val (domainSet, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
+        Some(cname), Some(Set(cname)), excludeLockedDomains = true, cookie, requestId)
+
+    domainSet.searchContext match {
       case Some(d) => // domain exists and is viewable by user
-        val request = documentClient.buildFacetRequest(domain)
+        val request = documentClient.buildFacetRequest(domainSet)
         logger.info(LogHelper.formatEsRequest(request))
         val res = request.execute().actionGet()
         val aggs = res.getAggregations.asMap().asScala

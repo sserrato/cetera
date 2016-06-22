@@ -367,9 +367,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       val request = documentClient.buildCountRequest(
         CategoriesFieldType,
         searchQuery = params.searchQuery,
-        domains = Set.empty[Domain],
+        domainSet = DomainSet.empty,
         domainMetadata = None,
-        searchContext = None,
         categories = params.categories,
         tags = params.tags,
         datatypes = params.datatypes,
@@ -519,7 +518,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         |  }
         |}""".stripMargin
 
-      val actual = documentClient.buildFacetRequest(Some(domain))
+      val actual = documentClient.buildFacetRequest(DomainSet(Set(domain), None))
 
       actual.toString should be(expectedAsString)
     }
@@ -548,8 +547,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = params.searchQuery,
-        domains = Set.empty[Domain],
-        searchContext = None,
+        domainSet = DomainSet.empty,
         categories = params.categories,
         tags = params.tags,
         domainMetadata = None,
@@ -607,8 +605,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       val request = documentClient.buildSearchRequest(
         searchQuery = NoQuery,
-        domains = Set.empty[Domain],
-        searchContext = None,
+        domainSet = DomainSet.empty,
         categories = params.categories,
         tags = params.tags,
         domainMetadata = None,

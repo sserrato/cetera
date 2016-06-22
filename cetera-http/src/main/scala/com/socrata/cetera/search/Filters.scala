@@ -185,12 +185,11 @@ object DocumentFilters {
 
   // TODO: (which is coming down the pike, soon I promise), remove need for that awful idsModRAStatuses param.
   def compositeFilter(
-      domains: Set[Domain],
+      searchContext: Option[Domain],
       datatypes: Option[Set[String]],
       user: Option[String],
       attribution: Option[String],
       parentDatasetId: Option[String],
-      searchContext: Option[Domain],
       domainMetadata: Option[Set[(String, String)]],
       idsModRAStatuses: (Set[Int], Set[Int], Set[Int], Set[Int]))
     : FilterBuilder = {
@@ -205,7 +204,7 @@ object DocumentFilters {
       userFilter(user),
       attributionFilter(attribution),
       parentDatasetFilter(parentDatasetId),
-      Some(domainFilter), // TODO: remove me since I am the superset!
+      Some(domainFilter),
       Some(publicFilter()),
       Some(publishedFilter()),
       Some(moderationStatusFilter(isContextModerated, moderatedDomainIds, unmoderatedDomainIds)),
