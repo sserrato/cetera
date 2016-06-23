@@ -5,6 +5,7 @@ import org.elasticsearch.index.query.QueryBuilders.{boolQuery, matchQuery, neste
 import org.elasticsearch.index.query.{BaseQueryBuilder, MultiMatchQueryBuilder, QueryBuilder, QueryBuilders}
 
 import com.socrata.cetera.esDomainType
+import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.types._
 
 object DocumentQueries {
@@ -19,6 +20,32 @@ object DocumentQueries {
     defaultTitleBoost
       .map(boost => Map(TitleFieldType -> boost) ++ fieldBoosts)
       .getOrElse(fieldBoosts)
+  }
+
+  private def applyClassificationQuery(
+      query: BaseQueryBuilder,
+      searchParams: SearchParamSet,
+      withinSearchContext: Boolean)
+    : BaseQueryBuilder = {
+
+    // If there is no search context, use the ODN categories and tags
+    // otherwise use the custom domain categories and tags
+    val categoriesAndTags: Seq[QueryBuilder] =
+      if (withinSearchContext) {
+        List.concat(
+          domainCategoriesQuery(searchParams.categories),
+          domainTagsQuery(searchParams.tags))
+      } else {
+        List.concat(
+          categoriesQuery(searchParams.categories),
+          tagsQuery(searchParams.tags))
+      }
+
+    if (categoriesAndTags.nonEmpty) {
+      categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
+    } else {
+      query
+    }
   }
 
   def chooseMinShouldMatch(
@@ -37,6 +64,25 @@ object DocumentQueries {
 
       // If neither is present, then do not use minShouldMatch.
       case (None, None) => None
+    }
+  }
+
+  def chooseMatchQuery(
+      searchQuery: QueryType,
+      searchContext: Option[Domain],
+      scoringParams: ScoringParamSet,
+      defaultTitleBoost: Option[Float],
+      defaultMinShouldMatch: Option[String])
+    : BaseQueryBuilder = {
+
+    searchQuery match {
+      case NoQuery => QueryBuilders.matchAllQuery
+      case AdvancedQuery(queryString) => advancedQuery(queryString, scoringParams.fieldBoosts)
+      case SimpleQuery(queryString) => simpleQuery(queryString,
+        applyDefaultTitleBoost(defaultTitleBoost, defaultMinShouldMatch, scoringParams.fieldBoosts),
+        scoringParams.datatypeBoosts,
+        chooseMinShouldMatch(scoringParams.minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)),
+        scoringParams.slop)
     }
   }
 
@@ -120,73 +166,19 @@ object DocumentQueries {
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
 
-  def chooseMatchQuery(
-      searchQuery: QueryType,
-      searchContext: Option[Domain],
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      datatypeBoosts: Map[Datatype, Float],
-      minShouldMatch: Option[String],
-      slop: Option[Int],
-      defaultTitleBoost: Option[Float],
-      defaultMinShouldMatch: Option[String])
-    : BaseQueryBuilder = {
-
-    searchQuery match {
-      case NoQuery => QueryBuilders.matchAllQuery
-      case AdvancedQuery(queryString) => advancedQuery(queryString, fieldBoosts)
-      case SimpleQuery(queryString) => simpleQuery(
-        queryString,
-        applyDefaultTitleBoost(defaultTitleBoost, defaultMinShouldMatch, fieldBoosts),
-        datatypeBoosts,
-        chooseMinShouldMatch(minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)),
-        slop
-      )
-    }
-  }
-
-  def compositeFilteredQuery(  // scalastyle:ignore parameter.number
-      searchContext: Option[Domain],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      domainMetadata: Option[Set[(String, String)]],
+  def compositeFilteredQuery(
+      domainSet: DomainSet,
+      searchParams: SearchParamSet,
       query: BaseQueryBuilder,
-      idsModRAStatuses: (Set[Int], Set[Int], Set[Int], Set[Int]))
+      restrictVisibility: Boolean)
     : BaseQueryBuilder = {
 
-    // If there is no search context, use the ODN categories and tags
-    // otherwise use the custom domain categories and tags
-    val categoriesAndTags: Seq[QueryBuilder] =
-      if (searchContext.isDefined) {
-        List.concat(
-          domainCategoriesQuery(categories),
-          domainTagsQuery(tags))
-      } else {
-        List.concat(
-          categoriesQuery(categories),
-          tagsQuery(tags))
-      }
-
-    val categoriesAndTagsQuery =
-      if (categoriesAndTags.nonEmpty) {
-        categoriesAndTags.foldLeft(QueryBuilders.boolQuery().must(query)) { (b, q) => b.must(q) }
-      } else { query }
+    val categoriesAndTagsQuery = applyClassificationQuery(query, searchParams, domainSet.searchContext.isDefined)
 
     // This is a FilterBuilder, which incorporates all of the remaining constraints.
     // These constraints determine whether a document is considered part of the selection set, but
     // they do not affect the relevance score of the document.
-    val compositeFilter = DocumentFilters.compositeFilter(
-      searchContext,
-      datatypes,
-      user,
-      attribution,
-      parentDatasetId,
-      domainMetadata,
-      idsModRAStatuses)
-
+    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, restrictVisibility)
     QueryBuilders.filteredQuery(categoriesAndTagsQuery, compositeFilter)
   }
 

@@ -3,9 +3,8 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.FilterBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
-import org.elasticsearch.search.aggregations.bucket.terms.Terms
 
-import com.socrata.cetera._
+import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.types._
 
 object DocumentAggregations {
@@ -80,24 +79,10 @@ object DocumentAggregations {
 object DomainAggregations {
   private val aggSize = 0 // agg count unlimited
 
-  def domains(searchContextIsModerated: Boolean,
-              moderatedDomainIds: Set[Int],
-              unmoderatedDomainIds: Set[Int],
-              routingApprovalDisabledDomainIds: Set[Int]
-             ): AbstractAggregationBuilder = {
-    val publicFilter = DocumentFilters.publicFilter(isDomainAgg = true)
-    val publishedFilter = DocumentFilters.publishedFilter(isDomainAgg = true)
-    val moderationFilter = DocumentFilters.moderationStatusFilter(
-      searchContextIsModerated,
-      moderatedDomainIds,
-      unmoderatedDomainIds,
-      isDomainAgg = true
-    )
-    val routingApprovalFilter = DocumentFilters.routingApprovalFilter(
-      None,
-      routingApprovalDisabledDomainIds,
-      isDomainAgg = true
-    )
+  def domains(domainSet: DomainSet): AbstractAggregationBuilder = {
+    val visibilityFilter = FilterBuilders.boolFilter()
+    DocumentFilters.visibilityFilters(domainSet, isDomainAgg = true).foreach(visibilityFilter.must)
+
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"
       .field("domain_cname.raw")
@@ -109,13 +94,7 @@ object DomainAggregations {
           .subAggregation(
             AggregationBuilders
               .filter("visible") // "visible" is an agg of documents matching the following filter
-              .filter(FilterBuilders.boolFilter()
-                // is customer domain filter must be applied above this aggregation
-                .must(publicFilter)
-                .must(publishedFilter)
-                .must(moderationFilter)
-                .must(routingApprovalFilter)
-              )
+              .filter(visibilityFilter)
           )
       )
   }

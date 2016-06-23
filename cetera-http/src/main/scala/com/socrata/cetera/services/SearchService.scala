@@ -9,7 +9,7 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.handlers.QueryParametersParser
+import com.socrata.cetera.handlers._
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.Format.formatDocumentResponse
@@ -19,9 +19,10 @@ import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNo
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
-class SearchService(elasticSearchClient: BaseDocumentClient,
-                    domainClient: BaseDomainClient,
-                    balboaClient: BalboaClient) extends SimpleResource {
+class SearchService(
+    elasticSearchClient: BaseDocumentClient,
+    domainClient: BaseDomainClient,
+    balboaClient: BalboaClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
@@ -34,7 +35,6 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
     )
   }
 
-
   def doSearch(
       queryParameters: MultiQueryParams, // scalastyle:ignore parameter.number method.length
       cookie: Option[String],
@@ -43,43 +43,22 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
     : (SearchResults[SearchResult], InternalTimings, Seq[String]) = {
 
     val now = Timings.now()
-
     QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-      case Right(params) =>
-        val (domainSet, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
-          params.searchContext, params.domains, excludeLockedDomains = true, cookie, requestId)
+      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
+        val (domains, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
+          searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, cookie, requestId)
+        val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
 
-        val domainIdBoosts = domainSet.domainIdBoosts(params.domainBoosts)
-
-        val req = elasticSearchClient.buildSearchRequest(
-          params.searchQuery,
-          domainSet,
-          params.domainMetadata,
-          params.categories,
-          params.tags,
-          params.datatypes,
-          params.user,
-          params.attribution,
-          params.parentDatasetId,
-          params.fieldBoosts,
-          params.datatypeBoosts,
-          domainIdBoosts,
-          params.minShouldMatch,
-          params.slop,
-          params.offset,
-          params.limit,
-          params.sortOrder
-        )
-
+        val req = elasticSearchClient.buildSearchRequest(domainSet, searchParams, scoringParams, pagingParams)
         logger.info(LogHelper.formatEsRequest(req))
         val res = req.execute.actionGet
-        val formattedResults = formatDocumentResponse(domainSet.idCnameMap, params.showScore, res)
+        val formattedResults = formatDocumentResponse(domainSet.idCnameMap, scoringParams.showScore, res)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-        logSearchTerm(domainSet.searchContext, params.searchQuery)
+        logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 
         (formattedResults.copy(timings = Some(timings)), timings, setCookies)
     }

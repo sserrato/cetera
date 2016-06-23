@@ -13,8 +13,8 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
+import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
@@ -46,35 +46,25 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
   def format(counts: Seq[JValue]): SearchResults[Count] =
     SearchResults(counts.map { c => Count(c.dyn.key.!, c.dyn.doc_count.!) }, counts.size)
 
-  def doAggregate(field: DocumentFieldType with Countable with Rawable,
-                  queryParameters: MultiQueryParams,
-                  cookie: Option[String],
-                  extendedHost: Option[String],
-                  requestId: Option[String]
-                 ): (SearchResults[Count], InternalTimings, Seq[String]) = {
-    val now = Timings.now()
+  def doAggregate(
+      field: DocumentFieldType with Countable with Rawable,
+      queryParameters: MultiQueryParams,
+      cookie: Option[String],
+      extendedHost: Option[String],
+      requestId: Option[String])
+    : (SearchResults[Count], InternalTimings, Seq[String]) = {
 
+    val now = Timings.now()
     QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-      case Right(params) =>
+      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
         val (domainSet, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
-            params.searchContext, params.domains, excludeLockedDomains = true, cookie, requestId)
+          searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, cookie, requestId)
 
-        val search = documentClient.buildCountRequest(
-          field,
-          params.searchQuery,
-          domainSet,
-          params.domainMetadata,
-          params.categories,
-          params.tags,
-          params.datatypes,
-          params.user,
-          params.attribution,
-          params.parentDatasetId
-        )
+        val search = documentClient.buildCountRequest(field, domainSet, searchParams)
         logger.info(LogHelper.formatEsRequest(search))
 
         val res = search.execute.actionGet

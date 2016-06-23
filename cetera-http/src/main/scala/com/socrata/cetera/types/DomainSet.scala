@@ -1,8 +1,14 @@
 package com.socrata.cetera.types
 
+// NOTE: Please note that domainBoosts are empty by default. The caller must explicitly create
+// a copy of the DomainSet via the `addDomainBoosts` method with the appropriate domainBoosts
+// parameter in order for those boosts to have an effect.
 case class DomainSet(
-  domains: Set[Domain],
-  searchContext: Option[Domain]) {
+    domains: Set[Domain],
+    searchContext: Option[Domain],
+    domainBoosts: Map[String, Float] = Map.empty) {
+
+  def addDomainBoosts(boosts: Map[String, Float]): DomainSet = copy(domainBoosts = boosts)
 
   def idCnameMap: Map[Int, String] = {
     val allDomains = domains ++ searchContext
@@ -11,20 +17,18 @@ case class DomainSet(
 
   def cnameIdMap: Map[String, Int] = idCnameMap.map(_.swap)
 
-  def domainIdBoosts(domainBoosts: Map[String, Float]): Map[Int, Float] = {
+  def domainIdBoosts: Map[Int, Float] = {
     val idMap = cnameIdMap
     domainBoosts.flatMap { case (cname: String, weight: Float) =>
       idMap.get(cname).map(id => id -> weight)
     }
   }
 
-  def calculateIdsAndModRAStatuses: (Set[Int], Set[Int], Set[Int], Set[Int]) = {
-    val ids = domains.map(_.domainId)
-    val mod = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
-    val unmod = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
-    val raOff = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
-    (ids, mod, unmod, raOff)
-  }
+  val contextIsModerated = searchContext.exists(_.moderationEnabled)
+  val allIds = domains.map(_.domainId)
+  val moderationEnabledIds = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
+  val moderationDisabledIds = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
+  val raDisabledIds = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
 }
 
 object DomainSet {

@@ -366,6 +366,20 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
+  test("domainBoosts are respected") {
+    val params = Map(
+      Params.filterDomains -> "petercetera.net,annabelle.island.net",
+      s"${Params.boostDomains}[annabelle.island.net]" -> "0.0",
+      Params.showScore -> "true"
+    )
+    val (res, _, _) = service.doSearch(params.mapValues(Seq(_)), None, None, None)
+    val metadata = res.results.map(_.metadata)
+    val annabelleRes = metadata.filter(_.get("domain").get == "annabelle.island.net")
+    annabelleRes.foreach{ r =>
+      r.get("score").get should be(0.0)
+    }
+  }
+
   test("private documents should always be hidden") {
     val expectedFxfs = Set.empty
     val (res, _, _) = service.doSearch(Map(

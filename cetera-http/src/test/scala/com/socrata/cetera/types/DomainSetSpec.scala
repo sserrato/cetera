@@ -68,34 +68,59 @@ class DomainSetSpec extends WordSpec with ShouldMatchers with TestESData {
 
   "the domainIdBoosts method" should {
     "convert domainBoosts if the domains in question are within the DomainSet" in {
-      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)))
       val boosts = Map[String, Float]("annabelle.island.net" -> 0.42f, "dylan.demo.socrata.com" -> 0.58f)
-      val actualBoosts = domainSet.domainIdBoosts(boosts)
+      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), boosts)
+      val actualBoosts = domainSet.domainIdBoosts
       val expectedBoosts = Map(3 -> 0.42f, 4 -> 0.58f)
       actualBoosts should be(expectedBoosts)
     }
 
     "drop out cnames if the domains in question are not within the DomainSet" in {
-      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)))
       val boosts = Map[String, Float]("annabelle.island.net" -> 0.33f, "blue.org" -> 0.67f)
-      val actualBoosts = domainSet.domainIdBoosts(boosts)
+      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), boosts)
+      val actualBoosts = domainSet.domainIdBoosts
       val expectedBoosts = Map(3 -> 0.33f)
       actualBoosts should be(expectedBoosts)
     }
   }
 
-  "the calculateIdsAndModRAStatuses method" should {
-    "bucket domains appropriately" in {
+  "the allIds method" should {
+    "return all the ids" in {
       val domainSet = DomainSet(domains.toSet, Some(domains(1)))
-      val actualGoods = domainSet.calculateIdsAndModRAStatuses
+      val actualIds = domainSet.allIds
       val expectedIds = domains.map(_.domainId).toSet
+
+      actualIds should be(expectedIds)
+    }
+  }
+
+  "the moderationEnabledIds method" should {
+    "return only the ids of domains which have moderation turned on" in {
+      val domainSet = DomainSet(domains.toSet, Some(domains(1)))
+      val actualMod = domainSet.moderationEnabledIds
       val expectedMod = Set(1, 3, 6, 7, 8)
+
+      actualMod should be(expectedMod)
+    }
+  }
+
+  "the moderationDisabledIds method" should {
+    "return only the ids of domains which have moderation turned off" in {
+      val domainSet = DomainSet(domains.toSet, Some(domains(1)))
+      val actualNotMod = domainSet.moderationDisabledIds
       val expectedNotMod = Set(0, 2, 4, 5)
+
+      actualNotMod should be(expectedNotMod)
+    }
+  }
+
+  "the raDisabled method" should {
+    "return only the ids of domains which have not enabled routing & approval" in {
+      val domainSet = DomainSet(domains.toSet, Some(domains(1)))
+      val actualRA = domainSet.raDisabledIds
       val expectedRA = Set(0, 1, 5, 7)
-      actualGoods._1 should be(expectedIds)
-      actualGoods._2 should be(expectedMod)
-      actualGoods._3 should be(expectedNotMod)
-      actualGoods._4 should be(expectedRA)
+
+      actualRA should be(expectedRA)
     }
   }
 }

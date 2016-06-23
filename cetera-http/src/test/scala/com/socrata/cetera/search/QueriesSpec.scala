@@ -4,6 +4,7 @@ import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest.{ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.handlers.ScoringParamSet
 import com.socrata.cetera.types._
 
 class QueriesSpec extends WordSpec with ShouldMatchers {
@@ -163,8 +164,7 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
 
   "DocumentQueries: chooseMatchQuery" should {
     "return the expected query when no query is given" in {
-      val query = NoQuery
-      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, fieldBoosts, emptyDatatypeBoosts, None, None, None, None)
+      val matchQuery = DocumentQueries.chooseMatchQuery(NoQuery, None, ScoringParamSet.empty, None, None)
       val expected = j"""{"match_all" :{}}"""
 
       val actual = JsonReader.fromString(matchQuery.toString)
@@ -174,7 +174,7 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
     "return the expected query when a simple query is given" in {
       val query = SimpleQuery(queryString)
       val simpleQuery = DocumentQueries.simpleQuery(queryString, emptyFieldBoosts, emptyDatatypeBoosts, None, None)
-      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, emptyFieldBoosts, emptyDatatypeBoosts, None, None, None, None)
+      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, ScoringParamSet.empty, None, None)
 
       val actual = JsonReader.fromString(matchQuery.toString)
       val expected = JsonReader.fromString(simpleQuery.toString)
@@ -183,9 +183,8 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
 
     "return the expected query when an advanced query is given" in {
       val query = AdvancedQuery(queryString)
-      val advancedQuery = DocumentQueries.advancedQuery(queryString, fieldBoosts)
-      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, fieldBoosts, emptyDatatypeBoosts, None, None, None, None)
-
+      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, ScoringParamSet.empty, None, None)
+      val advancedQuery = DocumentQueries.advancedQuery(queryString, emptyFieldBoosts)
       val actual = JsonReader.fromString(matchQuery.toString)
       val expected = JsonReader.fromString(advancedQuery.toString)
       actual should be(expected)

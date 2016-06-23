@@ -13,9 +13,10 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, DelegatingServletOutputStream}
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
-import com.socrata.cetera.types.{DomainSet, NoQuery}
+import com.socrata.cetera.types.DomainSet
 
 class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
@@ -35,8 +36,8 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     mockDomainClient.expects('findSearchableDomains)(None, None, true, Some("c=cookie"), Some("1"))
       .returns((DomainSet(Set.empty, None), 123L, expectedSetCookie))
 
-    mockDocumentClient.expects('buildSearchRequest)(NoQuery, DomainSet(Set(),None), None, None, None, None, None, None, None,
-      Map(), Map(), Map(), None, None, 0, 100, None)
+    mockDocumentClient.expects('buildSearchRequest$default$5)().returns(true)
+    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty, ScoringParamSet.empty, PagingParamSet(0,100,None), true)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]

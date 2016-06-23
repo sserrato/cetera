@@ -1,50 +1,34 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query._
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
-import com.socrata.cetera._
-import com.socrata.cetera.search.DocumentAggregations._
+import com.socrata.cetera.esDocumentType
+import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
+import com.socrata.cetera.search.DocumentAggregations.chooseAggregation
 import com.socrata.cetera.search.DocumentFilters.compositeFilter
 import com.socrata.cetera.search.DocumentQueries.{chooseMatchQuery, compositeFilteredQuery}
 import com.socrata.cetera.types._
 
 trait BaseDocumentClient {
-  def buildSearchRequest( // scalastyle:ignore parameter.number
-      searchQuery: QueryType,
+  // if you choose to `restrictVisibility`, the search will include the public, published & mod/RA status filters
+  def buildSearchRequest(
       domainSet: DomainSet,
-      domainMetadata: Option[Set[(String, String)]],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String],
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      datatypeBoosts: Map[Datatype, Float],
-      domainIdBoosts: Map[Int, Float],
-      minShouldMatch: Option[String],
-      slop: Option[Int],
-      offset: Int,
-      limit: Int,
-      sortOrder: Option[String])
+      searchParams: SearchParamSet,
+      scoringParams: ScoringParamSet,
+      pagingParams: PagingParamSet,
+      restrictVisibility: Boolean = true)
     : SearchRequestBuilder
 
-  def buildCountRequest( // scalastyle:ignore parameter.number
+  def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
-      searchQuery: QueryType,
       domainSet: DomainSet,
-      domainMetadata: Option[Set[(String, String)]],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String])
+      searchParams: SearchParamSet,
+      restrictVisibility: Boolean = true)
     : SearchRequestBuilder
 
-  def buildFacetRequest(domainSet: DomainSet): SearchRequestBuilder
+  def buildFacetRequest(domainSet: DomainSet, restrictVisibility: Boolean = true): SearchRequestBuilder
 }
 
 class DocumentClient(
@@ -64,45 +48,24 @@ class DocumentClient(
   // * Chooses query type to be used and constructs query with applicable boosts
   // * Applies function scores (typically views and score) with applicable domain boosts
   // * Applies filters (facets and searchContext-sensitive federation preferences)
-  private def buildBaseRequest( // scalastyle:ignore parameter.number method.length
-      searchQuery: QueryType,
+  private def buildBaseRequest(
       domainSet: DomainSet,
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      domainMetadata: Option[Set[(String, String)]],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String],
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      datatypeBoosts: Map[Datatype, Float],
-      domainIdBoosts: Map[Int, Float],
-      minShouldMatch: Option[String],
-      slop: Option[Int])
+      searchParams: SearchParamSet,
+      scoringParams: ScoringParamSet,
+      restrictVisibility: Boolean = true)
     : SearchRequestBuilder = {
 
     // Construct basic match query
-    val matchQuery = chooseMatchQuery(searchQuery, domainSet.searchContext, fieldBoosts, datatypeBoosts,
-      minShouldMatch, slop, defaultTitleBoost, defaultMinShouldMatch)
+    val matchQuery = chooseMatchQuery(searchParams.searchQuery, domainSet.searchContext, scoringParams,
+      defaultTitleBoost, defaultMinShouldMatch)
 
-    val idsAndModRAStatuses = domainSet.calculateIdsAndModRAStatuses
     // Wrap basic match query in filtered query for filtering
-    val filteredQuery = compositeFilteredQuery(
-      domainSet.searchContext,
-      datatypes,
-      user,
-      attribution,
-      parentDatasetId,
-      categories,
-      tags,
-      domainMetadata,
-      matchQuery,
-      idsAndModRAStatuses)
+    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, restrictVisibility)
 
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
     Boosts.applyScoreFunctions(query, scriptScoreFunctions)
-    Boosts.applyDomainBoosts(query, domainIdBoosts)
+    Boosts.applyDomainBoosts(query, domainSet.domainIdBoosts)
     query.scoreMode("multiply").boostMode("replace")
 
     val preparedSearch = esClient.client
@@ -113,87 +76,39 @@ class DocumentClient(
     preparedSearch
   }
 
-  def buildSearchRequest( // scalastyle:ignore parameter.number
-      searchQuery: QueryType,
+  def buildSearchRequest(
       domainSet: DomainSet,
-      domainMetadata: Option[Set[(String, String)]],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String],
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      datatypeBoosts: Map[Datatype, Float],
-      domainIdBoosts: Map[Int, Float],
-      minShouldMatch: Option[String],
-      slop: Option[Int],
-      offset: Int,
-      limit: Int,
-      sortOrder: Option[String])
+      searchParams: SearchParamSet,
+      scoringParams: ScoringParamSet,
+      pagingParams: PagingParamSet,
+      restrictVisibility: Boolean = true)
     : SearchRequestBuilder = {
 
-    val baseRequest = buildBaseRequest(
-      searchQuery,
-      domainSet,
-      categories,
-      tags,
-      domainMetadata,
-      datatypes,
-      user,
-      attribution,
-      parentDatasetId,
-      fieldBoosts,
-      datatypeBoosts,
-      domainIdBoosts,
-      minShouldMatch,
-      slop
-    )
+    val baseRequest = buildBaseRequest(domainSet, searchParams, scoringParams, restrictVisibility)
 
     // WARN: Sort will totally blow away score if score isn't part of the sort
     // "Relevance" without a query can mean different things, so chooseSort decides
-    val sort = sortOrder match {
+    val sort = pagingParams.sortOrder match {
       case Some(so) if so != "relevance" => Sorts.paramSortMap.get(so).get // will raise if invalid param got through
-      case _ => Sorts.chooseSort(searchQuery, domainSet.searchContext, categories, tags)
+      case _ => Sorts.chooseSort(domainSet.searchContext, searchParams)
     }
 
     baseRequest
-      .setFrom(offset)
-      .setSize(limit)
+      .setFrom(pagingParams.offset)
+      .setSize(pagingParams.limit)
       .addSort(sort)
   }
 
-  def buildCountRequest( // scalastyle:ignore parameter.number
+  def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
-      searchQuery: QueryType,
       domainSet: DomainSet,
-      domainMetadata: Option[Set[(String, String)]],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String])
+      searchParams: SearchParamSet,
+      restrictVisibility: Boolean = true)
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
 
-    val baseRequest = buildBaseRequest(
-      searchQuery,
-      domainSet,
-      categories,
-      tags,
-      domainMetadata,
-      datatypes,
-      user,
-      attribution,
-      parentDatasetId,
-      Map.empty,
-      Map.empty,
-      Map.empty,
-      None,
-      None
-    )
+    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, restrictVisibility)
 
     baseRequest
       .addAggregation(aggregation)
@@ -201,7 +116,7 @@ class DocumentClient(
       .setSize(0) // no docs, aggs only
   }
 
-  def buildFacetRequest(domainSet: DomainSet): SearchRequestBuilder = {
+  def buildFacetRequest(domainSet: DomainSet, restrictVisibility: Boolean = true): SearchRequestBuilder = {
     val aggSize = 0 // agg count unlimited
     val searchSize = 0 // no docs, aggs only
 
@@ -230,8 +145,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter = compositeFilter(None, None, None, None, None, None,
-      domainSet.calculateIdsAndModRAStatuses)
+    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, restrictVisibility)
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")

@@ -3,6 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.FilterBuilders
 import org.elasticsearch.search.sort.{FieldSortBuilder, SortBuilder, SortBuilders, SortOrder}
 
+import com.socrata.cetera.handlers.SearchParamSet
 import com.socrata.cetera.types._
 
 // TODO: Ultimately, these should accept Sortables rather than Strings
@@ -74,14 +75,8 @@ object Sorts {
   )
 
   // First pass logic is very simple. query >> categories >> tags >> default
-  def chooseSort(
-      searchQuery: QueryType,
-      searchContext: Option[Domain],
-      categories: Option[Set[String]],
-      tags: Option[Set[String]])
-    : SortBuilder = {
-
-    (searchQuery, searchContext, categories, tags) match {
+  def chooseSort(searchContext: Option[Domain], searchParams: SearchParamSet): SortBuilder =
+    (searchParams.searchQuery, searchContext, searchParams.categories, searchParams.tags) match {
       // ODN Categories
       case (NoQuery, None, Some(cats), _) =>
         buildAverageScoreSort(
@@ -101,5 +96,4 @@ object Sorts {
       // Everything else
       case _ => Sorts.sortScoreDesc
     }
-  }
 }

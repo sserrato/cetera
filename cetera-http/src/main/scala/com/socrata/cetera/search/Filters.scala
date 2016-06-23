@@ -4,6 +4,7 @@ import org.elasticsearch.index.query.FilterBuilder
 import org.elasticsearch.index.query.FilterBuilders.{boolFilter, nestedFilter, notFilter, termFilter, termsFilter}
 
 import com.socrata.cetera.esDocumentType
+import com.socrata.cetera.handlers.SearchParamSet
 import com.socrata.cetera.types._
 
 object DocumentFilters {
@@ -33,7 +34,6 @@ object DocumentFilters {
   def parentDatasetFilter(parentDatasetId: String, aggPrefix: String): FilterBuilder =
     termFilter(aggPrefix + ParentDatasetIdFieldType.fieldName, parentDatasetId)
 
-  // Don't call me unless you actually want to build a filter
   def domainIdsFilter(domainIds: Set[Int], aggPrefix: String = ""): FilterBuilder =
     termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)
 
@@ -157,7 +157,7 @@ object DocumentFilters {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
 
     val documentIsApprovedBySearchContext = searchContext.flatMap { d =>
-      if (d.routingApprovalEnabled) {
+      if (d.routingApprovalEnabled && !isDomainAgg) {
         Some(termsFilter(ApprovingDomainIdsFieldType.fieldName, d.domainId))
       } else { None }
     }
@@ -183,35 +183,43 @@ object DocumentFilters {
     notFilter(termFilter(prefix + IsPublishedFieldType.fieldName, false))
   }
 
-  // TODO: (which is coming down the pike, soon I promise), remove need for that awful idsModRAStatuses param.
+  def searchParamsFilters(searchParams: SearchParamSet): List[FilterBuilder] = {
+    val typeFilter = datatypeFilter(searchParams.datatypes)
+    val ownerFilter = userFilter(searchParams.user)
+    val attrFilter = attributionFilter(searchParams.attribution)
+    val parentIdFilter = parentDatasetFilter(searchParams.parentDatasetId)
+    val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
+
+    List(typeFilter, ownerFilter, attrFilter, parentIdFilter, metadataFilter).flatten
+  }
+
+  def visibilityFilters(domainSet: DomainSet, isDomainAgg: Boolean = false): List[FilterBuilder]  = {
+    val isContextModerated = domainSet.searchContext.exists(_.moderationEnabled)
+    val privacyFilter = publicFilter(isDomainAgg)
+    val publicationFilter = publishedFilter(isDomainAgg)
+    val modStatusFilter = moderationStatusFilter(
+      isContextModerated,
+      domainSet.moderationEnabledIds,
+      domainSet.moderationDisabledIds,
+      isDomainAgg)
+    val raFilter = routingApprovalFilter(domainSet.searchContext, domainSet.raDisabledIds, isDomainAgg)
+
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter)
+  }
+
   def compositeFilter(
-      searchContext: Option[Domain],
-      datatypes: Option[Set[String]],
-      user: Option[String],
-      attribution: Option[String],
-      parentDatasetId: Option[String],
-      domainMetadata: Option[Set[(String, String)]],
-      idsModRAStatuses: (Set[Int], Set[Int], Set[Int], Set[Int]))
+      domainSet: DomainSet,
+      searchParams: SearchParamSet,
+      restrictVisibility: Boolean)
     : FilterBuilder = {
 
-    val isContextModerated = searchContext.exists(_.moderationEnabled)
-    val (domainIds, moderatedDomainIds, unmoderatedDomainIds, routingApprovalDisabledDomainIds) = idsModRAStatuses
-    val domainFilter = domainIdsFilter(domainIds)
+    val domainFilter = domainIdsFilter(domainSet.allIds)
+    val searchFilters = searchParamsFilters(searchParams)
+    val visFilters = if (restrictVisibility) visibilityFilters(domainSet) else Set.empty
+    val allFilters = domainFilter +: (searchFilters ++ visFilters)
 
     val filter = boolFilter()
-    List.concat(
-      datatypeFilter(datatypes),
-      userFilter(user),
-      attributionFilter(attribution),
-      parentDatasetFilter(parentDatasetId),
-      Some(domainFilter),
-      Some(publicFilter()),
-      Some(publishedFilter()),
-      Some(moderationStatusFilter(isContextModerated, moderatedDomainIds, unmoderatedDomainIds)),
-      Some(routingApprovalFilter(searchContext, routingApprovalDisabledDomainIds)),
-      searchContext.flatMap(_ => domainMetadataFilter(domainMetadata)) // I make it hard to de-option
-    ).foreach(filter.must)
-
+    allFilters.foreach(filter.must)
     filter
   }
 }

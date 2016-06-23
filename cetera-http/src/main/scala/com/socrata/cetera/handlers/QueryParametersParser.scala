@@ -1,30 +1,14 @@
 package com.socrata.cetera.handlers
 
+import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.search.Sorts
 import com.socrata.cetera.types._
-import com.socrata.cetera.handlers.util._
 
 // These are validated input parameters but aren't supposed to know anything about ES
 case class ValidatedQueryParameters(
-    searchQuery: QueryType,
-    domains: Option[Set[String]],
-    domainMetadata: Option[Set[(String, String)]],
-    searchContext: Option[String],
-    categories: Option[Set[String]],
-    tags: Option[Set[String]],
-    datatypes: Option[Set[String]],
-    parentDatasetId: Option[String],
-    fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-    datatypeBoosts: Map[Datatype, Float],
-    domainBoosts: Map[String, Float],
-    minShouldMatch: Option[String],
-    slop: Option[Int],
-    showScore: Boolean,
-    offset: Int,
-    limit: Int,
-    sortOrder: Option[String],
-    user: Option[String],
-    attribution: Option[String])
+    searchParamSet: SearchParamSet,
+    scoringParamset: ScoringParamSet,
+    pagingParamSet: PagingParamSet)
 
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
@@ -83,7 +67,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
                           transform: String => String = identity): Option[Set[String]] =
     mergeOptionalSets(selectKeys.map(key => queryParameters.get(key).map(_.map(value => transform(value)).toSet)))
 
-  val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(",")
+  val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(filterDelimiter)
 
   // This can stay case-sensitive because it is so specific
   def restrictParamFilterDatatype(datatype: String): Either[DatatypeError, Option[Set[String]]] = datatype match {
@@ -162,7 +146,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   def prepareDatatypes(queryParameters: MultiQueryParams): Either[DatatypeError, Option[Set[String]]] = {
-    val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(","))).map(_.toSet)
+    val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(filterDelimiter))).map(_.toSet)
     val arrayParams = queryParameters.get(Params.filterDatatypesArray).map(_.toSet)
     val mergedParams = mergeOptionalSets[String](Set(csvParams, arrayParams))
 
@@ -273,38 +257,42 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   // NOTE: Watch out for case sensitivity in params
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
-  def apply(queryParameters: MultiQueryParams,
-            extendedHost: Option[String]
-           ): Either[Seq[ParseError], ValidatedQueryParameters] = {
+  def apply(
+      queryParameters: MultiQueryParams,
+      extendedHost: Option[String])
+    : Either[Seq[ParseError], ValidatedQueryParameters] = {
+
     // NOTE! We don't have to run most of these if just any of them fail validation
-    // TODO reorder semantically (searchContext before domainMetadata)
     // Add params to the match to provide helpful error messages
     prepareDatatypes(queryParameters) match {
       case Left(e)          => Left(Seq(e))
       case Right(datatypes) =>
-        Right(
-          ValidatedQueryParameters(
-            prepareSearchQuery(queryParameters),
-            prepareDomains(queryParameters),
-            prepareDomainMetadata(queryParameters),
-            prepareSearchContext(queryParameters, extendedHost),
-            prepareCategories(queryParameters),
-            prepareTags(queryParameters),
-            datatypes,
-            prepareParentDatasetId(queryParameters),
-            prepareFieldBoosts(queryParameters),
-            prepareDatatypeBoosts(queryParameters),
-            prepareDomainBoosts(queryParameters),
-            prepareMinShouldMatch(queryParameters),
-            prepareSlop(queryParameters),
-            prepareShowScore(queryParameters),
-            prepareOffset(queryParameters),
-            prepareLimit(queryParameters),
-            prepareSortOrder(queryParameters),
-            prepareUsers(queryParameters),
-            prepareAttribution(queryParameters)
-          )
+        val searchParams = SearchParamSet(
+          prepareSearchQuery(queryParameters),
+          prepareDomains(queryParameters),
+          prepareSearchContext(queryParameters, extendedHost),
+          prepareDomainMetadata(queryParameters),
+          prepareCategories(queryParameters),
+          prepareTags(queryParameters),
+          datatypes,
+          prepareUsers(queryParameters),
+          prepareAttribution(queryParameters),
+          prepareParentDatasetId(queryParameters)
         )
+        val scoringParams = ScoringParamSet(
+          prepareFieldBoosts(queryParameters),
+          prepareDatatypeBoosts(queryParameters),
+          prepareDomainBoosts(queryParameters),
+          prepareMinShouldMatch(queryParameters),
+          prepareSlop(queryParameters),
+          prepareShowScore(queryParameters)
+        )
+        val pagingParams = PagingParamSet(
+          prepareOffset(queryParameters),
+          prepareLimit(queryParameters),
+          prepareSortOrder(queryParameters)
+        )
+        Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams))
     }
   }
 }

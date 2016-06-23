@@ -6,10 +6,10 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.handlers.ValidatedQueryParameters
+import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet, ValidatedQueryParameters}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ElasticsearchBootstrap
-import com.socrata.cetera.{TestCoreClient, TestESClient, TestHttpClient, esDocumentType}
+import com.socrata.cetera.{TestCoreClient, TestESClient, TestHttpClient}
 
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: Regarding Brittleness
@@ -54,7 +54,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }
 
   val domainIds = Set(1, 2, 3)
-  val params = ValidatedQueryParameters(
+  val searchParams = SearchParamSet(
     searchQuery = SimpleQuery("search query terms"),
     domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
     domainMetadata = None,
@@ -62,131 +62,72 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
     datatypes = Some(Set("datasets")),
+    parentDatasetId = None,
+    user = None,
+    attribution = None
+  )
+  val scoringParams = ScoringParamSet(
     fieldBoosts = Map[CeteraFieldType with Boostable, Float](
       TitleFieldType -> 2.2f,
       DescriptionFieldType -> 1.1f
     ),
-    parentDatasetId = None,
     datatypeBoosts = Map.empty,
     domainBoosts = Map.empty[String, Float],
     minShouldMatch = None,
     slop = None,
-    showScore = false,
+    showScore = false
+  )
+  val pagingParams = PagingParamSet(
     offset = 10,
     limit = 20,
-    sortOrder = Option("relevance"), // should be the same as None
-    user = None,
-    attribution = None
+    sortOrder = Option("relevance") // should be the same as None
   )
+  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams)
 
-  val shouldMatch = j"""{
-    "multi_match": {
-        "fields": [
-            "fts_analyzed",
-            "fts_raw"
-        ],
-        "query": "search query terms",
-        "type": "phrase"
-    }
-  }"""
+  def multiMatchJson(boosted: Boolean, matchType: String) = {
+    val fields = if (boosted)
+      j"""["fts_analyzed", "fts_raw", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"]"""
+    else
+      j"""["fts_analyzed", "fts_raw"]"""
 
-  val boostedShouldMatch = j"""{
-    "multi_match": {
-        "fields": [
-            "fts_analyzed",
-            "fts_raw",
-             "indexed_metadata.name^2.2",
-             "indexed_metadata.description^1.1"
-        ],
+    j"""{
+      "multi_match": {
+        "fields": $fields,
         "query": "search query terms",
-        "type": "phrase"
-    }
-  }"""
+        "type": $matchType
+      }
+    }"""
+  }
+
+  val shouldMatch = multiMatchJson(false, "phrase")
+  val boostedShouldMatch = multiMatchJson(true, "phrase")
 
   val boolQuery = j"""{
     "bool": {
-        "must": {
-            "multi_match": {
-                "fields": [
-                    "fts_analyzed",
-                    "fts_raw"
-                ],
-                "query": "search query terms",
-                "type": "cross_fields"
-            }
-        },
-        "should": ${shouldMatch}
+      "must": ${multiMatchJson(false, "cross_fields")},
+      "should": ${shouldMatch}
     }
   }"""
 
   val boostedBoolQuery = j"""{
     "bool": {
-        "must": {
-            "multi_match": {
-                "fields": [
-                    "fts_analyzed",
-                    "fts_raw"
-                ],
-                "query": "search query terms",
-                "type": "cross_fields"
-            }
-        },
-        "should": ${boostedShouldMatch}
-    }
-  }"""
-
-  val moderationFilter = j"""{
-    "bool": {
-      "should": [
-        {"term": {"is_default_view": true}},
-        {"term": {"is_moderation_approved": true}}
-      ]
-    }
-  }"""
-
-  val routingApprovalFilter = j"""{
-    "bool": {
-      "must": {
-        "bool": {
-          "should": { "term": {"is_approved_by_parent_domain": true} }
-        }
-      }
-    }
-  }"""
-
-  val domainFilter = j"""{
-    "terms": {
-      "socrata_id.domain_id": [
-        1,
-        2,
-        3
-      ]
+      "must": ${multiMatchJson(false, "cross_fields")},
+      "should": ${boostedShouldMatch}
     }
   }"""
 
   // NOTE: In reality, the domain_id set would be populated or no results would come back.
   // But, when domains is empty, this filter must match no (rather than all) domain_ids.
   // See instances of `domains = Set.empty[Domain]`
-  val domainIdsFilterEmpty = j"""{
-    "terms" : { "socrata_id.domain_id" : [] }
-  }"""
-
-
-  val publicFilter = j"""{
-    "not": {
-      "filter": {
-        "term": { "is_public": false }
-      }
-    }
-  }"""
-
-  val publishedFilter = j"""{
-    "not": {
-      "filter": {
-        "term": { "is_published": false }
-      }
-    }
-  }"""
+  val domainIdsFilterEmpty = j"""{"terms": {"socrata_id.domain_id": []}}"""
+  val domainsFilter =  j"""{"terms": {"socrata_id.domain_id": [1, 2, 3]}}"""
+  val defaultViewFilter = j"""{"term" : {"is_default_view" : true }}"""
+  val publicFilter = j"""{"not": {"filter": {"term": { "is_public": false }}}}"""
+  val publishedFilter = j"""{"not": {"filter": {"term": { "is_published": false }}}}"""
+  val modApprovedFilter = j"""{"term": {"is_moderation_approved": true}}"""
+  val raApprovedFilter = j"""{"term": {"is_approved_by_parent_domain": true}}"""
+  val moderationFilter = j"""{"bool": { "should": [$defaultViewFilter, $modApprovedFilter]}}"""
+  val routingApprovalFilter = j"""{"bool": {"must": {"bool": {"should": $raApprovedFilter}}}}"""
 
   val defaultFilter = j"""{
     "bool": {
@@ -195,9 +136,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publicFilter},
         ${publishedFilter},
         ${moderationFilter},
-        ${routingApprovalFilter}
-      ]
-    }
+        ${routingApprovalFilter}]}
   }"""
 
   val defaultFilterPlusDomainIds = j"""{
@@ -205,19 +144,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         ${publicFilter},
         ${publishedFilter},
-        ${domainFilter},
+        ${domainsFilter},
         ${moderationFilter},
-        ${routingApprovalFilter}
-      ]
-    }
+        ${routingApprovalFilter}]}
   }"""
 
   val datatypeDatasetsFilter = j"""{
-    "terms": {
-        "datatype": [
-            "dataset"
-        ]
-    }
+    "terms": {"datatype": ["dataset"]}
   }"""
 
   val animlCategoriesQuery = j"""{
@@ -227,13 +160,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           "should": [
             { "match": { "animl_annotations.categories.name" : { "query":"Social Services", "type":"phrase" } } },
             { "match": { "animl_annotations.categories.name" : { "query":"Environment", "type":"phrase" } } },
-            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"phrase" } } }
-          ],
-          "minimum_should_match" : "1"
-        }
-      },
-      "path": "animl_annotations.categories"
-    }
+            { "match": { "animl_annotations.categories.name" : { "query":"Housing & Development", "type":"phrase" } } }],
+          "minimum_should_match" : "1"}},
+      "path": "animl_annotations.categories"}
   }"""
 
   val animlTagsQuery = j"""{
@@ -243,13 +172,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           "should": [
             { "match": { "animl_annotations.tags.name" : { "query":"taxi", "type":"phrase" } } },
             { "match": { "animl_annotations.tags.name" : { "query":"art", "type":"phrase" } } },
-            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"phrase" } } }
-          ],
-          "minimum_should_match" : "1"
-        }
-      },
-      "path": "animl_annotations.tags"
-    }
+            { "match": { "animl_annotations.tags.name" : { "query":"clowns", "type":"phrase" } } }],
+          "minimum_should_match" : "1"}},
+      "path": "animl_annotations.tags"}
   }"""
 
   val simpleQuery = j"""{
@@ -258,9 +183,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         {"match_all": {}},
         ${animlCategoriesQuery},
         ${animlTagsQuery},
-        ${domainFilter}
-      ]
-    }
+        ${domainsFilter}]}
   }"""
 
   val simpleQueryWithoutDomainFilter = j"""{
@@ -268,9 +191,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         {"match_all": {}},
         ${animlCategoriesQuery},
-        ${animlTagsQuery}
-      ]
-    }
+        ${animlTagsQuery}]}
   }"""
 
   val complexQuery = j"""{
@@ -278,9 +199,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         ${boolQuery},
         ${animlCategoriesQuery},
-        ${animlTagsQuery}
-      ]
-    }
+        ${animlTagsQuery}]}
   }"""
 
   val boostedComplexQuery = j"""{
@@ -288,22 +207,18 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "must": [
         ${boostedBoolQuery},
         ${animlCategoriesQuery},
-        ${animlTagsQuery}
-      ]
-    }
+        ${animlTagsQuery}]}
   }"""
 
   val complexFilter = j"""{
     "bool": {
-        "must": [
-            ${datatypeDatasetsFilter},
-            ${domainIdsFilterEmpty},
-            ${publicFilter},
-            ${publishedFilter},
-            ${moderationFilter},
-            ${routingApprovalFilter}
-        ]
-    }
+      "must": [
+        ${domainIdsFilterEmpty},
+        ${datatypeDatasetsFilter},
+        ${publicFilter},
+        ${publishedFilter},
+        ${moderationFilter},
+        ${routingApprovalFilter}]}
   }"""
 
   val matchAll = j"""{ "match_all" : {} }"""
@@ -312,17 +227,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "function_score" : {
       "query" : ${query},
       "functions" : [
-        {
-          "script_score" : {
-            "script" : "1 + doc[\"page_views.page_views_total_log\"].value",
-            "lang" : "expression"
-          }
-        },
-        {
-          "script_score" :
-          { "script" : "_score", "lang" : "expression" }
-        }
-      ],
+        {"script_score" : {
+          "script" : "1 + doc[\"page_views.page_views_total_log\"].value",
+          "lang" : "expression"}},
+        {"script_score" :{ "script" : "_score", "lang" : "expression"}}],
       "score_mode" : "multiply",
       "boost_mode" : "replace"
     }
@@ -338,45 +246,21 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "construct a filtered match query with nested aggregation for annotations" in {
       val query = j"""{
         "filtered": {
-          "filter": ${complexFilter},
-          "query": ${complexQuery}
+          "query": ${complexQuery},
+          "filter": ${complexFilter}
         }
       }"""
 
       val expected = j"""{
         "size": 0,
         "query": ${query},
-        "aggregations": {
-            "annotations": {
-                "aggregations": {
-                    "names": {
-                        "terms": {
-                            "field": "animl_annotations.categories.name.raw",
-                            "size": 0
-                        }
-                    }
-                },
-                "nested": {
-                    "path": "animl_annotations.categories"
-                }
-            }
-        },
+        "aggregations": {"annotations": {
+          "aggregations": {"names": {"terms": {"field": "animl_annotations.categories.name.raw","size": 0}}},
+          "nested": {"path": "animl_annotations.categories"}}},
         "query": ${functionScoreQuery(query)}
       }"""
 
-      val request = documentClient.buildCountRequest(
-        CategoriesFieldType,
-        searchQuery = params.searchQuery,
-        domainSet = DomainSet.empty,
-        domainMetadata = None,
-        categories = params.categories,
-        tags = params.tags,
-        datatypes = params.datatypes,
-        user = None,
-        attribution = None,
-        parentDatasetId = None
-      )
-
+      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -388,7 +272,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // buildFacetRequest
   ////////////////////
 
-  // TODO: Make this a JSON comparison
   "buildFacetRequest" should {
     "build a faceted request" in {
       val domainId = 42
@@ -400,127 +283,42 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         lockedDown = false,
         apiLockedDown = false)
 
-      val expectedAsString = s"""{
-        |  "size" : 0,
-        |  "aggregations" : {
-        |    "domain_filter" : {
-        |      "filter" : {
-        |        "bool" : {
-        |          "must" : [ {
-        |            "terms" : {
-        |              "socrata_id.domain_id" : [ $domainId ]
-        |            }
-        |          }, {
-        |            "not" : {
-        |              "filter" : {
-        |                "term" : {
-        |                  "is_public" : false
-        |                }
-        |              }
-        |            }
-        |          }, {
-        |            "not" : {
-        |              "filter" : {
-        |                "term" : {
-        |                  "is_published" : false
-        |                }
-        |              }
-        |            }
-        |          }, {
-        |            "bool" : {
-        |              "should" : [ {
-        |                "term" : {
-        |                  "is_default_view" : true
-        |                }
-        |              }, {
-        |                "term" : {
-        |                  "is_moderation_approved" : true
-        |                }
-        |              }, {
-        |                "bool" : {
-        |                  "must" : [ {
-        |                    "terms" : {
-        |                      "socrata_id.domain_id" : [ $domainId ]
-        |                    }
-        |                  }, {
-        |                    "not" : {
-        |                      "filter" : {
-        |                        "terms" : {
-        |                          "datatype" : [ "datalens", "datalens_chart", "datalens_map" ]
-        |                        }
-        |                      }
-        |                    }
-        |                  } ]
-        |                }
-        |              } ]
-        |            }
-        |          }, {
-        |            "bool" : {
-        |              "must" : {
-        |                "bool" : {
-        |                  "should" : [ {
-        |                    "terms" : {
-        |                      "socrata_id.domain_id" : [ $domainId ]
-        |                    }
-        |                  }, {
-        |                    "term" : {
-        |                      "is_approved_by_parent_domain" : true
-        |                    }
-        |                  } ]
-        |                }
-        |              }
-        |            }
-        |          } ]
-        |        }
-        |      },
-        |      "aggregations" : {
-        |        "datatypes" : {
-        |          "terms" : {
-        |            "field" : "datatype",
-        |            "size" : 0
-        |          }
-        |        },
-        |        "categories" : {
-        |          "terms" : {
-        |            "field" : "customer_category.raw",
-        |            "size" : 0
-        |          }
-        |        },
-        |        "tags" : {
-        |          "terms" : {
-        |            "field" : "customer_tags.raw",
-        |            "size" : 0
-        |          }
-        |        },
-        |        "metadata" : {
-        |          "nested" : {
-        |            "path" : "customer_metadata_flattened"
-        |          },
-        |          "aggregations" : {
-        |            "keys" : {
-        |              "terms" : {
-        |                "field" : "customer_metadata_flattened.key.raw",
-        |                "size" : 0
-        |              },
-        |              "aggregations" : {
-        |                "values" : {
-        |                  "terms" : {
-        |                    "field" : "customer_metadata_flattened.value.raw",
-        |                    "size" : 0
-        |                  }
-        |                }
-        |              }
-        |            }
-        |          }
-        |        }
-        |      }
-        |    }
-        |  }
-        |}""".stripMargin
+      val domain42Filter =  j"""{"terms": {"socrata_id.domain_id": [42]}}"""
+      val expected = j"""{
+        "size" : 0,
+        "aggregations" :{"domain_filter" :{
+          "filter" :{"bool" :{"must" :[
+            ${domain42Filter},
+            $publicFilter,
+            $publishedFilter,
+            {"bool" :{"should" :[
+              $defaultViewFilter,
+              $modApprovedFilter,
+              {"bool" :{"must" :[
+                $domain42Filter,
+                {"not" :{"filter" :{"terms" :{"datatype" :[
+                  "datalens",
+                  "datalens_chart",
+                  "datalens_map"]}}}}]}}]}},
+            {"bool" :{"must" :{"bool" :{"should" :[
+              $domain42Filter,
+              $raApprovedFilter]}}}}]}},
+          "aggregations" :{
+            "datatypes" : { "terms" : { "field" : "datatype", "size" : 0 } },
+            "categories" : {"terms" : { "field" : "customer_category.raw", "size" : 0 }},
+            "tags" : { "terms" : { "field" : "customer_tags.raw", "size" : 0 } },
+            "metadata" :{
+              "nested" : { "path" : "customer_metadata_flattened" },
+              "aggregations" :{"keys" :{
+                "terms" :{"field" : "customer_metadata_flattened.key.raw", "size" : 0},
+                "aggregations" :{"values" :
+                  {"terms" :{"field" : "customer_metadata_flattened.value.raw", "size" : 0}}}}}}}}}
+      }"""
 
-      val actual = documentClient.buildFacetRequest(DomainSet(Set(domain), None))
+      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None))
+      val actual = JsonReader.fromString(request.toString)
 
-      actual.toString should be(expectedAsString)
+      actual should be(expected)
     }
   }
 
@@ -538,33 +336,14 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val expected = j"""{
-        "from": ${params.offset},
+        "from": ${pagingParams.offset},
         "query": ${functionScoreQuery(query)},
-        "size": ${params.limit},
+        "size": ${pagingParams.limit},
         "sort": [ { "_score": {} }
         ]
       }"""
 
-      val request = documentClient.buildSearchRequest(
-        searchQuery = params.searchQuery,
-        domainSet = DomainSet.empty,
-        categories = params.categories,
-        tags = params.tags,
-        domainMetadata = None,
-        datatypes = params.datatypes,
-        user = None,
-        attribution = None,
-        parentDatasetId = None,
-        fieldBoosts = Map.empty,
-        datatypeBoosts = Map.empty,
-        domainIdBoosts = Map.empty[Int, Float],
-        minShouldMatch = None,
-        slop = None,
-        offset = params.offset,
-        limit = params.limit,
-        sortOrder = params.sortOrder
-      )
-
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -580,49 +359,18 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val expected = j"""{
-        "from": ${params.offset},
+        "from": ${pagingParams.offset},
         "query": ${functionScoreQuery(query)},
-        "size": ${params.limit},
-        "sort": [
-            {
-                "animl_annotations.categories.score": {
-                    "mode": "avg",
-                    "nested_filter": {
-                        "terms": {
-                            "animl_annotations.categories.name.raw": [
-                                "Social Services",
-                                "Environment",
-                                "Housing & Development"
-                            ]
-                        }
-                    },
-                    "order": "desc",
-                    "missing": "_last"
-                }
-            }
-        ]
+        "size": ${pagingParams.limit},
+        "sort": [{"animl_annotations.categories.score": {
+          "mode": "avg",
+          "nested_filter": {"terms": {
+            "animl_annotations.categories.name.raw": ["Social Services","Environment","Housing & Development"]}},
+          "order": "desc",
+          "missing": "_last"}}]
       }"""
 
-      val request = documentClient.buildSearchRequest(
-        searchQuery = NoQuery,
-        domainSet = DomainSet.empty,
-        categories = params.categories,
-        tags = params.tags,
-        domainMetadata = None,
-        datatypes = params.datatypes,
-        user = None,
-        attribution = None,
-        parentDatasetId = None,
-        fieldBoosts = Map.empty,
-        datatypeBoosts = Map.empty,
-        domainIdBoosts = Map.empty[Int, Float],
-        minShouldMatch = None,
-        slop = None,
-        offset = params.offset,
-        limit = params.limit,
-        sortOrder = params.sortOrder
-      )
-
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -706,43 +454,24 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "generateSimpleQuery" should {
     "produce anything but a simple query" in {
       val expectedJson = j"""{
-        "bool" :
-          {
-            "must" :
-              {
-                "multi_match" :
-                  {
-                    "query" : "query string OR (query AND string)",
-                    "fields" : [ "fts_analyzed", "fts_raw" ],
-                    "type" : "cross_fields",
-                    "minimum_should_match" : "20%"
-                  }
-              },
-            "should" :
-              [
-                {
-                  "multi_match" :
-                    {
-                      "query" : "query string OR (query AND string)",
-                      "fields" :
-                        [
-                          "fts_analyzed",
-                          "fts_raw",
-                          "indexed_metadata.description^7.77",
-                          "indexed_metadata.name^8.88"
-                        ],
-                      "type" : "phrase",
-                      "slop" : 12
-                    }
-                },
-                {
-                  "term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 } }
-                },
-                {
-                  "term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 } }
-                }
-              ]
-          }
+        "bool" :{
+          "must" :{"multi_match" :{
+            "query" : "query string OR (query AND string)",
+            "fields" : [ "fts_analyzed", "fts_raw" ],
+            "type" : "cross_fields",
+            "minimum_should_match" : "20%"}},
+          "should" :[
+            {"multi_match" :{
+              "query" : "query string OR (query AND string)",
+              "fields" :[
+                "fts_analyzed",
+                "fts_raw",
+                "indexed_metadata.description^7.77",
+                "indexed_metadata.name^8.88"],
+              "type" : "phrase",
+              "slop" : 12}},
+            {"term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 }}},
+            {"term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 }}}]}
       }"""
 
       val actual = DocumentQueries.simpleQuery(

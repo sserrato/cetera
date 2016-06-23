@@ -2,7 +2,8 @@ package com.socrata.cetera.search
 
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.types.{AdvancedQuery, Domain, NoQuery, SimpleQuery}
+import com.socrata.cetera.handlers.SearchParamSet
+import com.socrata.cetera.types.{AdvancedQuery, Domain, SimpleQuery}
 
 // NOTE: The toString method of the SortBuilders does not produce
 // JSON-parseable output. So, we test the output of the toString method as a
@@ -82,12 +83,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
     "order by query score descending when given an advanced query" in {
       val expected = Sorts.sortScoreDesc
 
-      val actual = Sorts.chooseSort(
-        searchQuery = AdvancedQuery("sandwich AND (soup OR salad)"),
-        searchContext = None,
-        categories = None,
-        tags = Some(tags)
-      )
+      val searchParams = SearchParamSet.empty.copy(searchQuery = AdvancedQuery("sandwich AND (soup OR salad)"))
+      val actual = Sorts.chooseSort(None, searchParams)
 
       // sortScores is a val so it's the same object
       actual should be(expected)
@@ -108,12 +105,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         apiLockedDown = false
       )
 
-      val actual = Sorts.chooseSort(
-        searchQuery = SimpleQuery("soup salad sandwich"),
-        searchContext = Some(searchContext),
-        categories = Some(cats),
-        tags = None
-      )
+      val searchParams = SearchParamSet.empty.copy(searchQuery = SimpleQuery("soup salad sandwich"))
+      val actual = Sorts.chooseSort(Some(searchContext), searchParams)
 
       // sortScores is a val so it's the same object
       actual should be(expected)
@@ -132,12 +125,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         |  }
         |}""".stripMargin
 
-      val actual = Sorts.chooseSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = Some(cats),
-        tags = Some(tags)
-      )
+      val searchParams = SearchParamSet.empty.copy(tags = Some(tags), categories = Some(cats))
+      val actual = Sorts.chooseSort(None, searchParams)
 
       actual.toString should be(expectedAsString)
     }
@@ -157,25 +146,17 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         |  }
         |}""".stripMargin
 
-      val actual = Sorts.chooseSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = None,
-        tags = Some(tags)
-      )
+
+      val searchParams = SearchParamSet.empty.copy(tags = Some(tags))
+      val actual = Sorts.chooseSort(None, searchParams)
 
       actual.toString should be(expectedAsString)
     }
 
     "order by score descending for default null query" in {
       val expected = Sorts.sortScoreDesc
-
-      val actual = Sorts.chooseSort(
-        searchQuery = NoQuery,
-        searchContext = None,
-        categories = None,
-        tags = None
-      )
+      val searchParams = SearchParamSet.empty
+      val actual = Sorts.chooseSort(None, searchParams)
 
       actual should be (expected)
     }

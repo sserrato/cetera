@@ -176,21 +176,8 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   // NOTE: I do not currently honor counting according to parameters
   def buildCountRequest(domainSet: DomainSet): SearchRequestBuilder = {
 
-    val contextModerated = domainSet.searchContext.exists(_.moderationEnabled)
-
-    val (domainIds,
-      moderatedDomainIds,
-      unmoderatedDomainIds,
-      routingApprovalDisabledDomainIds) = domainSet.calculateIdsAndModRAStatuses
-
-    val domainFilter = idsFilter(domainIds)
-
-    val aggregation = DomainAggregations.domains(
-      contextModerated,
-      moderatedDomainIds,
-      unmoderatedDomainIds,
-      routingApprovalDisabledDomainIds
-    )
+    val domainFilter = idsFilter(domainSet.allIds)
+    val aggregation = DomainAggregations.domains(domainSet)
 
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainFilter))
