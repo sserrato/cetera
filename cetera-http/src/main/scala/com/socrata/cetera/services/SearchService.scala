@@ -205,11 +205,13 @@ class SearchService(elasticSearchClient: BaseDocumentClient,
     (searchContextDomain, queryDomains, domainIdBoosts, domainSearchTime, setCookies)
   }
 
-  def doSearch(queryParameters: MultiQueryParams, // scalastyle:ignore parameter.number method.length
-               cookie: Option[String],
-               extendedHost: Option[String],
-               requestId: Option[String]
-              ): (SearchResults[SearchResult], InternalTimings, Seq[String]) = {
+  def doSearch( // scalastyle:ignore parameter.number method.length
+      queryParameters: MultiQueryParams,
+      cookie: Option[String],
+      extendedHost: Option[String],
+      requestId: Option[String])
+    : (SearchResults[SearchResult], InternalTimings, Seq[String]) = {
+
     val now = Timings.now()
 
     QueryParametersParser(queryParameters, extendedHost) match {

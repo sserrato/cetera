@@ -21,12 +21,15 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
   lazy val logger = LoggerFactory.getLogger(getClass)
   val verificationClient = new VerificationClient(coreClient)
 
+  // WARN: I do not used validated query parameters!
+  // See SearchService.scala for comparison
   def doSearch(
       queryParameters: MultiQueryParams,
       cookie: Option[String],
       extendedHost: Option[String],
       requestId: Option[String])
-  : (StatusResponse, SearchResults[DomainUser], InternalTimings, Seq[String]) = {
+    : (StatusResponse, SearchResults[DomainUser], InternalTimings, Seq[String]) = {
+
     val now = Timings.now()
 
     val (authorized, setCookies) =
