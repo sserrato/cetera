@@ -25,7 +25,7 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
   }
 
   // TODO: setup user search pagination
-  val maxLimit = 1000000
+  val maxLimit = 200 // Parity with Core for now
   def search(query: Option[String], limit: Int = maxLimit, offset: Int = 0): (Set[EsUser], Long) = {
     val baseQuery = query match {
       case None => QueryBuilders.matchAllQuery()
