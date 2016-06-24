@@ -1,0 +1,137 @@
+{
+  "created_at": "2014-03-10T14:39:13.000Z",
+  "customer_tags": [
+    "pie"
+  ],
+  "shared_to": [
+    "ti9x-irmy"
+  ],
+  "popularity": 0.0,
+  "socrata_id": {
+    "parent_dataset_id": "7v22-4z3a",
+    "dataset_id": "94sr-dmsy",
+    "domain_id": 283
+  },
+  "indexed_at": "2016-06-03T19:13:22.238Z",
+  "update_freq": 1.0,
+  "viewtype": "pie",
+  "indexed_metadata": {
+    "columns_name": [
+      "CheckDate",
+      "InvoiceDescription",
+      "CheckNo",
+      "CheckAmt",
+      "InvoiceNo",
+      "Payee",
+      "InvoiceAmt"
+    ],
+    "name": "drew",
+    "description": "Checks written to pay for products and services received by the City.",
+    "columns_field_name": [
+      "checkdate",
+      "invoicedescription",
+      "checkno",
+      "checkamt",
+      "invoiceno",
+      "payee",
+      "invoiceamt"
+    ],
+    "columns_description": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "page_views": {
+    "page_views_last_week_log": 3.5849625007211565,
+    "page_views_last_month": 52,
+    "page_views_total_log": 14.91396459627878,
+    "page_views_last_week": 11,
+    "page_views_last_month_log": 5.7279204545632,
+    "page_views_total": 30870
+  },
+  "is_public": true,
+  "is_published": true,
+  "approving_domain_ids": [],
+  "approving_domain_ids": [],
+  "is_approved_by_parent_domain": false,
+  "animl_annotations": {
+    "tags": [
+      {"name": "finance", "score": 0.9},
+      {"name": "finance", "score": 0.9},
+      {"name": "pie", "score": 0.1}
+    ],
+    "categories": [
+      {"name": "Finance", "score": 0.9}
+    ]
+  },
+  "datatype": "chart",
+  "owner": {
+    "screen_name": "Drew",
+    "id": "7kqh-9s5a"
+  },
+  "is_default_view": false,
+  "resource": {
+    "columns_name": [
+      "CheckDate",
+      "InvoiceDescription",
+      "CheckNo",
+      "CheckAmt",
+      "InvoiceNo",
+      "Payee",
+      "InvoiceAmt"
+    ],
+    "columns_description": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "createdAt": "2014-03-10T14:39:13.000Z",
+    "updatedAt": "2016-06-01T10:00:23.000Z",
+    "parent_fxf": "7v22-4z3a",
+    "type": "chart",
+    "name": "drew",
+    "description": "Checks written to pay for products and services received by the City.",
+    "columns_field_name": [
+      "checkdate",
+      "invoicedescription",
+      "checkno",
+      "checkamt",
+      "invoiceno",
+      "payee",
+      "invoiceamt"
+    ],
+    "id": "94sr-dmsy",
+    "view_count": {
+      "page_views_last_week_log": 3.5849625007211565,
+      "page_views_last_month": 52,
+      "page_views_total_log": 14.91396459627878,
+      "page_views_last_week": 11,
+      "page_views_last_month_log": 5.7279204545632,
+      "page_views_total": 30870
+    },
+    "attribution": "Finance Department"
+  },
+  "customer_metadata_flattened": [
+    {
+      "value": "City of Redmond",
+      "key": "Common-Core_Publisher"
+    },
+    {
+      "value": "drew@redmond.gov",
+      "key": "Common-Core_Contact-Email"
+    }
+  ],
+  "customer_category": "Finance",
+  "updated_at": "2016-06-01T10:00:23.000Z",
+  "owner_id": "7kqh-9s5a",
+  "attribution": "Finance Department"
+}

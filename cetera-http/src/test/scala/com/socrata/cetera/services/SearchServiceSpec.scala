@@ -28,6 +28,8 @@ import com.socrata.cetera._
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
+import com.socrata.cetera.response.Format.formatDocumentResponse
+import com.socrata.cetera.response.{Classification, SearchResult, Format, SearchResults}
 import com.socrata.cetera.types._
 
 class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll {
@@ -174,7 +176,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
-    val searchResults = service.format(domainCnames, showScore = false, searchResponse)
+    val searchResults = formatDocumentResponse(domainCnames, showScore = false, searchResponse)
 
     searchResults.resultSetSize should be (searchResponse.getHits.getTotalHits)
     searchResults.timings should be (None) // not yet added
@@ -208,92 +210,13 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
                         routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
-    val searchResults = service.format(domainCnames, showScore = false, badSearchResponse)
+    val searchResults = Format.formatDocumentResponse(domainCnames, showScore = false, badSearchResponse)
 
     val results = searchResults.results
     results.size should be (1)
 
     val pageResponse = results(0)
     pageResponse.resource should be (j"""${expectedResource}""")
-  }
-
-  test("build base urls and pretty seo urls") {
-    val cname = "tempuri.org"
-    val category = Some("Public Safety")
-    val name = "Seattle Police Department 911 Incident Response"
-    val id = "1234-abcd"
-
-    val dt = "datatype"
-    val vt = "viewtype"
-
-    val xp = "expectedPermalink"
-    val xpDefault = "/d/"
-
-    val xs = "expectedSeolink"
-    val xsDefault = "/Public-Safety/Seattle-Police-Department-911-Incident-Response/"
-
-    Seq(
-      Map(dt -> "calendar"),
-      Map(dt -> "chart"),
-      Map(dt -> "datalens", xp -> "/view/"),
-      Map(dt -> "chart", vt -> "datalens", xp -> "/view/"),
-      Map(dt -> "map", vt -> "datalens", xp -> "/view/"),
-      Map(dt -> "dataset"),
-      Map(dt -> "file"),
-      Map(dt -> "filter"),
-      Map(dt -> "form"),
-      Map(dt -> "map", vt -> "geo"),
-      Map(dt -> "map", vt -> "tabular"),
-      Map(dt -> "href"),
-      Map(dt -> "story", xp -> "/stories/s/", xs -> "/stories/s/")
-    ).foreach { t =>
-      val urls = SearchService.links(cname, Datatype(t.get(dt)), t.get(vt), id, category, name)
-      urls.getOrElse("permalink", fail()).string should include(t.getOrElse(xp, xpDefault))
-      urls.getOrElse("link", fail()).string should include(t.getOrElse(xs, xsDefault))
-    }
-  }
-
-  test("pretty seo url - missing/blank category defaults to 'dataset'") {
-    val cname = "tempuri.org"
-    val id = "1234-asdf"
-    val name = "this is a name"
-
-    Seq(None, Some("")).foreach { category =>
-      val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-      urls.getOrElse("link", fail()).string should include("/dataset/this-is-a-name/1234-asdf")
-    }
-  }
-
-  test("pretty seo url - missing/blank name defaults to '-'") {
-    val cname = "tempuri.org"
-    val id = "1234-asdf"
-    val category = Some("this-is-a-category")
-
-    Seq(null, "").foreach { name =>
-      val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-      urls.getOrElse("link", fail()).string should include("/this-is-a-category/-/1234-asdf")
-    }
-  }
-
-  test("pretty seo url - limit 50 characters") {
-    val cname = "tempuri.org"
-    val id = "1234-asdf"
-    val category = Some("A super long category name is not very likely but we will protect against it anyway")
-    val name = "More commonly customers may write a title that is excessively verbose and it will hit this limit"
-    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-    urls.getOrElse("link", fail()).string should include("/A-super-long-category-name-is-not-very-likely-but-/More-commonly-customers-may-write-a-title-that-is-/1234-asdf")
-  }
-
-  // NOTE: depending on your editor rendering, these RTL strings might look AWESOME(ly different)!
-  // scalastyle:off non.ascii.character.disallowed
-  test("pretty seo url - allows non-english unicode") {
-    val cname = "tempuri.org"
-    val id = "1234-asdf"
-    val category = Some("بيانات عن الجدات")
-    val name = "愛"
-    val urls = SearchService.links(cname, Option(TypeDatasets), None, id, category, name)
-    urls.getOrElse("link", fail()).string should include("بيانات-عن-الجدات")
-    urls.getOrElse("link", fail()).string should include("愛")
   }
 
   ignore("es client - min should match") {}
