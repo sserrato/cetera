@@ -177,6 +177,12 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       "path": "animl_annotations.tags"}
   }"""
 
+  val noQuery = j"""{
+    "bool": {
+      "must": {"match_all": {}}
+    }
+  }"""
+
   val simpleQuery = j"""{
     "bool": {
       "must": [
@@ -189,7 +195,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val simpleQueryWithoutDomainFilter = j"""{
     "bool": {
       "must": [
-        {"match_all": {}},
+        ${noQuery},
         ${animlCategoriesQuery},
         ${animlTagsQuery}]}
   }"""
@@ -474,12 +480,19 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             {"term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 }}}]}
       }"""
 
-      val actual = DocumentQueries.simpleQuery(
-        "query string OR (query AND string)",
-        Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
-        Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
-        Some("20%"), // minShouldMatch is a String because it can be a percentage
-        Some(12) // slop is max num of intervening unmatched positions permitted
+      val actual = DocumentQueries.chooseMatchQuery(
+        SimpleQuery("query string OR (query AND string)"),
+        None,
+        ScoringParamSet(
+          Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
+          Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
+          Map.empty,
+          Some("20%"), // minShouldMatch is a String because it can be a percentage
+          Some(12), // slop is max num of intervening unmatched positions permitted
+          showScore = false
+        ),
+        None,
+        None
       )
 
       val actualJson = JsonReader.fromString(actual.toString)

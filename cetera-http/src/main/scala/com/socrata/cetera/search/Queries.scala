@@ -2,7 +2,7 @@ package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, matchQuery, nestedQuery}
-import org.elasticsearch.index.query.{BaseQueryBuilder, MultiMatchQueryBuilder, QueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query._
 
 import com.socrata.cetera.esDomainType
 import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
@@ -75,16 +75,24 @@ object DocumentQueries {
       defaultMinShouldMatch: Option[String])
     : BaseQueryBuilder = {
 
-    searchQuery match {
-      case NoQuery => QueryBuilders.matchAllQuery
+    val matchQuery = searchQuery match {
+      case NoQuery => noQuery
       case AdvancedQuery(queryString) => advancedQuery(queryString, scoringParams.fieldBoosts)
       case SimpleQuery(queryString) => simpleQuery(queryString,
         applyDefaultTitleBoost(defaultTitleBoost, defaultMinShouldMatch, scoringParams.fieldBoosts),
-        scoringParams.datatypeBoosts,
         chooseMinShouldMatch(scoringParams.minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)),
         scoringParams.slop)
     }
+
+    // Add datatype boosts (if any). These end up in the should clause. Regardless of query type!
+    // NOTE: These boosts are normalized (i.e., not absolute weights on final scores).
+    Boosts.applyDatatypeBoosts(matchQuery, scoringParams.datatypeBoosts)
+
+    matchQuery
   }
+
+  def noQuery: BoolQueryBuilder =
+    QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery())
 
   // This query is complex, as it generates two queries that are then combined
   // into a single query. By default, the must match clause enforces a term match
@@ -104,20 +112,17 @@ object DocumentQueries {
   def simpleQuery(
       queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      datatypeBoosts: Map[Datatype, Float],
       minShouldMatch: Option[String],
       slop: Option[Int])
-    : BaseQueryBuilder = {
+    : BoolQueryBuilder = {
 
     // Query #1: terms (must)
     val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-
     // Apply minShouldMatch if present
     minShouldMatch.foreach(min => SundryBuilders.applyMinMatchConstraint(matchTerms, min))
 
     // Query #2: phrase (should)
     val matchPhrase = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.PHRASE)
-
     // If no slop is specified, we do not set a default
     slop.foreach(SundryBuilders.applySlopParam(matchPhrase, _))
 
@@ -129,10 +134,6 @@ object DocumentQueries {
     // Combine the two queries above into a single Boolean query
     val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
 
-    // Add datatype boosts (if any). These end up in the should clause.
-    // NOTE: These boosts are normalized (i.e., not absolute weights on final scores).
-    Boosts.applyDatatypeBoosts(query, datatypeBoosts)
-
     query
   }
 
@@ -141,7 +142,7 @@ object DocumentQueries {
   def advancedQuery(
       queryString: String,
       fieldBoosts: Map[CeteraFieldType with Boostable, Float])
-    : BaseQueryBuilder = {
+    : BoolQueryBuilder = {
 
     val documentQuery = QueryBuilders
       .queryStringQuery(queryString)
