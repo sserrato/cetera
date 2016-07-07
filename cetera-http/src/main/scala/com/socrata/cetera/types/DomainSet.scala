@@ -10,6 +10,11 @@ case class DomainSet(
 
   def addDomainBoosts(boosts: Map[String, Float]): DomainSet = copy(domainBoosts = boosts)
 
+  def idMap: Map[Int, Domain] = {
+    val allDomains = domains ++ searchContext
+    allDomains.map(d => d.domainId -> d).toMap
+  }
+
   def idCnameMap: Map[Int, String] = {
     val allDomains = domains ++ searchContext
     allDomains.map(d => d.domainId -> d.domainCname).toMap

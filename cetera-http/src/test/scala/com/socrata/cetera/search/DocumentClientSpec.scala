@@ -6,7 +6,7 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.action.search.SearchType.COUNT
 import org.scalatest.{BeforeAndAfterAll, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet, ValidatedQueryParameters}
+import com.socrata.cetera.handlers._
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ElasticsearchBootstrap
 import com.socrata.cetera.{TestCoreClient, TestESClient, TestHttpClient}
@@ -82,7 +82,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     limit = 20,
     sortOrder = Option("relevance") // should be the same as None
   )
-  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams)
+  val visibilityParams = VisibilityParamSet(
+    showVisibility = false
+  )
+  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, visibilityParams)
 
   def multiMatchJson(boosted: Boolean, matchType: String) = {
     val fields = if (boosted)
@@ -266,7 +269,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": ${functionScoreQuery(query)}
       }"""
 
-      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams)
+      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -321,7 +324,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                   {"terms" :{"field" : "customer_metadata_flattened.value.raw", "size" : 0}}}}}}}}}
       }"""
 
-      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None))
+      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None), Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be(expected)
@@ -349,7 +352,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams)
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -376,7 +379,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           "missing": "_last"}}]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams)
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)

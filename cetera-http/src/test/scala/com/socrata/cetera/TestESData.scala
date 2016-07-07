@@ -360,7 +360,7 @@ trait TestESData {
         TypeDatalensCharts.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = false, None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
+        isPublic = true, isPublished = true, isDefaultView = false, isModerationApproved = None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
         "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John", None
       )),
       (3, buildEsDoc(

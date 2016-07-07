@@ -17,7 +17,7 @@ import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response.{Http, InternalTimings, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound, Visibility}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
@@ -68,7 +68,7 @@ class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
 
     domainSet.searchContext match {
       case Some(d) => // domain exists and is viewable by user
-        val request = documentClient.buildFacetRequest(domainSet)
+        val request = documentClient.buildFacetRequest(domainSet, Visibility.anonymous)
         logger.info(LogHelper.formatEsRequest(request))
         val res = request.execute().actionGet()
         val aggs = res.getAggregations.asMap().asScala

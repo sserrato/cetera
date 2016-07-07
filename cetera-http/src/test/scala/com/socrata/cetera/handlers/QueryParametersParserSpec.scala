@@ -75,7 +75,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
     vqps match {
       case Left(_) => fail("a ValidatedQueryParameters should be returned")
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.fieldBoosts should be (expectedFieldBoosts)
         scoringParams.datatypeBoosts should be (Map())
     }
@@ -90,7 +90,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   test("'only' query parameter allows multiple selections") {
     QueryParametersParser(Map("only" -> Seq("datasets,datalenses")), None) match {
       case Left(_) => fail("a ValidatedQueryParameters should be returned")
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.datatypes should be('defined)
         searchParams.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
     }
@@ -99,7 +99,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   test("'only[]' query parameter allows multiple selections") {
     QueryParametersParser(Map("only[]" -> Seq("datasets", "datalenses")), None) match {
       case Left(_) => fail("a ValidatedQueryParameters should be returned")
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.datatypes should be('defined)
         searchParams.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
     }
@@ -107,28 +107,28 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("no datatype boost params results in empty datatype boosts map") {
     QueryParametersParser(Map("query" -> "crime").mapValues(Seq(_)), None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) => scoringParams.datatypeBoosts should have size 0
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) => scoringParams.datatypeBoosts should have size 0
       case _ => fail()
     }
   }
 
   test("malformed datatype boost params result in empty datatype boosts map") {
     QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0").mapValues(Seq(_)), None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) => scoringParams.datatypeBoosts should have size 0
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) => scoringParams.datatypeBoosts should have size 0
       case _ => fail()
     }
   }
 
   test("well-formed datatype boost params validate") {
     QueryParametersParser(Map("query" -> "crime", "boostDatasets" -> "5.0", "boostMaps" -> "2.0").mapValues(Seq(_)), None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) => scoringParams.datatypeBoosts should have size 2
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) => scoringParams.datatypeBoosts should have size 2
       case _ => fail()
     }
   }
 
   test("allow category with commas") {
     QueryParametersParser(Map("categories" -> "Traffic, Parking, and Transportation").mapValues(Seq(_)), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.categories should be('defined)
         searchParams.categories.get should have size 1
         searchParams.categories.get.head should be("Traffic, Parking, and Transportation")
@@ -138,7 +138,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("allow tag with commas") {
     QueryParametersParser(Map("tags" -> "this, probably, doesn't, happen, on, any, customer, sites").mapValues(Seq(_)), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.tags should be('defined)
         searchParams.tags.get should have size 1
         searchParams.tags.get.head should be("this, probably, doesn't, happen, on, any, customer, sites")
@@ -148,7 +148,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("allow multiple category parameters") {
     QueryParametersParser(Map("categories" -> Seq("Traffic", "Parking", "Transportation")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.categories should be('defined)
         searchParams.categories.get should have size 3
         searchParams.categories.get should contain theSameElementsAs Seq("Traffic", "Parking", "Transportation")
@@ -158,7 +158,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("allow multiple tag parameters") {
     QueryParametersParser(Map("tags" -> Seq("Traffic", "Parking", "Transportation")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.tags should be('defined)
         searchParams.tags.get should have size 3
         searchParams.tags.get should contain theSameElementsAs Seq("Traffic", "Parking", "Transportation")
@@ -168,7 +168,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("also allow categories[] parameters") {
     QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.categories should be('defined)
         searchParams.categories.get should have size 4
         searchParams.categories.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
@@ -178,7 +178,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("also allow tags[] parameters") {
     QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.tags should be('defined)
         searchParams.tags.get should have size 4
         searchParams.tags.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
@@ -247,10 +247,11 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "tags",
       "q",
       "q_internal",
+      "function_score",
       "min_should_match",
       "show_feature_vals",
       "show_score",
-      "function_score"
+      "show_visibility"
     ).map(p => p -> Seq(p)).toMap
 
     val knownArrayParams = List(
@@ -274,7 +275,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
         domainBoostExamples,
       None
     ) match {
-      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         searchParams.domainMetadata shouldNot be('defined)
       case _ => fail()
     }
@@ -283,7 +284,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   // just documenting that we do not support boostDomains without the []
   test ("boostDomains without [] gets interpreted as custom metadata") {
     QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.domainMetadata match {
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domainMetadata match {
         case Some(metadata) => metadata should be(Set("boostDomains" -> "1.23", "pants" -> "2.34"))
         case None => fail("expected to see boostDomains show up in metadata")
       }
@@ -309,57 +310,57 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("handle empty string query param value") {
     QueryParametersParser(Map("q" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.domains shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domains shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("q_internal" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.domains shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domains shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("domains" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.domains shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domains shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("search_context" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.searchContext shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.searchContext shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("categories" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.categories shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.categories shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("tags" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.tags shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.tags shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("datatypes" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.datatypes shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.datatypes shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("for_user" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.user shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.user shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("attribution" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.user shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.user shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("derived_from" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.parentDatasetId shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.parentDatasetId shouldNot be('defined)
       case _ => fail()
     }
 
     QueryParametersParser(Map("custom_metadata" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _)) => searchParams.parentDatasetId shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.parentDatasetId shouldNot be('defined)
       case _ => fail()
     }
   }
@@ -371,7 +372,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) => scoringParams.domainBoosts should be(
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) => scoringParams.domainBoosts should be(
         Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f)
       )
       case _ => fail()
@@ -385,7 +386,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
@@ -400,7 +401,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
       case _ => fail()
     }
@@ -412,7 +413,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(domainBoosts, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
       case _ => fail()
     }
@@ -425,7 +426,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(params, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.domainBoosts should be(Map("example.com" -> 1.23f))
       case _ => fail()
     }
@@ -440,7 +441,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     )
 
     QueryParametersParser(params, None) match {
-      case Right(ValidatedQueryParameters(_, scoringParams, _)) =>
+      case Right(ValidatedQueryParameters(_, scoringParams, _, _)) =>
         scoringParams.domainBoosts should be(Map.empty[String, Float])
       case _ => fail()
     }
@@ -450,7 +451,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     val sortOrder = Map("order" -> Seq("page_views_total"))
 
     QueryParametersParser(sortOrder, None) match {
-      case Right(ValidatedQueryParameters(_, _, pagingParams)) =>
+      case Right(ValidatedQueryParameters(_, _, pagingParams, _)) =>
         pagingParams.sortOrder should be(Some("page_views_total"))
       case _ => fail()
     }
@@ -460,7 +461,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     val limit = Map("limit" -> Seq("100000"))
 
     QueryParametersParser(limit, None) match {
-      case Right(ValidatedQueryParameters(_, _, pagingParams)) => pagingParams.limit should be(10000)
+      case Right(ValidatedQueryParameters(_, _, pagingParams, _)) => pagingParams.limit should be(10000)
       case _ => fail()
     }
   }
@@ -469,7 +470,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     val limit = Map("limit" -> Seq("100"))
 
     QueryParametersParser(limit, None) match {
-      case Right(ValidatedQueryParameters(_, _, pagingParams)) => pagingParams.limit should be(100)
+      case Right(ValidatedQueryParameters(_, _, pagingParams, _)) => pagingParams.limit should be(100)
       case _ => fail()
     }
   }

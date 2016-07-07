@@ -27,10 +27,18 @@ case class ScoringParamSet(
     showScore: Boolean)
 
 object ScoringParamSet {
-  def empty: ScoringParamSet = ScoringParamSet(Map.empty, Map.empty, Map.empty, None, None, false)
+  def empty: ScoringParamSet =
+    ScoringParamSet(Map.empty, Map.empty, Map.empty, None, None, showScore = false)
 }
 
 case class PagingParamSet(
     offset: Int,
     limit: Int,
     sortOrder: Option[String])
+
+case class VisibilityParamSet(
+  showVisibility: Boolean)
+
+object VisibilityParamSet {
+  def empty: VisibilityParamSet = VisibilityParamSet(showVisibility = false)
+}

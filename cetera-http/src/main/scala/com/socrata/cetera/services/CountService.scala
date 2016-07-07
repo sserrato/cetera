@@ -17,7 +17,7 @@ import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound, Visibility}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
@@ -60,11 +60,11 @@ class CountService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
         val msg = errors.map(_.message).mkString(", ")
         throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-      case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams)) =>
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         val (domainSet, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
           searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, cookie, requestId)
 
-        val search = documentClient.buildCountRequest(field, domainSet, searchParams)
+        val search = documentClient.buildCountRequest(field, domainSet, searchParams, Visibility.anonymous)
         logger.info(LogHelper.formatEsRequest(search))
 
         val res = search.execute.actionGet

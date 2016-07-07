@@ -83,7 +83,7 @@ object SearchServer extends App {
     val versionService = VersionService
 
     logger.info("Initializing SearchService with document, domain and balboa clients")
-    val searchService = new SearchService(documentClient, domainClient, balboaClient)
+    val searchService = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
     logger.info("Initializing FacetService with document client")
     val facetService = new FacetService(documentClient, domainClient)

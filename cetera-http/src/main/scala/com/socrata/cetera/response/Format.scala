@@ -4,7 +4,6 @@ import com.rojoma.json.v3.ast.{JNumber, _}
 import com.rojoma.json.v3.codec.DecodeError
 import com.rojoma.json.v3.io.JsonReader
 import com.rojoma.json.v3.jpath.JPath
-import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, Strategy}
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
@@ -14,6 +13,8 @@ import com.socrata.cetera.types._
 object Format {
   lazy val logger = LoggerFactory.getLogger(Format.getClass)
   val UrlSegmentLengthLimit = 50
+
+  val visibleToAnonKey = "visible_to_anonymous"
 
   def hyphenize(text: String): String = Option(text) match {
     case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_]+", "-").take(UrlSegmentLengthLimit)
@@ -79,12 +80,7 @@ object Format {
     new JPath(j).down("animl_annotations").down("tags").*.down("name").finish.distinct.toList
 
   def cname(domainCnames: Map[Int,String], j: JValue): String = {
-    val id: Option[Int] = j.dyn.socrata_id.domain_id.! match {
-      case jn: JNumber => Option(jn.toInt)
-      case JArray(elems) => elems.lastOption.map(_.asInstanceOf[JNumber].toInt)
-      case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
-    }
-    id.flatMap { i =>
+    domainId(j).flatMap { i =>
       domainCnames.get(i)
     }.getOrElse("") // if no domain was found, default to blank string
   }
@@ -92,6 +88,12 @@ object Format {
   private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
     decoded.fold(_ => None, {
       case JString(s) => Option(s)
+      case _ => None
+    })
+
+  private def extractJBoolean(decoded: Either[DecodeError, JValue]): Option[Boolean] =
+    decoded.fold(_ => None, {
+      case JBoolean(b) => Option(b)
       case _ => None
     })
 
@@ -104,13 +106,61 @@ object Format {
 
   def datasetName(j: JValue): Option[String] = extractJString(j.dyn.resource.name.?)
 
+  def domainId(j: JValue): Option[Int] = j.dyn.socrata_id.domain_id.! match {
+    case jn: JNumber => Option(jn.toInt)
+    case JArray(elems) => elems.lastOption.map(_.asInstanceOf[JNumber].toInt)
+    case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
+  }
+
+  def isPublic(j: JValue): Boolean = extractJBoolean(j.dyn.is_public.?).exists(identity)
+
+  def isPublished(j: JValue): Boolean = extractJBoolean(j.dyn.is_published.?).exists(identity)
+
+  def isDefaultView(j: JValue): Boolean = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
+
+  def viewModerationApproved(j: JValue, domainSet: DomainSet, d: Domain): Boolean = {
+    val literallyApproved = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
+
+    (domainSet.contextIsModerated, d.moderationEnabled) match { // bee do bee do bee do bee do
+      case (true, false) => isDefaultView(j)
+      case (false, false) => isDefaultView(j) || literallyApproved || !isDatalens(j)
+      case (_, true) => isDefaultView(j) || literallyApproved
+    }
+  }
+
+  def routingApproved(j: JValue, domain: Domain): Boolean = {
+    val d = domainId(j).getOrElse(throw new NoSuchElementException)
+    j.dyn.approving_domain_ids.! match {
+      case jn: JNumber => Some(jn.toInt == d)
+      case JArray(elems) => Some(elems.map(_.asInstanceOf[JNumber].toInt).contains(d))
+      case _ => None
+    }
+  }.exists(identity) || !domain.routingApprovalEnabled
+
+  val datalensTypeStrings = List(TypeDatalenses, TypeDatalensCharts, TypeDatalensMaps).map(_.singular)
+  def isDatalens(j: JValue): Boolean = extractJString(j.dyn.datatype.?).exists(t => datalensTypeStrings.contains(t))
+
+  // I know, let's implement visibility calculations in another place, great idea right!
+  private def calculateAnonymousVisibility(j: JValue, domainSet: DomainSet): JBoolean = {
+    val domain = domainId(j).flatMap { i => domainSet.idMap.get(i) }
+
+    val visibility = domain.map { d =>
+      isPublic(j) && isPublished(j) && routingApproved(j, d) && viewModerationApproved(j, domainSet, d)
+    }.exists(identity)
+
+    JBoolean(visibility)
+  }
+
   def documentSearchResult(
       j: JValue,
       domainIdCnames: Map[Int, String],
-      score: Option[JNumber])
+      score: Option[JNumber],
+      visibility: Option[JBoolean])
     : Option[SearchResult] = {
     try {
       val scoreMap = score.map(s => Seq("score" -> s)).getOrElse(Seq.empty)
+
+      val visibilityMap = visibility.map(v => Seq(visibleToAnonKey -> v)).getOrElse(Seq.empty)
 
       val linkMap = links(
         cname(domainIdCnames, j),
@@ -128,7 +178,7 @@ object Format {
           domainCategory(j),
           domainTags(j),
           domainMetadata(j)),
-        Map(esDomainType -> JString(cname(domainIdCnames, j))) ++ scoreMap,
+        Map(esDomainType -> JString(cname(domainIdCnames, j))) ++ scoreMap ++ visibilityMap,
         linkMap.getOrElse("permalink", JString("")),
         linkMap.getOrElse("link", JString(""))
       ))
@@ -141,15 +191,18 @@ object Format {
 
   // WARN: This will raise if a single document has a single missing path!
   def formatDocumentResponse(
-      domainIdCnames: Map[Int, String],
+      domainSet: DomainSet,
       showScore: Boolean,
+      showVisibility: Boolean,
       searchResponse: SearchResponse)
     : SearchResults[SearchResult] = {
+    val domainIdCnames = domainSet.idMap.map { case (i, d) => i -> d.domainCname }
     val hits = searchResponse.getHits
     val searchResult = hits.hits().flatMap { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
       val score = if (showScore) Some(JNumber(hit.score)) else None
-      documentSearchResult(json, domainIdCnames, score)
+      val visibility = if (showVisibility) Some(calculateAnonymousVisibility(json, domainSet)) else None
+      documentSearchResult(json, domainIdCnames, score, visibility)
     }
     SearchResults(searchResult, hits.getTotalHits)
   }

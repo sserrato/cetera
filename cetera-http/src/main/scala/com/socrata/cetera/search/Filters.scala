@@ -1,7 +1,7 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.FilterBuilder
-import org.elasticsearch.index.query.FilterBuilders.{boolFilter, nestedFilter, notFilter, termFilter, termsFilter}
+import org.elasticsearch.index.query.FilterBuilders._
 
 import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.handlers.SearchParamSet
@@ -193,29 +193,47 @@ object DocumentFilters {
     List(typeFilter, ownerFilter, attrFilter, parentIdFilter, metadataFilter).flatten
   }
 
-  def visibilityFilters(domainSet: DomainSet, isDomainAgg: Boolean = false): List[FilterBuilder]  = {
-    val isContextModerated = domainSet.searchContext.exists(_.moderationEnabled)
-    val privacyFilter = publicFilter(isDomainAgg)
-    val publicationFilter = publishedFilter(isDomainAgg)
-    val modStatusFilter = moderationStatusFilter(
-      isContextModerated,
-      domainSet.moderationEnabledIds,
-      domainSet.moderationDisabledIds,
-      isDomainAgg)
-    val raFilter = routingApprovalFilter(domainSet.searchContext, domainSet.raDisabledIds, isDomainAgg)
+  def visibilityFilters(
+    domainSet: DomainSet,
+    visibility: Visibility,
+    isDomainAgg: Boolean = false)
+  : List[FilterBuilder]  = {
 
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter)
+    val privacyFilter = if (visibility.publicOnly) Some(publicFilter(isDomainAgg)) else None
+
+    val publicationFilter = if (visibility.publishedOnly) Some(publishedFilter(isDomainAgg)) else None
+
+    val modStatusFilter = if (visibility.moderatedOnly) {
+      Some(
+        moderationStatusFilter(
+          domainSet.searchContext.exists(_.moderationEnabled),
+          domainSet.moderationEnabledIds,
+          domainSet.moderationDisabledIds,
+          isDomainAgg
+        )
+      )
+    } else {
+      None
+    }
+
+    val raFilter = if (visibility.approvedOnly) {
+      Some(routingApprovalFilter(domainSet.searchContext, domainSet.raDisabledIds, isDomainAgg))
+    } else {
+      None
+    }
+
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
   }
 
   def compositeFilter(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
-      restrictVisibility: Boolean)
+      visibility: Visibility)
     : FilterBuilder = {
 
     val domainFilter = domainIdsFilter(domainSet.allIds)
     val searchFilters = searchParamsFilters(searchParams)
-    val visFilters = if (restrictVisibility) visibilityFilters(domainSet) else Set.empty
+    val visFilters = visibilityFilters(domainSet, visibility)
     val allFilters = domainFilter +: (searchFilters ++ visFilters)
 
     val filter = boolFilter()

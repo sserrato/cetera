@@ -8,12 +8,13 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import com.socrata.cetera._
 import com.socrata.cetera.types._
 import com.socrata.cetera.response.JsonResponses.jsonError
+import com.socrata.cetera.search.Visibility
 
 // $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names
 class Router(
     versionResource: => HttpService,
-    catalogResource: => HttpService,
+    catalogResource: Visibility => HttpService,
     facetResource: String => HttpService,
     domainCountResource: => HttpService,
     countResource: DocumentFieldType with Countable with Rawable => HttpService,
@@ -24,8 +25,8 @@ class Router(
     Route("/version", versionResource),
 
     // general document search
-    Route("/catalog", catalogResource),
-    Route("/catalog/v1", catalogResource),
+    Route("/catalog", catalogResource(Visibility.anonymous)),
+    Route("/catalog/v1", catalogResource(Visibility.anonymous)),
 
     // document counts for queries grouped by domain
     Route("/catalog/domains", domainCountResource),
@@ -54,6 +55,10 @@ class Router(
     // document counts for queries grouped by domain_tags
     Route("/catalog/domain_tags", countResource(DomainTagsFieldType)),
     Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType)),
+
+    // internal asset selector
+    Route("/asset_selector", catalogResource(Visibility.full)),
+    Route("/asset_selector/v1", catalogResource(Visibility.full)),
 
     // internal user search
     Route("/whitepages", userSearchResource),

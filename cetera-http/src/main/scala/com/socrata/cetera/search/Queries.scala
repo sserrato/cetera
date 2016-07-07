@@ -171,7 +171,7 @@ object DocumentQueries {
       domainSet: DomainSet,
       searchParams: SearchParamSet,
       query: BaseQueryBuilder,
-      restrictVisibility: Boolean)
+      visibility: Visibility)
     : BaseQueryBuilder = {
 
     val categoriesAndTagsQuery = applyClassificationQuery(query, searchParams, domainSet.searchContext.isDefined)
@@ -179,7 +179,7 @@ object DocumentQueries {
     // This is a FilterBuilder, which incorporates all of the remaining constraints.
     // These constraints determine whether a document is considered part of the selection set, but
     // they do not affect the relevance score of the document.
-    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, restrictVisibility)
+    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, visibility)
     QueryBuilders.filteredQuery(categoriesAndTagsQuery, compositeFilter)
   }
 

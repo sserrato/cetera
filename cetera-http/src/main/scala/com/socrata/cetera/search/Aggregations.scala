@@ -81,7 +81,9 @@ object DomainAggregations {
 
   def domains(domainSet: DomainSet): AbstractAggregationBuilder = {
     val visibilityFilter = FilterBuilders.boolFilter()
-    DocumentFilters.visibilityFilters(domainSet, isDomainAgg = true).foreach(visibilityFilter.must)
+    DocumentFilters
+      .visibilityFilters(domainSet, Visibility.anonymous, isDomainAgg = true)
+      .foreach(visibilityFilter.must)
 
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"

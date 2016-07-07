@@ -15,16 +15,18 @@ import org.springframework.mock.web.{DelegatingServletInputStream, DelegatingSer
 import com.socrata.cetera._
 import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
 import com.socrata.cetera.types.DomainSet
 
 class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
   val client = new TestESClient(testSuiteName)
+  val httpClient = new TestHttpClient()
+  val coreClient = new TestCoreClient(httpClient, 8037)
   val mockDomainClient = mock[BaseDomainClient]
   val mockDocumentClient = mock[BaseDocumentClient]
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient)
+  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient, coreClient)
 
   override protected def afterAll(): Unit = {
     client.close()
@@ -36,8 +38,7 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     mockDomainClient.expects('findSearchableDomains)(None, None, true, Some("c=cookie"), Some("1"))
       .returns((DomainSet(Set.empty, None), 123L, expectedSetCookie))
 
-    mockDocumentClient.expects('buildSearchRequest$default$5)().returns(true)
-    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty, ScoringParamSet.empty, PagingParamSet(0,100,None), true)
+    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty, ScoringParamSet.empty, PagingParamSet(0,100,None), Visibility.anonymous)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]
@@ -67,6 +68,6 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     response.expects('getHeaders)("Set-Cookie").anyNumberOfTimes.returns(expectedSetCookie.asJava)
     response.expects('getOutputStream)().returns(new DelegatingServletOutputStream(outStream))
 
-    service.search(httpReq)(response)
+    service.search(Visibility.anonymous)(httpReq)(response)
   }
 }

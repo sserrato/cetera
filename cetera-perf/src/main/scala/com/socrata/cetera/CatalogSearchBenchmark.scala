@@ -15,7 +15,7 @@ import com.socrata.cetera.auth.CoreClient
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{DocumentClient, DomainClient}
+import com.socrata.cetera.search.{DocumentClient, DomainClient, Visibility}
 import com.socrata.cetera.services.{DomainCountService, SearchService}
 
 // scalastyle:off magic.number
@@ -77,11 +77,11 @@ class CatalogSearchBenchmark {
 
   @Benchmark
   def searchDomain(): Unit = {
-    domainCnames.foreach(c => domainClient.findRelevantDomains(Some(c), None, None, None))
+    domainCnames.foreach(c => domainClient.findDomainSet(Some(c), None))
   }
 
   @Benchmark
   def query(): Unit = {
-    queryParameters.foreach(q => searchService.doSearch(q, None, None, None))
+    queryParameters.foreach(q => searchService.doSearch(q, Visibility.anonymous, None, None, None))
   }
 }

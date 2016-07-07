@@ -18,17 +18,17 @@ trait BaseDocumentClient {
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
-      restrictVisibility: Boolean = true)
+      visibility: Visibility)
     : SearchRequestBuilder
 
   def buildCountRequest(
       field: DocumentFieldType with Countable with Rawable,
       domainSet: DomainSet,
       searchParams: SearchParamSet,
-      restrictVisibility: Boolean = true)
+      visibility: Visibility)
     : SearchRequestBuilder
 
-  def buildFacetRequest(domainSet: DomainSet, restrictVisibility: Boolean = true): SearchRequestBuilder
+  def buildFacetRequest(domainSet: DomainSet, visibility: Visibility): SearchRequestBuilder
 }
 
 class DocumentClient(
@@ -52,7 +52,7 @@ class DocumentClient(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
-      restrictVisibility: Boolean = true)
+      visibility: Visibility)
     : SearchRequestBuilder = {
 
     // Construct basic match query
@@ -60,7 +60,7 @@ class DocumentClient(
       defaultTitleBoost, defaultMinShouldMatch)
 
     // Wrap basic match query in filtered query for filtering
-    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, restrictVisibility)
+    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, visibility)
 
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
@@ -81,10 +81,10 @@ class DocumentClient(
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
-      restrictVisibility: Boolean = true)
+      visibility: Visibility)
     : SearchRequestBuilder = {
 
-    val baseRequest = buildBaseRequest(domainSet, searchParams, scoringParams, restrictVisibility)
+    val baseRequest = buildBaseRequest(domainSet, searchParams, scoringParams, visibility)
 
     // WARN: Sort will totally blow away score if score isn't part of the sort
     // "Relevance" without a query can mean different things, so chooseSort decides
@@ -103,12 +103,12 @@ class DocumentClient(
       field: DocumentFieldType with Countable with Rawable,
       domainSet: DomainSet,
       searchParams: SearchParamSet,
-      restrictVisibility: Boolean = true)
+      visibility: Visibility)
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
 
-    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, restrictVisibility)
+    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, visibility)
 
     baseRequest
       .addAggregation(aggregation)
@@ -116,7 +116,7 @@ class DocumentClient(
       .setSize(0) // no docs, aggs only
   }
 
-  def buildFacetRequest(domainSet: DomainSet, restrictVisibility: Boolean = true): SearchRequestBuilder = {
+  def buildFacetRequest(domainSet: DomainSet, visibility: Visibility): SearchRequestBuilder = {
     val aggSize = 0 // agg count unlimited
     val searchSize = 0 // no docs, aggs only
 
@@ -145,7 +145,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, restrictVisibility)
+    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, visibility)
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")

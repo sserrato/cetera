@@ -8,7 +8,8 @@ import com.socrata.cetera.types._
 case class ValidatedQueryParameters(
     searchParamSet: SearchParamSet,
     scoringParamset: ScoringParamSet,
-    pagingParamSet: PagingParamSet)
+    pagingParamSet: PagingParamSet,
+    visibilityParamSet: VisibilityParamSet)
 
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
@@ -225,13 +226,14 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     }
   }
 
-  def prepareSlop(queryParameters: MultiQueryParams): Option[Int] = {
+  def prepareSlop(queryParameters: MultiQueryParams): Option[Int] =
     queryParameters.typedFirst[Int](Params.slop).map(validated)
-  }
 
-  def prepareShowScore(queryParameters: MultiQueryParams): Boolean = {
+  def prepareShowScore(queryParameters: MultiQueryParams): Boolean =
     queryParameters.contains(Params.showScore)
-  }
+
+  def prepareShowVisiblity(queryParameters: MultiQueryParams): Boolean =
+    queryParameters.contains(Params.showVisibility)
 
   def prepareOffset(queryParameters: MultiQueryParams): Int = {
     validated(
@@ -292,7 +294,10 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareLimit(queryParameters),
           prepareSortOrder(queryParameters)
         )
-        Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams))
+        val visibilityParams = VisibilityParamSet(
+          prepareShowVisiblity(queryParameters)
+        )
+        Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, visibilityParams))
     }
   }
 }
@@ -355,11 +360,12 @@ object Params {
   // e.g., boostDomains[example.com]=1.23&boostDomains[data.seattle.gov]=4.56
   val boostDomains = boostParamPrefix + "Domains"
 
+  val functionScore = "function_score"
   val minMatch = "min_should_match"
   val slop = "slop"
   val showFeatureValues = "show_feature_vals"
   val showScore = "show_score"
-  val functionScore = "function_score"
+  val showVisibility = "show_visibility"
 
   val scanLength = "limit"
   val scanOffset = "offset"
@@ -388,11 +394,12 @@ object Params {
     boostColumns,
     boostDescription,
     boostTitle,
+    functionScore,
     minMatch,
     slop,
     showFeatureValues,
     showScore,
-    functionScore,
+    showVisibility,
     scanLength,
     scanOffset,
     sortOrder

@@ -271,7 +271,7 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
 
   "the documentSearchResult method" should {
     "return the expected payload if passed good json" in {
-      val actualResult = Format.documentSearchResult(drewRawJson, Map(283 -> "data.redmond.gov"), None).get
+      val actualResult = Format.documentSearchResult(drewRawJson, Map(283 -> "data.redmond.gov"), None, None).get
       val drewFormattedString = Source.fromInputStream(getClass.getResourceAsStream("/drewFormatted.json")).getLines().mkString("\n")
       val drewFormattedJson = JsonReader.fromString(drewFormattedString)
 
@@ -293,7 +293,7 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
 
   "the documentSearchResult method" should {
     "return None if passed bad json" in {
-      val actualResult = Format.documentSearchResult(j"""{"bad": "json"}""", Map.empty, None)
+      val actualResult = Format.documentSearchResult(j"""{"bad": "json"}""", Map.empty, None, None)
       actualResult should be(None)
     }
   }

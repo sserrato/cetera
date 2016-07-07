@@ -20,7 +20,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(documentClient, domainClient, balboaClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -64,19 +64,19 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   }
 
   test("simple query - increases score when datatype matches") {
-    val (results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), Visibility.anonymous, None, None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("no query - increases score when datatype matches") {
-    val (results, _, _) = service.doSearch(constructQueryParams(NoQuery), None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(NoQuery), Visibility.anonymous, None, None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("advanced query - increases score when datatype matches") {
-    val (results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), Visibility.anonymous, None, None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
