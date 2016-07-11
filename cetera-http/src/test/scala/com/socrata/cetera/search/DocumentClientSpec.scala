@@ -74,18 +74,19 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     datatypeBoosts = Map.empty,
     domainBoosts = Map.empty[String, Float],
     minShouldMatch = None,
-    slop = None,
-    showScore = false
+    slop = None
   )
   val pagingParams = PagingParamSet(
     offset = 10,
     limit = 20,
     sortOrder = Option("relevance") // should be the same as None
   )
-  val visibilityParams = VisibilityParamSet(
+  val formatParams = FormatParamSet(
+    locale = None,
+    showScore = false,
     showVisibility = false
   )
-  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, visibilityParams)
+  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)
 
   def multiMatchJson(boosted: Boolean, matchType: String) = {
     val fields = if (boosted)
@@ -491,8 +492,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
           Map.empty,
           Some("20%"), // minShouldMatch is a String because it can be a percentage
-          Some(12), // slop is max num of intervening unmatched positions permitted
-          showScore = false
+          Some(12) // slop is max num of intervening unmatched positions permitted
         ),
         None,
         None

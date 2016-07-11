@@ -66,7 +66,7 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and datatype boosts are given" in {
-      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, ScoringParamSet(Map.empty, datatypeBoosts, Map.empty, None, None, showScore = false), None, None)
+      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, ScoringParamSet(Map.empty, datatypeBoosts, Map.empty, None, None), None, None)
       val expected = j"""
         {"bool" : {
           "must" :
@@ -109,7 +109,7 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and all the things are given" in {
-      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, ScoringParamSet(fieldBoosts, datatypeBoosts, Map.empty, msm, slop, showScore = false), None, None)
+      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, ScoringParamSet(fieldBoosts, datatypeBoosts, Map.empty, msm, slop), None, None)
       val expected = j"""
         {"bool" : {
           "must" :

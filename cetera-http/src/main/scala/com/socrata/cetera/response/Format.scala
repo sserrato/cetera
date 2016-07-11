@@ -8,6 +8,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.handlers.FormatParamSet
 import com.socrata.cetera.types._
 
 object Format {
@@ -23,11 +24,15 @@ object Format {
 
   def links(
       cname: String,
+      locale: Option[String],
       datatype: Option[Datatype],
       viewtype: Option[String],
       datasetId: String,
       datasetCategory: Option[String],
       datasetName: String): Map[String, JString] = {
+
+    val cnameWithLocale = locale.foldLeft(cname){ (path, locale) => s"$path/$locale" }
+
     val perma = (datatype, viewtype) match {
       case (Some(TypeStories), _)             => s"stories/s"
       case (Some(TypeDatalenses), _)          => s"view"
@@ -46,8 +51,8 @@ object Format {
     }
 
     Map(
-      "permalink" ->JString(s"https://$cname/$perma/$datasetId"),
-      "link" -> JString(s"https://$cname/$pretty/$datasetId")
+      "permalink" ->JString(s"https://$cnameWithLocale/$perma/$datasetId"),
+      "link" -> JString(s"https://$cnameWithLocale/$pretty/$datasetId")
     )
   }
 
@@ -154,6 +159,7 @@ object Format {
   def documentSearchResult(
       j: JValue,
       domainIdCnames: Map[Int, String],
+      locale: Option[String],
       score: Option[JNumber],
       visibility: Option[JBoolean])
     : Option[SearchResult] = {
@@ -164,6 +170,7 @@ object Format {
 
       val linkMap = links(
         cname(domainIdCnames, j),
+        locale,
         datatype(j),
         viewtype(j),
         datasetId(j).get,
@@ -190,19 +197,15 @@ object Format {
   }
 
   // WARN: This will raise if a single document has a single missing path!
-  def formatDocumentResponse(
-      domainSet: DomainSet,
-      showScore: Boolean,
-      showVisibility: Boolean,
-      searchResponse: SearchResponse)
+  def formatDocumentResponse(formatParams: FormatParamSet, domainSet: DomainSet, searchResponse: SearchResponse)
     : SearchResults[SearchResult] = {
     val domainIdCnames = domainSet.idMap.map { case (i, d) => i -> d.domainCname }
     val hits = searchResponse.getHits
     val searchResult = hits.hits().flatMap { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
-      val score = if (showScore) Some(JNumber(hit.score)) else None
-      val visibility = if (showVisibility) Some(calculateAnonymousVisibility(json, domainSet)) else None
-      documentSearchResult(json, domainIdCnames, score, visibility)
+      val score = if (formatParams.showScore) Some(JNumber(hit.score)) else None
+      val visibility = if (formatParams.showVisibility) Some(calculateAnonymousVisibility(json, domainSet)) else None
+      documentSearchResult(json, domainIdCnames, formatParams.locale, score, visibility)
     }
     SearchResults(searchResult, hits.getTotalHits)
   }

@@ -23,12 +23,10 @@ case class ScoringParamSet(
     datatypeBoosts: Map[Datatype, Float],
     domainBoosts: Map[String, Float],
     minShouldMatch: Option[String],
-    slop: Option[Int],
-    showScore: Boolean)
+    slop: Option[Int])
 
 object ScoringParamSet {
-  def empty: ScoringParamSet =
-    ScoringParamSet(Map.empty, Map.empty, Map.empty, None, None, showScore = false)
+  def empty: ScoringParamSet = ScoringParamSet(Map.empty, Map.empty, Map.empty, None, None)
 }
 
 case class PagingParamSet(
@@ -36,9 +34,11 @@ case class PagingParamSet(
     limit: Int,
     sortOrder: Option[String])
 
-case class VisibilityParamSet(
-  showVisibility: Boolean)
+case class FormatParamSet(
+    locale: Option[String],
+    showScore: Boolean,
+    showVisibility: Boolean)
 
-object VisibilityParamSet {
-  def empty: VisibilityParamSet = VisibilityParamSet(showVisibility = false)
+object FormatParamSet {
+  def empty: FormatParamSet = FormatParamSet(locale = None, showScore = false, showVisibility = false)
 }

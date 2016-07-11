@@ -25,7 +25,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, MockHttpServletResponse}
 
 import com.socrata.cetera._
-import com.socrata.cetera.handlers.Params
+import com.socrata.cetera.handlers.{FormatParamSet, Params}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{Classification, Format, SearchResult}
 import com.socrata.cetera.search._
@@ -176,7 +176,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
-    val searchResults = Format.formatDocumentResponse(domainSet, showScore = false, showVisibility = false, searchResponse)
+    val searchResults = Format.formatDocumentResponse(FormatParamSet.empty, domainSet, searchResponse)
 
     searchResults.resultSetSize should be (searchResponse.getHits.getTotalHits)
     searchResults.timings should be (None) // not yet added
@@ -210,7 +210,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
                         routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
-    val searchResults = Format.formatDocumentResponse(domainSet, showScore = false, showVisibility = false, badSearchResponse)
+    val searchResults = Format.formatDocumentResponse(FormatParamSet.empty, domainSet, badSearchResponse)
 
     val results = searchResults.results
     results.size should be (1)

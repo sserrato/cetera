@@ -80,7 +80,7 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
         val expectedPermalink = s"https://$cname/$expectedPermaPath/$id"
         val expectedSeolink = s"https://$cname/$expectedSeoPath/$id"
 
-        val urls = Format.links(cname, datatype, viewType, id, category, name)
+        val urls = Format.links(cname, None, datatype, viewType, id, category, name)
         urls.get("permalink").get.string should be(expectedPermalink)
         urls.get("link").get.string should be(expectedSeolink)
       }
@@ -136,6 +136,21 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
     val unicodeCategory = Some("بيانات عن الجدات")
     val unicodeName = "愛"
     testLinks(Datatype("dataset"), None, unicodeCategory, unicodeName, "d", "بيانات-عن-الجدات/愛")
+
+    "return requested locale if specified" in {
+      val cname = "fu.bar"
+      val locale = "pirate"
+      val id = "1234-abcd"
+      val name = "Pirates are awesome"
+
+      val expectedPermaLink = s"https://$cname/$locale/d/$id"
+      val expectedSeoLink = s"https://$cname/$locale/dataset/${Format.hyphenize(name)}/$id"
+
+      val urls = Format.links(cname, Some(locale), None, None, id, None, name)
+
+      urls.get("permalink").get.string should be(expectedPermaLink)
+      urls.get("link").get.string should be(expectedSeoLink)
+    }
   }
 
   "the domainCategory method" should {
@@ -268,10 +283,9 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
     }
   }
 
-
   "the documentSearchResult method" should {
     "return the expected payload if passed good json" in {
-      val actualResult = Format.documentSearchResult(drewRawJson, Map(283 -> "data.redmond.gov"), None, None).get
+      val actualResult = Format.documentSearchResult(drewRawJson, Map(283 -> "data.redmond.gov"), None, None, None).get
       val drewFormattedString = Source.fromInputStream(getClass.getResourceAsStream("/drewFormatted.json")).getLines().mkString("\n")
       val drewFormattedJson = JsonReader.fromString(drewFormattedString)
 
@@ -289,11 +303,9 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
       actualResult.classification.domainTags should be(expectedResult.classification.domainTags)
       actualResult.classification.domainMetadata should be(expectedResult.classification.domainMetadata)
     }
-  }
 
-  "the documentSearchResult method" should {
     "return None if passed bad json" in {
-      val actualResult = Format.documentSearchResult(j"""{"bad": "json"}""", Map.empty, None, None)
+      val actualResult = Format.documentSearchResult(j"""{"bad": "json"}""", Map.empty, None, None, None)
       actualResult should be(None)
     }
   }

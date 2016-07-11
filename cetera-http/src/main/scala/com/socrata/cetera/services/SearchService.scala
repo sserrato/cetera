@@ -59,7 +59,7 @@ class SearchService(
           val msg = errors.map(_.message).mkString(", ")
           throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-        case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, visibilityParams)) =>
+        case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)) =>
           val (domains, domainSearchTime, moreSetCookies) = domainClient.findSearchableDomains(
             searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, cookie, requestId
           )
@@ -68,12 +68,7 @@ class SearchService(
           val req = documentClient.buildSearchRequest(domainSet, searchParams, scoringParams, pagingParams, visibility)
           logger.info(LogHelper.formatEsRequest(req))
           val res = req.execute.actionGet
-          val formattedResults = Format.formatDocumentResponse(
-            domainSet,
-            scoringParams.showScore,
-            visibilityParams.showVisibility,
-            res
-          )
+          val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
           val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
           logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 

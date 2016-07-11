@@ -9,7 +9,7 @@ case class ValidatedQueryParameters(
     searchParamSet: SearchParamSet,
     scoringParamset: ScoringParamSet,
     pagingParamSet: PagingParamSet,
-    visibilityParamSet: VisibilityParamSet)
+    formatParamSet: FormatParamSet)
 
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
@@ -117,6 +117,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       case x: String if x.nonEmpty => params
       case _ => None
     }
+
+  def prepareLocale(queryParametesrs: MultiQueryParams): Option[String] =
+    queryParametesrs.first(Params.locale).map(_.toLowerCase)
 
   def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType = {
     pickQuery(
@@ -286,18 +289,19 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareDatatypeBoosts(queryParameters),
           prepareDomainBoosts(queryParameters),
           prepareMinShouldMatch(queryParameters),
-          prepareSlop(queryParameters),
-          prepareShowScore(queryParameters)
+          prepareSlop(queryParameters)
         )
         val pagingParams = PagingParamSet(
           prepareOffset(queryParameters),
           prepareLimit(queryParameters),
           prepareSortOrder(queryParameters)
         )
-        val visibilityParams = VisibilityParamSet(
+        val formatParams = FormatParamSet(
+          prepareLocale(queryParameters),
+          prepareShowScore(queryParameters),
           prepareShowVisiblity(queryParameters)
         )
-        Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, visibilityParams))
+        Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams))
     }
   }
 }
@@ -363,10 +367,14 @@ object Params {
   val functionScore = "function_score"
   val minMatch = "min_should_match"
   val slop = "slop"
-  val showFeatureValues = "show_feature_vals"
+
+  // result formatting parameters
+  val locale = "locale"
+  val showFeatureValues = "show_feature_vals" // TODO: revive feature values for relevance experimentation
   val showScore = "show_score"
   val showVisibility = "show_visibility"
 
+  // sorting and pagination parameters
   val scanLength = "limit"
   val scanOffset = "offset"
   val sortOrder = "order"
@@ -389,6 +397,7 @@ object Params {
     filterDatatypes,
     filterUser,
     filterParentDatasetId,
+    locale,
     queryAdvanced,
     querySimple,
     boostColumns,
@@ -405,7 +414,7 @@ object Params {
     sortOrder
   ) ++ datatypeBoostParams.toSet
 
-  // If your param is an array like tags[]=fun&tags[]=ice+cream
+  // If your param is an array like tags[]=fun&tags[]=ice+cream, add it here
   private val arrayKeys = Set(
     filterCategoriesArray,
     filterDatatypesArray,
