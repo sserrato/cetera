@@ -21,52 +21,42 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Bef
   }
 
   test("fetch user by non-existent id, get a None") {
-    val user = userClient.fetch("dead-beef")
-    user should be('empty)
+    val userRes = userClient.fetch("dead-beef")
+    userRes should be('empty)
   }
 
-  val expectedUser = EsUser(
-    "soul-eater",
-    Some("death-the-kid"),
-    Some("death.kid@deathcity.com"),
-    Some(Set(Role(0, "headmaster"))),
-    Some("/api/users/soul-eater/profile_images/LARGE"),
-    Some("/api/users/soul-eater/profile_images/THUMB"),
-    Some("/api/users/soul-eater/profile_images/TINY")
-  )
-
   test("fetch user by id") {
-    val user = userClient.fetch("soul-eater")
-    user should be(Some(expectedUser))
+    val userRes = userClient.fetch("soul-eater")
+    userRes should be(Some(users(1)))
   }
 
   test("search returns all by default") {
-    val (users, _) = userClient.search(None)
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(None)
+    userRes should contain theSameElementsAs(users)
   }
 
   test("search for user by exact name") {
-    val (users, _) = userClient.search(Some("death-the-kid"))
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(Some("death-the-kid"))
+    userRes.head should be(users(1))
   }
 
   test("search for user by partial name") {
-    val (users, _) = userClient.search(Some("death"))
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(Some("kid"))
+    userRes.head should be(users(1))
   }
 
   test("search for user by exact email") {
-    val (users, _) = userClient.search(Some("death.kid@deathcity.com"))
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(Some("death.kid@deathcity.com"))
+    userRes.head should be(users(1))
   }
 
   test("search for user by email alias") {
-    val (users, _) = userClient.search(Some("death.kid"))
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(Some("death.kid"))
+    userRes.head should be(users(1))
   }
 
   test("search for user by email domain") {
-    val (users, _) = userClient.search(Some("deathcity.com"))
-    users.headOption should be(Some(expectedUser))
+    val (userRes, _) = userClient.search(Some("deathcity.com"))
+    userRes should contain theSameElementsAs(List(users(1), users(2)))
   }
 }

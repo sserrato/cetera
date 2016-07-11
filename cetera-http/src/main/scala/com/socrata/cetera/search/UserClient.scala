@@ -10,7 +10,7 @@ import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
 
 trait BaseUserClient {
   def fetch(id: String): Option[EsUser]
-  def search(q: Option[String], limit: Int, offset: Int): (Set[EsUser], Long)
+  def search(q: Option[String], limit: Int, offset: Int): (Seq[EsUser], Long)
 }
 
 class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends BaseUserClient {
@@ -26,7 +26,7 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
 
   // TODO: setup user search pagination
   val maxLimit = 200 // Parity with Core for now
-  def search(query: Option[String], limit: Int = maxLimit, offset: Int = 0): (Set[EsUser], Long) = {
+  def search(query: Option[String], limit: Int = maxLimit, offset: Int = 0): (Seq[EsUser], Long) = {
     val baseQuery = query match {
       case None => QueryBuilders.matchAllQuery()
       case Some(q) =>
@@ -54,7 +54,7 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
         logger.info(e.getMessage)
         None
       }
-    }.toSet
+    }
 
     (users, timing)
   }

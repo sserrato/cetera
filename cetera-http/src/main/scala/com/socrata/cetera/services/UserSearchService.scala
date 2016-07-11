@@ -38,7 +38,7 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
     val (status, results: SearchResults[DomainUser], timings) =
       if (authorized) {
         val query = queryParameters.getOrElse("q", Seq.empty).headOption
-        val (results: Set[EsUser], userSearchTime) = userClient.search(query)
+        val (results: Seq[EsUser], userSearchTime) = userClient.search(query)
 
         val domainCname = extendedHost.getOrElse("")  // authorization implies a domain was given in extendedHost
         val (domain, domainSearchTime) = domainClient.find(domainCname)

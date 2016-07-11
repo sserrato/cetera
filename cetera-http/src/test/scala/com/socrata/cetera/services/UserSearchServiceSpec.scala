@@ -10,8 +10,9 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 
 import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 import com.socrata.cetera.search.{DomainClient, UserClient}
-import com.socrata.cetera.types.DomainUser
 import com.socrata.cetera.HeaderXSocrataHostKey
+import com.socrata.cetera.handlers.Params
+import com.socrata.cetera.types.DomainUser
 
 class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
@@ -25,6 +26,17 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
   val service = new UserSearchService(userClient, coreClient, domainClient)
+
+  val cookie = "Traditional = WASD"
+  val context = Some(domains(0))
+  val host = context.get.domainCname
+  val adminUserBody = j"""
+    {
+      "id" : "boo-bear",
+      "roleName" : "headBear",
+      "rights" : [ "steal_honey", "scare_tourists"],
+      "flags" : [ "admin" ]
+    }"""
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -57,16 +69,6 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   }
 
   test("search with authentication returns any and all users, with required attributes") {
-    val cookie = "Traditional = WASD"
-    val host = "petercetera.net"
-
-    val authedUserBody =
-      j"""{
-        "id" : "boo-bear",
-        "roleName" : "headBear",
-        "rights" : [ "steal_honey", "scare_tourists"],
-        "flags" : [ "admin" ]
-        }"""
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -77,7 +79,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
       response()
         .withStatusCode(200)
         .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
+        .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
     val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), Some(host), None)
@@ -86,23 +88,12 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUser = DomainUser(
-      "soul-eater",
-      Some("death-the-kid"),
-      Some("death.kid@deathcity.com"),
-      Some("headmaster"),
-      Some("/api/users/soul-eater/profile_images/LARGE"),
-      Some("/api/users/soul-eater/profile_images/THUMB"),
-      Some("/api/users/soul-eater/profile_images/TINY")
-    )
-    results.results.head should be(expectedUser)
+    val expectedUsers = users.map(u => DomainUser(context, u)).flatten
+    results.results should contain theSameElementsAs(expectedUsers)
   }
 
   test("search with authentication but without authorization is rejected") {
-    val cookie = "Traditional = WASD"
-    val host = "petercetera.net"
-
-    val authedUserBody =
+    val userBody =
       j"""{
         "id" : "boo-bear",
         "roleName" : "headBear",
@@ -118,7 +109,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
       response()
         .withStatusCode(200)
         .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
+        .withBody(CompactJsonWriter.toString(userBody))
     )
 
     val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), Some(host), None)
@@ -126,5 +117,53 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     mockServer.verify(expectedRequest)
     status should be(Unauthorized)
     results.results.headOption should be('empty)
+  }
+
+  test("email search should produce most relevant result first") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val params = Map(Params.querySimple -> "dark.star@deathcity.com").mapValues(Seq(_))
+    val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+
+    results.results.headOption should be('defined)
+    val expectedFirstUser = DomainUser(context, users(2)).get
+    results.results.head should be(expectedFirstUser)
+  }
+
+  test("screen name search should produce most relevant result first") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val params = Map(Params.querySimple -> "death-the-kid").mapValues(Seq(_))
+    val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+
+    results.results.headOption should be('defined)
+    val expectedFirstUser = DomainUser(context, users(1)).get
+    results.results.head should be(expectedFirstUser)
   }
 }
