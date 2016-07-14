@@ -251,7 +251,9 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "min_should_match",
       "show_feature_vals",
       "show_score",
-      "show_visibility"
+      "show_visibility",
+      "for_user",
+      "shared_to"
     ).map(p => p -> Seq(p)).toMap
 
     val knownArrayParams = List(
@@ -310,12 +312,12 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("handle empty string query param value") {
     QueryParametersParser(Map("q" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domains shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.searchQuery should be(NoQuery)
       case _ => fail()
     }
 
     QueryParametersParser(Map("q_internal" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.domains shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.searchQuery should be(NoQuery)
       case _ => fail()
     }
 
@@ -349,8 +351,13 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case _ => fail()
     }
 
+    QueryParametersParser(Map("shared_to" -> Seq("")), None) match {
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.sharedTo shouldNot be('defined)
+      case _ => fail()
+    }
+
     QueryParametersParser(Map("attribution" -> Seq("")), None) match {
-      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.user shouldNot be('defined)
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.attribution shouldNot be('defined)
       case _ => fail()
     }
 

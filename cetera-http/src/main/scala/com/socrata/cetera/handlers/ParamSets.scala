@@ -11,11 +11,12 @@ case class SearchParamSet(
     tags: Option[Set[String]],
     datatypes: Option[Set[String]],
     user: Option[String],
+    sharedTo: Option[String],
     attribution: Option[String],
     parentDatasetId: Option[String])
 
 object SearchParamSet {
-  def empty: SearchParamSet = SearchParamSet(NoQuery, None, None, None, None, None, None, None, None, None)
+  def empty: SearchParamSet = SearchParamSet(NoQuery, None, None, None, None, None, None, None, None, None, None)
 }
 
 case class ScoringParamSet(

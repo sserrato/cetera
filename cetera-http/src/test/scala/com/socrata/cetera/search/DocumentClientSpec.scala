@@ -64,6 +64,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     datatypes = Some(Set("datasets")),
     parentDatasetId = None,
     user = None,
+    sharedTo = None,
     attribution = None
   )
   val scoringParams = ScoringParamSet(

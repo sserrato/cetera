@@ -172,6 +172,10 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     filterNonEmptyStringParams(queryParameters.first(Params.filterUser))
   }
 
+  def prepareSharedTo(queryParameters: MultiQueryParams): Option[String] = {
+    filterNonEmptyStringParams(queryParameters.first(Params.filterSharedTo))
+  }
+
   def prepareAttribution(queryParameters: MultiQueryParams): Option[String] = {
     filterNonEmptyStringParams(queryParameters.first(Params.filterAttribution))
   }
@@ -281,6 +285,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareTags(queryParameters),
           datatypes,
           prepareUsers(queryParameters),
+          prepareSharedTo(queryParameters),
           prepareAttribution(queryParameters),
           prepareParentDatasetId(queryParameters)
         )
@@ -318,6 +323,7 @@ object Params {
   val filterUser = "for_user"
   val filterAttribution = "attribution"
   val filterParentDatasetId = "derived_from"
+  val filterSharedTo = "shared_to"
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
@@ -398,6 +404,7 @@ object Params {
     filterUser,
     filterParentDatasetId,
     locale,
+    filterSharedTo,
     queryAdvanced,
     querySimple,
     boostColumns,

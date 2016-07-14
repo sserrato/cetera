@@ -55,6 +55,27 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     }
   }
 
+  "DocumentFilters: sharedToFilter" should {
+    "return the expected filter if no sharedTo is given" in {
+      val sharedToFilter = DocumentFilters.sharedToFilter(None)
+      sharedToFilter should be(None)
+    }
+
+    "return the expected filter if some sharedTo is given" in {
+      val sharedToFilter = DocumentFilters.sharedToFilter(Some("wonder-woman"))
+      val expected = j"""{ "term": { "shared_to": "wonder-woman" } }"""
+      val actual = JsonReader.fromString(sharedToFilter.get.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter if a prefix is used" in {
+      val sharedToFilter = DocumentFilters.sharedToFilter(Some("wonder-woman"), "document.")
+      val expected = j"""{ "term": { "document.shared_to": "wonder-woman" } }"""
+      val actual = JsonReader.fromString(sharedToFilter.get.toString)
+      actual should be(expected)
+    }
+  }
+
   "DocumentFilters: domainIdsFilter" should {
     "return the expected filter if one id is given" in {
       val domainIdFilter = DocumentFilters.domainIdsFilter(Set(1))

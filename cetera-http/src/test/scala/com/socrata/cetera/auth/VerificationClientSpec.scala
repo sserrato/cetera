@@ -19,7 +19,7 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
   val domain = "forest.com"
   val cookie = "c=cookie"
 
-  def calculateAuthSet(cookie: Option[String]): (Boolean, Boolean, Boolean) = {
+  def calculateAuthSet(cookie: Option[String]): (Option[User], Option[User], Option[User]) = {
     val (authedAsAdmin, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
       None, { u: User => u.isAdmin })
 
@@ -56,9 +56,9 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
       )
       val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
 
-      authedAsAdmin should be(true)
-      authedToSeeUsers should be(true)
-      authedToSeeCatalog should be(true)
+      authedAsAdmin should be('defined)
+      authedToSeeUsers should be('defined)
+      authedToSeeCatalog should be('defined)
     }
   }
 
@@ -86,9 +86,9 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
       )
       val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
 
-      authedAsAdmin should be(true)
-      authedToSeeUsers should be(true)
-      authedToSeeCatalog should be(true)
+      authedAsAdmin should be('defined)
+      authedToSeeUsers should be('defined)
+      authedToSeeCatalog should be('defined)
     }
   }
 
@@ -116,9 +116,9 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
       )
       val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
 
-      authedAsAdmin should be(false)
-      authedToSeeUsers should be(false)
-      authedToSeeCatalog should be(true)
+      authedAsAdmin should be(None)
+      authedToSeeUsers should be(None)
+      authedToSeeCatalog should be('defined)
     }
   }
 
@@ -145,9 +145,9 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
       )
       val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
 
-      authedAsAdmin should be(false)
-      authedToSeeUsers should be(false)
-      authedToSeeCatalog should be(false)
+      authedAsAdmin should be(None)
+      authedToSeeUsers should be(None)
+      authedToSeeCatalog should be(None)
     }
   }
 
@@ -171,9 +171,9 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
       )
       val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(None)
 
-      authedAsAdmin should be(false)
-      authedToSeeUsers should be(false)
-      authedToSeeCatalog should be(false)
+      authedAsAdmin should be(None)
+      authedToSeeUsers should be(None)
+      authedToSeeCatalog should be(None)
     }
   }
 }

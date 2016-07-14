@@ -6,9 +6,9 @@ import com.socrata.http.server.routing.SimpleRouteContext.{Route, Routes}
 import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 
 import com.socrata.cetera._
-import com.socrata.cetera.types._
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.search.Visibility
+import com.socrata.cetera.types._
 
 // $COVERAGE-OFF$ jetty wiring
 // Now the router knows about our ES field names
@@ -56,9 +56,21 @@ class Router(
     Route("/catalog/domain_tags", countResource(DomainTagsFieldType)),
     Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType)),
 
+    //
+    // Internal endpoints
+    //
+
     // internal asset selector
     Route("/asset_selector", catalogResource(Visibility.full)),
     Route("/asset_selector/v1", catalogResource(Visibility.full)),
+
+    // internal search for assets owned by a user
+    Route("/personal_catalog/owned", catalogResource(Visibility.full)),
+    Route("/personal_catalog/v1/owned", catalogResource(Visibility.full)),
+
+    // internal search for assets shared to a user
+    Route("/personal_catalog/shared", catalogResource(Visibility.full)),
+    Route("/personal_catalog/v1/shared", catalogResource(Visibility.full)),
 
     // internal user search
     Route("/whitepages", userSearchResource),

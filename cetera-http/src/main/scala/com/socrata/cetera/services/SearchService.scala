@@ -48,11 +48,16 @@ class SearchService(
 
     val now = Timings.now()
 
-    val (authorized, setCookies) =
+    val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, { u: User => u.canViewCatalog })
 
-    if (!authorized && visibility.authenticationRequired) {
-      (Unauthorized, SearchResults(Seq.empty, 0), InternalTimings(Timings.elapsedInMillis(now), Seq(0)), setCookies)
+    if (authorizedUser.isEmpty && visibility.authenticationRequired) {
+      (
+        Unauthorized,
+        SearchResults(Seq.empty[SearchResult], 0),
+        InternalTimings(Timings.elapsedInMillis(now), Seq(0)),
+        setCookies
+      )
     } else {
       QueryParametersParser(queryParameters, extendedHost) match {
         case Left(errors) =>
@@ -87,6 +92,7 @@ class SearchService(
     try {
       val (status, formattedResults, timings, setCookies) =
         doSearch(req.multiQueryParams, visibility, cookie, extendedHost, requestId)
+
       logger.info(LogHelper.formatRequest(req, timings))
       Http.decorate(Json(formattedResults, pretty = true), status, setCookies)
     } catch {

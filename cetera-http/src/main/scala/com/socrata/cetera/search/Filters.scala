@@ -22,6 +22,12 @@ object DocumentFilters {
   def userFilter(user: String, aggPrefix: String): FilterBuilder =
     termFilter(aggPrefix + OwnerIdFieldType.fieldName, user)
 
+  def sharedToFilter(user: Option[String], aggPrefix: String = ""): Option[FilterBuilder] =
+    user.map(sharedToFilter(_, aggPrefix))
+
+  def sharedToFilter(user: String, aggPrefix: String): FilterBuilder =
+    termFilter(aggPrefix + SharedToFieldType.rawFieldName, user)
+
   def attributionFilter(attribution: String, aggPrefix: String): FilterBuilder =
     termFilter(aggPrefix + AttributionFieldType.rawFieldName, attribution)
 
@@ -186,11 +192,12 @@ object DocumentFilters {
   def searchParamsFilters(searchParams: SearchParamSet): List[FilterBuilder] = {
     val typeFilter = datatypeFilter(searchParams.datatypes)
     val ownerFilter = userFilter(searchParams.user)
+    val sharingFilter = sharedToFilter(searchParams.sharedTo)
     val attrFilter = attributionFilter(searchParams.attribution)
     val parentIdFilter = parentDatasetFilter(searchParams.parentDatasetId)
     val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
 
-    List(typeFilter, ownerFilter, attrFilter, parentIdFilter, metadataFilter).flatten
+    List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, metadataFilter).flatten
   }
 
   def visibilityFilters(

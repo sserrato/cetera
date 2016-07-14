@@ -32,11 +32,11 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
 
     val now = Timings.now()
 
-    val (authorized, setCookies) =
+    val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, {u: User => u.canViewUsers})
 
     val (status, results: SearchResults[DomainUser], timings) =
-      if (authorized) {
+      if (authorizedUser.isDefined) {
         val query = queryParameters.getOrElse("q", Seq.empty).headOption
         val (results: Seq[EsUser], userSearchTime) = userClient.search(query)
 

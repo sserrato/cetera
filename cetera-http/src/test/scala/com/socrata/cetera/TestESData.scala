@@ -119,6 +119,7 @@ trait TestESData {
       |   "id": %s,
       |   "screen_name": %s
       | },
+      | "shared_to": [ %s ],
       | "attribution": %s
       |}
     """.stripMargin
@@ -167,6 +168,7 @@ trait TestESData {
                          updateFreq: Long,
                          ownerId: String,
                          ownerScreenName: String,
+                         sharedTo: Seq[String],
                          attribution: Option[String]): String = {
     val doc = esDocTemplate.format(
       quoteQualify(socrataIdDatasetId),
@@ -206,6 +208,7 @@ trait TestESData {
       quoteQualify(ownerId),
       quoteQualify(ownerId),
       quoteQualify(ownerScreenName),
+      quoteQualify(sharedTo),
       quoteQualify(attribution))
 
     doc
@@ -249,6 +252,7 @@ trait TestESData {
       updateFreqs(i % updateFreqs.length),
       ownerIds(i % ownerIds.length),
       ownerScreenNames(i % ownerScreenNames.length),
+      sharedTos,
       attributions(i % attributions.length))
   }
 
@@ -290,6 +294,7 @@ trait TestESData {
   val updateFreqs = Seq(1, 2, 3, 4)
   val ownerIds = Seq("robin-hood", "lil-john")
   val ownerScreenNames = Seq("Robin Hood", "Little John")
+  val sharedTos = Seq.empty
   val attributions = Seq[Option[String]](None)
 
   def bootstrapData(): Unit = {
@@ -331,7 +336,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "robin-hood", "Robin Hood", None
+        "42", "Fun", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq.empty, None
       )),
       (3, buildEsDoc(
         "zeta-0002", None, 3,
@@ -341,7 +346,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John", None
+        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John", Seq.empty, None
       )),
       (0, buildEsDoc(
         "zeta-0003", None, 0,
@@ -351,7 +356,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = false, isPublished = true, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood", None
+        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None
       )),
       (0, buildEsDoc(
         "zeta-0004", None, 0,
@@ -361,7 +366,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = false, isModerationApproved = None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John", None
+        "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John", Seq.empty, None
       )),
       (3, buildEsDoc(
         "zeta-0005", None, 3,
@@ -370,7 +375,7 @@ trait TestESData {
         TypeDatasets.singular, viewtype = "", 0F,
         "", "", Seq.empty, Seq.empty, Seq.empty, Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane", None
+        "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane", Seq.empty, None
       )),
       (0, buildEsDoc(
         "zeta-0006", None, 0,
@@ -380,7 +385,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Unpublished", Seq.empty, 0L, "robin-hood", "Robin Hood", None
+        "42", "Unpublished", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None
        )),
       (0, buildEsDoc(
         "zeta-0007", None, 0,
@@ -390,7 +395,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(0, 1, 2, 3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John",
+        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John", sharedTo = Seq("King Richard"),
         attribution = Some("The Merry Men")
       )),
       (8, buildEsDoc(
@@ -400,7 +405,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(8), isApprovedByParentDomain = true,
-        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John",
+        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
         attribution = None
       ))
     ).foreach { case (domain, doc) =>
