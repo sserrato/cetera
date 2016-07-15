@@ -37,10 +37,11 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
     val (status, results: SearchResults[DomainUser], timings) =
       if (authorizedUser.isDefined) {
         val query = queryParameters.getOrElse("q", Seq.empty).headOption
-        val (results: Seq[EsUser], userSearchTime) = userClient.search(query)
-
-        val domainCname = extendedHost.getOrElse("")  // authorization implies a domain was given in extendedHost
+        val role = queryParameters.getOrElse("role", Seq.empty).headOption
+        val domainCname = extendedHost.getOrElse("") // authorization implies a domain was given in extendedHost
         val (domain, domainSearchTime) = domainClient.find(domainCname)
+
+        val (results: Seq[EsUser], userSearchTime) = userClient.search(query, role, domain)
 
         val formattedResults = SearchResults[DomainUser](results.flatMap(u => DomainUser(domain, u)),
           results.size)

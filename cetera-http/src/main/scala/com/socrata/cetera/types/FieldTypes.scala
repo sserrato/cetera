@@ -260,3 +260,15 @@ case object ScreenName extends UserFieldType with Rawable {
 case object Email extends UserFieldType with Rawable {
   val fieldName: String = "email"
 }
+
+case object Roles extends UserFieldType with Rawable {
+  val fieldName: String = "roles"
+
+  case object Role_Name extends NestedField {
+    protected lazy val path: String = Roles.fieldName
+  }
+
+  case object Domain_Id extends NestedField {
+    protected lazy val path: String = Roles.fieldName
+  }
+}
