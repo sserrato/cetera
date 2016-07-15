@@ -1,16 +1,20 @@
 package com.socrata.cetera.search
 
-import com.rojoma.json.v3.util.JsonUtil
-import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
+import com.socrata.cetera.util.LogHelper
+import com.socrata.cetera.search.UserQueries.userQuery
 
 trait BaseUserClient {
   def fetch(id: String): Option[EsUser]
-  def search(q: Option[String], limit: Int, offset: Int): (Seq[EsUser], Long)
+  def search(
+      q: Option[String],
+      role: Option[String],
+      domain: Option[Domain],
+      limit: Int, offset: Int)
+    : (Seq[EsUser], Long)
 }
 
 class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends BaseUserClient {
@@ -26,18 +30,16 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
 
   // TODO: setup user search pagination
   val maxLimit = 200 // Parity with Core for now
-  def search(query: Option[String], limit: Int = maxLimit, offset: Int = 0): (Seq[EsUser], Long) = {
-    val baseQuery = query match {
-      case None => QueryBuilders.matchAllQuery()
-      case Some(q) =>
-        QueryBuilders
-          .queryStringQuery(q)
-          .field(ScreenName.fieldName)
-          .field(ScreenName.rawFieldName)
-          .field(Email.fieldName)
-          .field(Email.rawFieldName)
-          .autoGeneratePhraseQueries(true)
-    }
+  def search(
+      query: Option[String],
+      role: Option[String],
+      domain: Option[Domain],
+      limit: Int = maxLimit,
+      offset: Int = 0)
+    : (Seq[EsUser], Long) = {
+
+    val baseQuery = userQuery(query, role, domain)
+
     val req = esClient.client.prepareSearch(indexAliasName)
       .setTypes(esUserType)
       .setQuery(baseQuery)

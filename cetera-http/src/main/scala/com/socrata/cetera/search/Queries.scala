@@ -8,6 +8,7 @@ import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDomainType
 import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.types._
+import com.socrata.cetera.search.UserFilters.compositeFilter
 
 object DocumentQueries {
   private def applyDefaultTitleBoost(
@@ -218,4 +219,32 @@ object DocumentQueries {
         b.should(matchQuery(DomainTagsFieldType.fieldName, q).`type`(PHRASE))
       }
     }
+}
+
+object UserQueries {
+  def emailNameQuery(query: Option[String]): QueryBuilder = {
+    query match {
+      case None => QueryBuilders.matchAllQuery()
+      case Some(q) =>
+        QueryBuilders
+          .queryStringQuery(q)
+          .field(ScreenName.fieldName)
+          .field(ScreenName.rawFieldName)
+          .field(Email.fieldName)
+          .field(Email.rawFieldName)
+          .autoGeneratePhraseQueries(true)
+    }
+  }
+
+  def userQuery(
+    query: Option[String],
+    role: Option[String],
+    domain: Option[Domain])
+  : FilteredQueryBuilder = {
+
+    val innerQuery = emailNameQuery(query)
+    val userFilter = compositeFilter(domain, role)
+
+    QueryBuilders.filteredQuery(innerQuery, userFilter)
+  }
 }

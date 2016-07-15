@@ -1,6 +1,6 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.FilterBuilder
+import org.elasticsearch.index.query.{FilterBuilder, FilterBuilders, QueryBuilders}
 import org.elasticsearch.index.query.FilterBuilders._
 
 import com.socrata.cetera.auth.User
@@ -297,4 +297,31 @@ object DomainFilters {
   // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
   def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)
   def isCustomerDomainFilter: FilterBuilder = notFilter(isNotCustomerDomainFilter)
+}
+
+object UserFilters {
+  def compositeFilter(
+      domain: Option[Domain],
+      role: Option[String])
+    : FilterBuilder = {
+
+    val baseFilter = boolFilter()
+    val filters = Seq(domainFilter(domain.map(_.domainId)), roleFilter(role)).flatten
+    if (filters.isEmpty) {
+      FilterBuilders.matchAllFilter()
+    } else {
+      val query = boolFilter()
+      filters.foreach(f => query.must(f))
+      val nestedQueries = nestedFilter(Roles.fieldName, query)
+
+      baseFilter.must(nestedQueries)
+    }
+  }
+
+    def domainFilter(domainId: Option[Int]): Option[FilterBuilder] =
+      domainId.map(d => termFilter(Roles.Domain_Id.fieldName, d))
+
+    def roleFilter(role: Option[String]): Option[FilterBuilder] =
+      role.map(r => termFilter(Roles.Role_Name.fieldName, r))
+
 }
