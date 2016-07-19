@@ -1,15 +1,14 @@
 package com.socrata.cetera.search
 
-import com.rojoma.json.v3.util.JsonUtil
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchType}
 import org.elasticsearch.index.query.QueryBuilders
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.CoreClient
+import com.socrata.cetera.auth.{CoreClient, User}
 import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, DomainSet}
-import com.socrata.cetera.util.{JsonDecodeException, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 trait BaseDomainClient {
   def fetch(id: Int): Option[Domain]
@@ -18,11 +17,11 @@ trait BaseDomainClient {
       searchContextCname: Option[String],
       domainCnames: Option[Set[String]],
       excludeLockedDomains: Boolean,
-      cookie: Option[String],
+      user: Option[User],
       requestId: Option[String])
-    : (DomainSet, Long, Seq[String])
+    : (DomainSet, Long)
 
-  def buildCountRequest(domainSet: DomainSet): SearchRequestBuilder
+  def buildCountRequest(domainSet: DomainSet, user: Option[User]): SearchRequestBuilder
 }
 
 class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexAliasName: String)
@@ -66,39 +65,34 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     (domains, timing)
   }
 
-  // This method returns
-  //  _._1) a search context of None if the search context is locked-down and the user is
-  //        not signed in with a role; otherwise the given search context is returned.
-  //  _._2) the given domains restricted to those that are viewable, where viewable means:
-  //        a) not locked down   OR
-  //        b) locked down, but user is logged in and has a role on the given domain
+  // This method returns a DomainSet including optional search context and list of Domains to search.
+  // Each Domain will be visible to the requesting User or anonymous. If a Domain is locked-down and the
+  // requesting User is not assigned a role it will be elided.
   // WARN: The search context may come back as None. This is to avoid leaking locked domains through the context.
   //       But if a search context was given this effectively pretends no context was given.
   def removeLockedDomainsForbiddenToUser(
       domainSet: DomainSet,
-      cookie: Option[String],
+      loggedInUser: Option[User],
       requestid: Option[String])
-    : (DomainSet, Seq[String]) = {
+    : DomainSet = {
     val context = domainSet.searchContext
     val contextLocked = context.exists(_.isLocked)
     val (lockedDomains, unlockedDomains) = domainSet.domains.partition(_.isLocked)
 
     if (!contextLocked && lockedDomains.isEmpty) {
-      (domainSet, Seq.empty)
+      domainSet
     } else {
-      val (loggedInUser, setCookies) =
-        coreClient.optionallyGetUserByCookie(context.map(_.domainCname), cookie, requestid)
-      val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewCatalog))
+      val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewLockedDownCatalog))
       loggedInUser match {
         case Some(u) =>
           val viewableLockedDomains =
             lockedDomains.filter { d =>
               val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
-              userId.exists(_.canViewCatalog)
+              userId.exists(_.canViewLockedDownCatalog)
             }
-          (DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext), setCookies)
+          DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext)
         case None => // user is not logged in and thus can see no locked data
-          (DomainSet(unlockedDomains, viewableContext), setCookies)
+          DomainSet(unlockedDomains, viewableContext)
       }
     }
   }
@@ -128,20 +122,19 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   }
 
   def findSearchableDomains(
-    searchContextCname: Option[String],
-    domainCnames: Option[Set[String]],
-    excludeLockedDomains: Boolean,
-    cookie: Option[String],
-    requestId: Option[String])
-  : (DomainSet, Long, Seq[String]) = {
-
+      searchContextCname: Option[String],
+      domainCnames: Option[Set[String]],
+      excludeLockedDomains: Boolean,
+      user: Option[User],
+      requestId: Option[String])
+    : (DomainSet, Long) = {
     val (domainSet, timings) = findDomainSet(searchContextCname, domainCnames)
     if (excludeLockedDomains) {
-      val (restrictedDomainSet, setCookies) =
-        removeLockedDomainsForbiddenToUser(domainSet, cookie, requestId)
-      (restrictedDomainSet, timings, setCookies)
+      val restrictedDomainSet =
+        removeLockedDomainsForbiddenToUser(domainSet, user, requestId)
+      (restrictedDomainSet, timings)
     } else {
-      (domainSet, timings, Seq.empty[String])
+      (domainSet, timings)
     }
   }
 
@@ -174,10 +167,9 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   }
 
   // NOTE: I do not currently honor counting according to parameters
-  def buildCountRequest(domainSet: DomainSet): SearchRequestBuilder = {
-
+  def buildCountRequest(domainSet: DomainSet, user: Option[User]): SearchRequestBuilder = {
     val domainFilter = idsFilter(domainSet.allIds)
-    val aggregation = DomainAggregations.domains(domainSet)
+    val aggregation = DomainAggregations.domains(domainSet, user)
 
     esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), domainFilter))

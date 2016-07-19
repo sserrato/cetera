@@ -407,6 +407,16 @@ trait TestESData {
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(8), isApprovedByParentDomain = true,
         "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
         attribution = None
+      )),
+      (9, buildEsDoc(
+        "zeta-0009", None, 3,
+        "yet another asset", "zeta-0009", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0009", Seq.empty, "", None, Map.empty, Map.empty, TypeCharts.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isPublic = false, isPublished = true, isDefaultView = false, Some(true), Seq(3), isApprovedByParentDomain = true,
+        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
+        attribution = None
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)

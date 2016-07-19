@@ -20,7 +20,7 @@ class VerificationClient(coreClient: CoreClient) {
       case (Some(extendedHost), Some(nomNom)) =>
         // Hi, my name is Werner Brandes. My voice is my passport, verify me.
         val (authUser, setCookies) = coreClient.fetchUserByCookie(extendedHost, nomNom, requestId)
-        (authUser.collect { case user: User if authorized(user) => user}, setCookies)
-      case (_,_) => (None, Seq.empty[String])
+        (authUser.collect { case user: User if authorized(user) => user }, setCookies)
+      case (_, _) => (None, Seq.empty[String])
     }
 }

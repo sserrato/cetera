@@ -63,9 +63,11 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   // Used to support param=this,that and param[]=something&param[]=more
-  private def mergeParams(queryParameters: MultiQueryParams,
-                          selectKeys: Set[String],
-                          transform: String => String = identity): Option[Set[String]] =
+  private def mergeParams(
+      queryParameters: MultiQueryParams,
+      selectKeys: Set[String],
+      transform: String => String = identity)
+    : Option[Set[String]] =
     mergeOptionalSets(selectKeys.map(key => queryParameters.get(key).map(_.map(value => transform(value)).toSet)))
 
   val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(filterDelimiter)
@@ -86,14 +88,11 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   // for extracting `example.com` from `boostDomains[example.com]`
   class FieldExtractor(val key: String) {
     def unapply(s: String): Option[String] =
-      if (s.startsWith(key + "[") && s.endsWith("]")) { Some(s.drop(key.length + 1).dropRight(1)) }
-      else { None }
+      if (s.startsWith(key + "[") && s.endsWith("]")) Some(s.drop(key.length + 1).dropRight(1)) else None
   }
 
   object FloatExtractor {
-    def unapply(s: String): Option[Float] =
-      try { Some(s.toFloat) }
-      catch { case _: NumberFormatException => None }
+    def unapply(s: String): Option[Float] = try { Some(s.toFloat) } catch { case _: NumberFormatException => None }
   }
 
   def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
@@ -121,19 +120,17 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareLocale(queryParametesrs: MultiQueryParams): Option[String] =
     queryParametesrs.first(Params.locale).map(_.toLowerCase)
 
-  def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType = {
+  def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType =
     pickQuery(
       filterNonEmptyStringParams(queryParameters.get(Params.queryAdvanced).flatMap(_.headOption)),
       filterNonEmptyStringParams(queryParameters.get(Params.querySimple).flatMap(_.headOption))
     )
-  }
 
   // Still uses old-style comma-separation
-  def prepareDomains(queryParameters: MultiQueryParams): Option[Set[String]] = {
+  def prepareDomains(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(queryParameters.first(Params.filterDomains).map(domain =>
       domain.toLowerCase.split(filterDelimiter).toSet
     ))
-  }
 
   // if query string includes search context use that; otherwise default to the http header X-Socrata-Host
   def prepareSearchContext(queryParameters: MultiQueryParams, extendedHost: Option[String]): Option[String] = {
@@ -141,13 +138,11 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     filterNonEmptyStringParams(Seq(contextSet, extendedHost).flatten.headOption)
   }
 
-  def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] = {
+  def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)))
-  }
 
-  def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] = {
+  def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray)))
-  }
 
   def prepareDatatypes(queryParameters: MultiQueryParams): Either[DatatypeError, Option[Set[String]]] = {
     val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(filterDelimiter))).map(_.toSet)
@@ -168,21 +163,17 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     }.getOrElse(Right(None))
   }
 
-  def prepareUsers(queryParameters: MultiQueryParams): Option[String] = {
+  def prepareUsers(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.filterUser))
-  }
 
-  def prepareSharedTo(queryParameters: MultiQueryParams): Option[String] = {
+  def prepareSharedTo(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.filterSharedTo))
-  }
 
-  def prepareAttribution(queryParameters: MultiQueryParams): Option[String] = {
+  def prepareAttribution(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.filterAttribution))
-  }
 
-  def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] = {
+  def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.filterParentDatasetId))
-  }
 
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
@@ -242,20 +233,18 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareShowVisiblity(queryParameters: MultiQueryParams): Boolean =
     queryParameters.contains(Params.showVisibility)
 
-  def prepareOffset(queryParameters: MultiQueryParams): Int = {
+  def prepareOffset(queryParameters: MultiQueryParams): Int =
     validated(
       queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))
     ).value
-  }
 
-  def prepareLimit(queryParameters: MultiQueryParams): Int = {
+  def prepareLimit(queryParameters: MultiQueryParams): Int =
     Math.min(
       limitLimit,
       validated(
         queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))
       ).value
     )
-  }
 
   //
   //////////////////
@@ -348,19 +337,15 @@ object Params {
 
   private val boostParamPrefix = "boost"
 
-  private val datatypeBoostParams = Datatypes.all.map(
-    datatype => s"$boostParamPrefix${datatype.plural.capitalize}")
+  private val datatypeBoostParams = Datatypes.all.map(datatype => s"$boostParamPrefix${datatype.plural.capitalize}")
 
   private def typeNameFromBoostParam(boostParam: String): Option[String] =
-    if (boostParam.startsWith(boostParamPrefix)) {
-      Option(boostParam.stripPrefix(boostParamPrefix))
-    } else {
-      None
-    }
+    Some(boostParam).collect { case s: String if s.startsWith(boostParamPrefix) => s.stripPrefix(boostParamPrefix) }
 
   def datatypeBoostParam(param: String): Option[Datatype] =
-    datatypeBoostParams.find(_ == param).flatMap(boostParam =>
-      Datatype(typeNameFromBoostParam(boostParam.toLowerCase)))
+    datatypeBoostParams.find(_ == param).flatMap { boostParam =>
+      Datatype(typeNameFromBoostParam(boostParam.toLowerCase))
+    }
 
   // field boosting parameters
   val boostColumns = boostParamPrefix + "Columns"

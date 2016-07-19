@@ -3,6 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.FilterBuilder
 import org.elasticsearch.index.query.FilterBuilders._
 
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.handlers.SearchParamSet
 import com.socrata.cetera.types._
@@ -56,12 +57,14 @@ object DocumentFilters {
           .map { case (key, set) => key -> set.map(_._2) }
         val unionWithinKeys = metadataGroupedByKey.map { case (k, vs) =>
           vs.foldLeft(boolFilter()) { (b, v) =>
-            b.should(nestedFilter(
-              DomainMetadataFieldType.fieldName,
-              boolFilter()
-                .must(termsFilter(DomainMetadataFieldType.Key.rawFieldName, k))
-                .must(termsFilter(DomainMetadataFieldType.Value.rawFieldName, v))
-            ))
+            b.should(
+              nestedFilter(
+                DomainMetadataFieldType.fieldName,
+                boolFilter()
+                  .must(termsFilter(DomainMetadataFieldType.Key.rawFieldName, k))
+                  .must(termsFilter(DomainMetadataFieldType.Value.rawFieldName, v))
+              )
+            )
           }
         }
 
@@ -71,7 +74,7 @@ object DocumentFilters {
           val intersectAcrossKeys = unionWithinKeys.foldLeft(boolFilter()) { (b, q) => b.must(q) }
           Some(intersectAcrossKeys)
         }
-      case _ => None  // no filter to build from the empty set
+      case _ => None // no filter to build from the empty set
     }
 
   /**
@@ -117,26 +120,26 @@ object DocumentFilters {
       .should(documentIsDefault)
       .should(documentIsAccepted)
 
-    parentDomainIsNotModerated.foreach(f => basicFilter.should(
+    parentDomainIsNotModerated.foreach { f => basicFilter.should(
       boolFilter()
         .must(f)
         .must(documentIsNotDatalens)
-    ))
+    )}
 
     val contextualFilter = boolFilter()
-    parentDomainIsModerated.foreach(f => contextualFilter.should(
+    parentDomainIsModerated.foreach { f => contextualFilter.should(
       boolFilter()
         .must(f)
         .must(boolFilter()
           .should(documentIsDefault)
           .should(documentIsAccepted)
         )
-    ))
-    parentDomainIsNotModerated.foreach(f => contextualFilter.should(
+    )}
+    parentDomainIsNotModerated.foreach { f => contextualFilter.should(
       boolFilter()
         .must(f)
         .must(documentIsDefault)
-    ))
+    )}
 
     if (searchContextIsModerated) contextualFilter else basicFilter
   }
@@ -201,11 +204,11 @@ object DocumentFilters {
   }
 
   def visibilityFilters(
-    domainSet: DomainSet,
-    visibility: Visibility,
-    isDomainAgg: Boolean = false)
-  : List[FilterBuilder]  = {
-
+      domainSet: DomainSet,
+      user: Option[User],
+      visibility: Visibility,
+      isDomainAgg: Boolean = false)
+    : List[FilterBuilder] = {
     val privacyFilter = if (visibility.publicOnly) Some(publicFilter(isDomainAgg)) else None
 
     val publicationFilter = if (visibility.publishedOnly) Some(publishedFilter(isDomainAgg)) else None
@@ -229,23 +232,62 @@ object DocumentFilters {
       None
     }
 
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
+    val userId = user.map(_.id)
+    val userOwned = if (visibility.loggedInUserOwnedOnly) userFilter(userId) else None
+    val userShared = if (visibility.loggedInUserSharedOnly) sharedToFilter(userId) else None
+
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter, userOwned, userShared).flatten
+  }
+
+  def visibilityUserOverrideFilters(
+      user: Option[User],
+      visibility: Visibility)
+    : List[FilterBuilder] = {
+    val userId = user.map(_.id)
+    val userIsOwnerFilter = if (visibility.alsoIncludeLoggedInUserOwned) userFilter(userId) else None
+    val userIsSharedFilter = if (visibility.alsoIncludeLoggedInUserShared) sharedToFilter(userId) else None
+    List(userIsOwnerFilter, userIsSharedFilter).flatten
   }
 
   def compositeFilter(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
+      user: Option[User],
       visibility: Visibility)
     : FilterBuilder = {
-
     val domainFilter = domainIdsFilter(domainSet.allIds)
     val searchFilters = searchParamsFilters(searchParams)
-    val visFilters = visibilityFilters(domainSet, visibility)
-    val allFilters = domainFilter +: (searchFilters ++ visFilters)
 
-    val filter = boolFilter()
-    allFilters.foreach(filter.must)
-    filter
+    // standard visibility: must satisfy all filters
+    val visFilters = visibilityFilters(domainSet, user, visibility)
+
+    // override visibility: satisfy any filter and supersedes standard visibility
+    val visOverrideFilters = visibilityUserOverrideFilters(user, visibility)
+
+    // combine the two visibility filter paths
+    val visFinalFilter = (visFilters, visOverrideFilters) match {
+      case (vs, os) if vs.nonEmpty && os.nonEmpty =>
+        val visFilter = boolFilter()
+        vs.foreach(visFilter.must)
+
+        val visOverrideFilter = boolFilter()
+        os.foreach(visOverrideFilter.should)
+
+        boolFilter()
+          .should(visFilter)
+          .should(visOverrideFilter)
+
+      case (vs, os) if vs.nonEmpty =>
+        vs.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+
+      case (vs, os) if os.nonEmpty =>
+        os.foldLeft(boolFilter()) { (b, f) => b.should(f) }
+
+      case _ => matchAllFilter()
+    }
+
+    val allFilters = visFinalFilter +: domainFilter +: searchFilters
+    allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
   }
 }
 

@@ -4,6 +4,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.aggregations.AggregationBuilders
 
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.search.DocumentAggregations.chooseAggregation
@@ -18,6 +19,7 @@ trait BaseDocumentClient {
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
+      user: Option[User],
       visibility: Visibility)
     : SearchRequestBuilder
 
@@ -25,10 +27,11 @@ trait BaseDocumentClient {
       field: DocumentFieldType with Countable with Rawable,
       domainSet: DomainSet,
       searchParams: SearchParamSet,
+      user: Option[User],
       visibility: Visibility)
     : SearchRequestBuilder
 
-  def buildFacetRequest(domainSet: DomainSet, visibility: Visibility): SearchRequestBuilder
+  def buildFacetRequest(domainSet: DomainSet, user: Option[User], visibility: Visibility): SearchRequestBuilder
 }
 
 class DocumentClient(
@@ -52,6 +55,7 @@ class DocumentClient(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
+      user: Option[User],
       visibility: Visibility)
     : SearchRequestBuilder = {
 
@@ -60,7 +64,7 @@ class DocumentClient(
       defaultTitleBoost, defaultMinShouldMatch)
 
     // Wrap basic match query in filtered query for filtering
-    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, visibility)
+    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, user, visibility)
 
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
@@ -81,10 +85,11 @@ class DocumentClient(
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
+      user: Option[User],
       visibility: Visibility)
     : SearchRequestBuilder = {
 
-    val baseRequest = buildBaseRequest(domainSet, searchParams, scoringParams, visibility)
+    val baseRequest = buildBaseRequest(domainSet, searchParams, scoringParams, user, visibility)
 
     // WARN: Sort will totally blow away score if score isn't part of the sort
     // "Relevance" without a query can mean different things, so chooseSort decides
@@ -103,12 +108,13 @@ class DocumentClient(
       field: DocumentFieldType with Countable with Rawable,
       domainSet: DomainSet,
       searchParams: SearchParamSet,
+      user: Option[User],
       visibility: Visibility)
     : SearchRequestBuilder = {
 
     val aggregation = chooseAggregation(field)
 
-    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, visibility)
+    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, user, visibility)
 
     baseRequest
       .addAggregation(aggregation)
@@ -116,7 +122,7 @@ class DocumentClient(
       .setSize(0) // no docs, aggs only
   }
 
-  def buildFacetRequest(domainSet: DomainSet, visibility: Visibility): SearchRequestBuilder = {
+  def buildFacetRequest(domainSet: DomainSet, user: Option[User], visibility: Visibility): SearchRequestBuilder = {
     val aggSize = 0 // agg count unlimited
     val searchSize = 0 // no docs, aggs only
 
@@ -145,7 +151,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, visibility)
+    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, user, visibility)
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")

@@ -9,7 +9,7 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{CoreClient, User, VerificationClient}
+import com.socrata.cetera.auth.{User, VerificationClient}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response.{InternalTimings, SearchResults, Timings, _}
@@ -17,9 +17,8 @@ import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
-class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainClient: DomainClient) {
+class UserSearchService(userClient: UserClient, verificationClient: VerificationClient, domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)
-  val verificationClient = new VerificationClient(coreClient)
 
   // WARN: I do not used validated query parameters!
   // See SearchService.scala for comparison
@@ -43,7 +42,7 @@ class UserSearchService(userClient: UserClient, coreClient: CoreClient, domainCl
         val domainCname = extendedHost.getOrElse("")  // authorization implies a domain was given in extendedHost
         val (domain, domainSearchTime) = domainClient.find(domainCname)
 
-        val formattedResults = SearchResults[DomainUser](results.toSeq.flatMap(u => DomainUser(domain, u)),
+        val formattedResults = SearchResults[DomainUser](results.flatMap(u => DomainUser(domain, u)),
           results.size)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
 

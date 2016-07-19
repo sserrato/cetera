@@ -9,7 +9,7 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{CoreClient, User, VerificationClient}
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.handlers._
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
@@ -23,19 +23,17 @@ class SearchService(
     documentClient: BaseDocumentClient,
     domainClient: BaseDomainClient,
     balboaClient: BalboaClient,
-    coreClient: CoreClient) extends SimpleResource {
-
+    verificationClient: VerificationClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
-  val verificationClient = new VerificationClient(coreClient)
 
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
-    domain.foreach(d =>
+    domain.foreach { d =>
       query match {
         case NoQuery => // nothing to log to balboa
         case SimpleQuery(q) => balboaClient.logQuery(d.domainId, q)
         case AdvancedQuery(q) => balboaClient.logQuery(d.domainId, q)
       }
-    )
+    }
   }
 
   def doSearch(
@@ -49,9 +47,12 @@ class SearchService(
     val now = Timings.now()
 
     val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, { u: User => u.canViewCatalog })
+      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
 
-    if (authorizedUser.isEmpty && visibility.authenticationRequired) {
+    // If authentication is required (varies by endpoint, see Visibility) then respond OK only when a valid user is
+    // authorized, otherwise respond UNAUTHORIZED. Additionally, even if authentication is not required but the request
+    // did attempt to authenticate and failed then also respond UNAUTHORIZED.
+    if (authorizedUser.isEmpty && (visibility.authenticationRequired || cookie.nonEmpty)) {
       (
         Unauthorized,
         SearchResults(Seq.empty[SearchResult], 0),
@@ -65,19 +66,23 @@ class SearchService(
           throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
         case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)) =>
-          val (domains, domainSearchTime, moreSetCookies) = domainClient.findSearchableDomains(
-            searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, cookie, requestId
+          val (domains, domainSearchTime) = domainClient.findSearchableDomains(
+            searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
           )
           val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
 
-          val req = documentClient.buildSearchRequest(domainSet, searchParams, scoringParams, pagingParams, visibility)
+          val req = documentClient.buildSearchRequest(
+            domainSet,
+            searchParams, scoringParams, pagingParams,
+            authorizedUser, visibility
+          )
           logger.info(LogHelper.formatEsRequest(req))
           val res = req.execute.actionGet
           val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
           val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
           logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 
-          (OK, formattedResults.copy(timings = Some(timings)), timings, moreSetCookies)
+          (OK, formattedResults.copy(timings = Some(timings)), timings, setCookies)
       }
     }
   }
@@ -115,5 +120,6 @@ class SearchService(
   case class Service(visibility: Visibility) extends SimpleResource {
     override def get: HttpService = search(visibility)
   }
+
   // $COVERAGE-ON$
 }

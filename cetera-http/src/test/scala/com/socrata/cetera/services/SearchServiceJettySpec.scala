@@ -5,40 +5,67 @@ import java.util.Collections
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 import scala.collection.JavaConverters._
 
+import com.rojoma.json.v3.interpolation._
+import com.rojoma.json.v3.io.CompactJsonWriter
 import com.socrata.http.server.HttpRequest
 import com.socrata.http.server.HttpRequest.AugmentedHttpServletRequest
 import org.elasticsearch.action.search.SearchRequestBuilder
+import org.mockserver.integration.ClientAndServer._
+import org.mockserver.model.HttpRequest._
+import org.mockserver.model.HttpResponse._
 import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, DelegatingServletOutputStream}
 
-import com.socrata.cetera._
+import com.socrata.cetera.auth.{User, VerificationClient}
 import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
 import com.socrata.cetera.types.DomainSet
+import com.socrata.cetera.{response => _, _}
 
 class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory with BeforeAndAfterAll {
   val testSuiteName = getClass.getSimpleName.toLowerCase
   val client = new TestESClient(testSuiteName)
+  val coreTestPort = 8037
+  val mockCoreServer = startClientAndServer(coreTestPort)
   val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, 8037)
+  val coreClient = new TestCoreClient(httpClient, coreTestPort)
+  val verificationClient = new VerificationClient(coreClient)
   val mockDomainClient = mock[BaseDomainClient]
   val mockDocumentClient = mock[BaseDocumentClient]
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient, coreClient)
+  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient, verificationClient)
 
   override protected def afterAll(): Unit = {
     client.close()
+    mockCoreServer.stop(true)
+    httpClient.close()
   }
 
   test("pass on any set-cookie headers in response") {
+    val hostCname = "test.com"
+    val userBody = j"""{"id" : "some-user"}"""
+    val authedUser = User(userBody)
     val expectedSetCookie = Seq("life=42", "universe=42", "everything=42")
 
-    mockDomainClient.expects('findSearchableDomains)(None, None, true, Some("c=cookie"), Some("1"))
-      .returns((DomainSet(Set.empty, None), 123L, expectedSetCookie))
+    mockCoreServer.when(
+      request()
+        .withMethod("GET")
+        .withPath("/users.json")
+        .withHeader(HeaderXSocrataHostKey, hostCname)
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withHeader("Set-Cookie", expectedSetCookie: _*)
+        .withBody(CompactJsonWriter.toString(userBody))
+    )
 
-    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty, ScoringParamSet.empty, PagingParamSet(0,100,None), Visibility.anonymous)
+    mockDomainClient.expects('findSearchableDomains)(Some(hostCname), None, true, authedUser, Some("1"))
+      .returns((DomainSet(Set.empty, None), 123L))
+
+    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty.copy(searchContext = Some(hostCname)), ScoringParamSet.empty, PagingParamSet(0,100,None), authedUser, Visibility.anonymous)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]
@@ -48,7 +75,7 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     servReq.expects('getInputStream)().anyNumberOfTimes.returns(
       new DelegatingServletInputStream(new ByteArrayInputStream("".getBytes)))
     servReq.expects('getHeader)(HeaderCookieKey).returns("c=cookie")
-    servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(null)
+    servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(hostCname)
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
     servReq.expects('getQueryString)().anyNumberOfTimes.returns("")
     servReq.expects('getRemoteHost)().anyNumberOfTimes.returns("remotehost")
@@ -58,16 +85,16 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     httpReq.expects('servletRequest)().anyNumberOfTimes.returning(augReq)
 
     val outStream = new ByteArrayOutputStream()
-    val response = mock[HttpServletResponse]
+    val httpResponse = mock[HttpServletResponse]
     val status: Integer = 200
-    response.expects('setStatus)(status)
-    response.expects('setHeader)("Access-Control-Allow-Origin", "*")
-    response.expects('setContentType)("application/json; charset=UTF-8")
-    expectedSetCookie.foreach { s => response.expects('addHeader)("Set-Cookie", s)}
-    response.expects('getHeaderNames)().anyNumberOfTimes.returns(Seq("Set-Cookie").asJava)
-    response.expects('getHeaders)("Set-Cookie").anyNumberOfTimes.returns(expectedSetCookie.asJava)
-    response.expects('getOutputStream)().returns(new DelegatingServletOutputStream(outStream))
+    httpResponse.expects('setStatus)(status)
+    httpResponse.expects('setHeader)("Access-Control-Allow-Origin", "*")
+    httpResponse.expects('setContentType)("application/json; charset=UTF-8")
+    expectedSetCookie.foreach { s => httpResponse.expects('addHeader)("Set-Cookie", s)}
+    httpResponse.expects('getHeaderNames)().anyNumberOfTimes.returns(Seq("Set-Cookie").asJava)
+    httpResponse.expects('getHeaders)("Set-Cookie").anyNumberOfTimes.returns(expectedSetCookie.asJava)
+    httpResponse.expects('getOutputStream)().returns(new DelegatingServletOutputStream(outStream))
 
-    service.search(Visibility.anonymous)(httpReq)(response)
+    service.search(Visibility.anonymous)(httpReq)(httpResponse)
   }
 }

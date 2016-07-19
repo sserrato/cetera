@@ -17,6 +17,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
 
@@ -31,9 +32,10 @@ class FacetServiceSpec
   val httpClient = new TestHttpClient()
   val coreTestPort = 8035
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new FacetService(documentClient, domainClient)
+  val service = new FacetService(documentClient, domainClient, verificationClient)
   val mockServer = startClientAndServer(coreTestPort)
 
   override def beforeEach(): Unit = {
@@ -53,7 +55,7 @@ class FacetServiceSpec
 
   test("retrieve all visible domain facets for domains that are unlocked") {
     val (datatypes, categories, tags, facets) = domainsWithData.map { cname =>
-      val (facets, timings, _) = service.doAggregate(cname, None, None)
+      val (_, facets, timings, _) = service.doAggregate(cname, None, None, None)
       timings.searchMillis.headOption should be('defined)
 
       val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
@@ -114,14 +116,13 @@ class FacetServiceSpec
 
   test("retrieve all visible domain facets on a locked domain if user is authed properly") {
     val context = domains(8)
-    val userBody = j"""{ "id" : "boo-bear", "roleName" : "headBear" }"""
+    val userBody = j"""{ "id" : "boo-bear", "roleName" : "editor" }"""
 
     mockServer.when(
       request()
         .withMethod("GET")
         .withPath("/users.json")
-        .withHeader(HeaderXSocrataHostKey, context.domainCname),
-      Times.exactly(1)
+        .withHeader(HeaderXSocrataHostKey, context.domainCname)
     ).respond(
       response()
         .withStatusCode(200)
@@ -131,8 +132,7 @@ class FacetServiceSpec
     mockServer.when(
       request()
         .withMethod("GET")
-        .withPath("/users/boo-bear"),
-      Times.exactly(1)
+        .withPath("/users/boo-bear")
     ).respond(
       response()
         .withStatusCode(200)
@@ -140,7 +140,7 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), None)
+    val (_, facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), Some(context.domainCname), None)
     val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
     val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
     val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
@@ -191,7 +191,7 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), None)
+    val (_, facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), Some(context.domainCname), None)
     facets should be(empty)
   }
 }
@@ -202,9 +202,10 @@ class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8036)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new FacetService(documentClient, domainClient)
+  val service = new FacetService(documentClient, domainClient, verificationClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

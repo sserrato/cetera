@@ -224,12 +224,19 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val complexFilter = j"""{
     "bool": {
       "must": [
+        { "bool": {
+            "must": [
+              ${publicFilter},
+              ${publishedFilter},
+              ${moderationFilter},
+              ${routingApprovalFilter}
+            ]
+          }
+        },
         ${domainIdsFilterEmpty},
-        ${datatypeDatasetsFilter},
-        ${publicFilter},
-        ${publishedFilter},
-        ${moderationFilter},
-        ${routingApprovalFilter}]}
+        ${datatypeDatasetsFilter}
+      ]
+    }
   }"""
 
   val matchAll = j"""{ "match_all" : {} }"""
@@ -271,7 +278,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": ${functionScoreQuery(query)}
       }"""
 
-      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams, Visibility.anonymous)
+      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -295,25 +302,29 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         apiLockedDown = false)
 
       val domain42Filter =  j"""{"terms": {"socrata_id.domain_id": [42]}}"""
+      val datalensSnowflakeFilter = j"""{"not" :{"filter" :{"terms" :{"datatype" :["datalens","datalens_chart","datalens_map"]}}}}"""
       val expected = j"""{
         "size" : 0,
         "aggregations" :{"domain_filter" :{
           "filter" :{"bool" :{"must" :[
-            ${domain42Filter},
-            $publicFilter,
-            $publishedFilter,
-            {"bool" :{"should" :[
-              $defaultViewFilter,
-              $modApprovedFilter,
-              {"bool" :{"must" :[
+            {"bool": {"must": [
+              $publicFilter,
+              $publishedFilter,
+              {"bool" :{"should" :[
+                $defaultViewFilter,
+                $modApprovedFilter,
+                {"bool" :{"must" :[
+                  $domain42Filter,
+                  $datalensSnowflakeFilter
+                ]}}
+              ]}},
+              {"bool" :{"must" :{"bool" :{"should" :[
                 $domain42Filter,
-                {"not" :{"filter" :{"terms" :{"datatype" :[
-                  "datalens",
-                  "datalens_chart",
-                  "datalens_map"]}}}}]}}]}},
-            {"bool" :{"must" :{"bool" :{"should" :[
-              $domain42Filter,
-              $raApprovedFilter]}}}}]}},
+                $raApprovedFilter
+              ]}}}}
+            ]}},
+            $domain42Filter
+          ]}},
           "aggregations" :{
             "datatypes" : { "terms" : { "field" : "datatype", "size" : 0 } },
             "categories" : {"terms" : { "field" : "customer_category.raw", "size" : 0 }},
@@ -326,7 +337,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                   {"terms" :{"field" : "customer_metadata_flattened.value.raw", "size" : 0}}}}}}}}}
       }"""
 
-      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None), Visibility.anonymous)
+      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None), None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be(expected)
@@ -354,7 +365,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams, Visibility.anonymous)
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -364,8 +375,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
     "sort by average category scores given search context and categories" in {
       val query = j"""{
         "filtered": {
-          "filter": ${complexFilter},
-          "query": ${simpleQueryWithoutDomainFilter}
+          "query": ${simpleQueryWithoutDomainFilter},
+          "filter": ${complexFilter}
         }
       }"""
 
@@ -381,7 +392,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           "missing": "_last"}}]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams, Visibility.anonymous)
+      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)

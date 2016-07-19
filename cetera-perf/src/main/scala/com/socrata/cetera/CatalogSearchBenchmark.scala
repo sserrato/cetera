@@ -11,7 +11,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders.terms
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.openjdk.jmh.annotations._
 
-import com.socrata.cetera.auth.CoreClient
+import com.socrata.cetera.auth.{CoreClient, VerificationClient}
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
@@ -35,6 +35,7 @@ class CatalogSearchBenchmark {
   val httpClient = new HttpClientHttpClient(executor, HttpClientHttpClient.defaultOptions)
   val coreClient = new CoreClient(httpClient, config.core.host, config.core.port,
     config.core.connectionTimeoutMs, config.core.appToken)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, config.elasticSearch.indexAliasName)
   val documentClient = new DocumentClient(
     client,
@@ -44,8 +45,8 @@ class CatalogSearchBenchmark {
     config.elasticSearch.minShouldMatch,
     Set.empty // TODO: enable expression script lang to benchmark including function score scripts
   )
-  val domainCountService = new DomainCountService(domainClient)
-  val searchService = new SearchService(documentClient, domainClient, balboaClient)
+  val domainCountService = new DomainCountService(domainClient, verificationClient)
+  val searchService = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
 
   var queryParameters = Seq.empty[MultiQueryParams]
   var domainCnames = Seq.empty[String]

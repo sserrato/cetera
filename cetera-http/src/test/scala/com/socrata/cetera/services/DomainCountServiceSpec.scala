@@ -10,6 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
@@ -18,8 +19,9 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8034)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val service = new DomainCountService(domainClient)
+  val service = new DomainCountService(domainClient, verificationClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -36,7 +38,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("blue.org", 1),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 5))
-    val (res, _, _) = service.doAggregate(Map(
+    val (_, res, _, _) = service.doAggregate(Map(
       Params.context -> "petercetera.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), None, None, None)
@@ -49,7 +51,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("blue.org", 0),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 2))
-    val (res, _, _) = service.doAggregate(Map(
+    val (_, res, _, _) = service.doAggregate(Map(
       Params.context -> "annabelle.island.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), None, None, None)
@@ -64,7 +66,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 5))
-    val (res, _, _) = service.doAggregate(Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }
@@ -75,8 +77,9 @@ class DomainCountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8035)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val service = new DomainCountService(domainClient)
+  val service = new DomainCountService(domainClient, verificationClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

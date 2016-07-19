@@ -13,6 +13,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.response.SearchResults
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
@@ -22,9 +23,10 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
   val esClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8031)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(esClient, coreClient, testSuiteName)
   val documentClient = new DocumentClient(esClient, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient)
+  val service = new CountService(documentClient, domainClient, verificationClient)
 
   override protected def afterAll(): Unit = {
     esClient.close() // Important!!
@@ -124,9 +126,10 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8032)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient)
+  val service = new CountService(documentClient, domainClient, verificationClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -139,31 +142,31 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
 
   test("categories count request") {
     val expectedResults = List(Count("Personal", 4))
-    val (res, _, _) = service.doAggregate(CategoriesFieldType, Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(CategoriesFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("tags count request") {
     val expectedResults = List(Count("Happy", 4), Count("Accident", 4))
-    val (res, _, _) = service.doAggregate(TagsFieldType, Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(TagsFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain categories count request") {
     val expectedResults = List(Count("Alpha to Omega", 3), Count("Gamma", 1), Count("Fun", 4))
-    val (res, _, _) = service.doAggregate(DomainCategoryFieldType, Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(DomainCategoryFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain tags count request") {
     val expectedResults = List(Count("1-one", 3), Count("3-three", 1))
-    val (res, _, _) = service.doAggregate(DomainTagsFieldType, Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(DomainTagsFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("owners count request") {
     val expectedResults = List(Count("robin-hood", 5), Count("lil-john", 2),  Count("john-clan", 1))
-    val (res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, None, None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }
@@ -174,9 +177,10 @@ class CountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8033)
+  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient)
+  val service = new CountService(documentClient, domainClient, verificationClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

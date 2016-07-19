@@ -11,6 +11,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.HeaderXSocrataHostKey
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.types.DomainUser
 
@@ -21,11 +22,12 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   val coreTestPort = 8031
   val mockServer = startClientAndServer(coreTestPort)
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
+  val verificationClient = new VerificationClient(coreClient)
 
   val client = new TestESClient(testSuiteName)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
-  val service = new UserSearchService(userClient, coreClient, domainClient)
+  val service = new UserSearchService(userClient, verificationClient, domainClient)
 
   val cookie = "Traditional = WASD"
   val context = Some(domains(0))

@@ -4,6 +4,7 @@ import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, matchQuery, nestedQuery}
 import org.elasticsearch.index.query._
 
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDomainType
 import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.types._
@@ -171,6 +172,7 @@ object DocumentQueries {
       domainSet: DomainSet,
       searchParams: SearchParamSet,
       query: BaseQueryBuilder,
+      user: Option[User],
       visibility: Visibility)
     : BaseQueryBuilder = {
 
@@ -179,7 +181,7 @@ object DocumentQueries {
     // This is a FilterBuilder, which incorporates all of the remaining constraints.
     // These constraints determine whether a document is considered part of the selection set, but
     // they do not affect the relevance score of the document.
-    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, visibility)
+    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, user, visibility)
     QueryBuilders.filteredQuery(categoriesAndTagsQuery, compositeFilter)
   }
 

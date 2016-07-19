@@ -13,6 +13,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
@@ -21,7 +22,10 @@ import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNo
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
 
-class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainClient) {
+class FacetService(
+    documentClient: BaseDocumentClient,
+    domainClient: BaseDomainClient,
+    verificationClient: VerificationClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
   // $COVERAGE-OFF$ jetty wiring
@@ -40,9 +44,9 @@ class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (facets, timings, setCookies) = doAggregate(cname, cookie, requestId)
+          val (status, facets, timings, setCookies) = doAggregate(cname, cookie, extendedHost, requestId)
           logger.info(LogHelper.formatRequest(req, timings))
-          Http.decorate(Json(facets, pretty = true), OK, setCookies)
+          Http.decorate(Json(facets, pretty = true), status, setCookies)
         } catch {
           case DomainNotFound(e) =>
             val msg = s"Domain not found: $e"
@@ -55,53 +59,68 @@ class FacetService(documentClient: BaseDocumentClient, domainClient: BaseDomainC
         }
     }
   }
+
   // $COVERAGE-ON$
 
-  def doAggregate(cname: String,
-                  cookie: Option[String],
-                  requestId: Option[String]
-                 ): (Seq[FacetCount], InternalTimings, Seq[String]) = {
+  def doAggregate( // scalastyle:ignore method.length
+      cname: String,
+      cookie: Option[String],
+      extendedHost: Option[String],
+      requestId: Option[String])
+    : (StatusResponse, Seq[FacetCount], InternalTimings, Seq[String]) = {
+
     val startMs = Timings.now()
 
-    val (domainSet, domainSearchTime, setCookies) = domainClient.findSearchableDomains(
-        Some(cname), Some(Set(cname)), excludeLockedDomains = true, cookie, requestId)
+    val (authorizedUser, setCookies) =
+      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
 
-    domainSet.searchContext match {
-      case Some(d) => // domain exists and is viewable by user
-        val request = documentClient.buildFacetRequest(domainSet, Visibility.anonymous)
-        logger.info(LogHelper.formatEsRequest(request))
-        val res = request.execute().actionGet()
-        val aggs = res.getAggregations.asMap().asScala
-          .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
-          .getAggregations.asMap().asScala
+    // Authorization is not required for this service, but if a request attempted and failed then respond UNAUTHORIZED.
+    if (authorizedUser.isEmpty && cookie.nonEmpty) {
+      (Unauthorized, Seq.empty, InternalTimings(Timings.elapsedInMillis(startMs), Seq.empty), setCookies)
+    } else {
 
-        val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
-          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-        val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
+      val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
+        Some(cname), Some(Set(cname)), excludeLockedDomains = true, authorizedUser, requestId
+      )
 
-        val categoriesValues = aggs("categories").asInstanceOf[Terms]
-          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-        val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
+      domainSet.searchContext match {
+        case Some(d) => // domain exists and is viewable by user
+          val request = documentClient.buildFacetRequest(domainSet, authorizedUser, Visibility.anonymous)
+          logger.info(LogHelper.formatEsRequest(request))
+          val res = request.execute().actionGet()
+          val aggs = res.getAggregations.asMap().asScala
+            .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
+            .getAggregations.asMap().asScala
 
-        val tagsValues = aggs("tags").asInstanceOf[Terms]
-          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).toSeq.filter(_.value.nonEmpty)
-        val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
+          val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+          val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
 
-        val metadataFacets = aggs("metadata").asInstanceOf[Nested]
-          .getAggregations.get("keys").asInstanceOf[Terms]
-          .getBuckets.asScala.map { b =>
-          val values = b.getAggregations.get("values").asInstanceOf[Terms]
-            .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }.toSeq
-          FacetCount(b.getKey, b.getDocCount, values)
-        }.toSeq
+          val categoriesValues = aggs("categories").asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+          val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
 
-        val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
-        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
-        (facets, timings, setCookies)
-      case None => // domain exists (otherwise DomainNotFound would be thrown) but user isn't authed to see this domain
-        val facets = Seq.empty[FacetCount]
-        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
-        (facets, timings, setCookies)
+          val tagsValues = aggs("tags").asInstanceOf[Terms]
+            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+          val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
+
+          val metadataFacets = aggs("metadata").asInstanceOf[Nested]
+            .getAggregations.get("keys").asInstanceOf[Terms]
+            .getBuckets.asScala.map { b =>
+            val values = b.getAggregations.get("values").asInstanceOf[Terms]
+              .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }
+            FacetCount(b.getKey, b.getDocCount, values)
+          }
+
+          val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
+          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
+          (OK, facets, timings, setCookies)
+
+        case None => // domain exists but user isn't authorized to see it
+          val facets = Seq.empty[FacetCount]
+          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
+          (OK, facets, timings, setCookies)
+      }
     }
   }
 }

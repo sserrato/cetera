@@ -5,11 +5,11 @@ import com.rojoma.json.v3.io.CompactJsonWriter
 import org.mockserver.integration.ClientAndServer._
 import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, ShouldMatchers, WordSpec}
+import org.scalatest.{BeforeAndAfterEach, ShouldMatchers, WordSpec}
 
 import com.socrata.cetera.{HeaderXSocrataHostKey, TestCoreClient, TestHttpClient}
 
-class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll with BeforeAndAfterEach {
+class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterEach {
 
   val coreTestPort = 8083
   val httpClient = new TestHttpClient()
@@ -19,6 +19,8 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
   val domain = "forest.com"
   val cookie = "c=cookie"
 
+  override protected def beforeEach(): Unit = mockServer.reset()
+
   def calculateAuthSet(cookie: Option[String]): (Option[User], Option[User], Option[User]) = {
     val (authedAsAdmin, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
       None, { u: User => u.isAdmin })
@@ -26,10 +28,10 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
     val (authedToSeeUsers, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
       None, { u: User => u.canViewUsers })
 
-    val (authedToSeeCatalog, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
-      None, { u: User => u.canViewCatalog })
+    val (authedToSeeLockedDownCatalog, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
+      None, { u: User => u.canViewLockedDownCatalog })
 
-    (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog)
+    (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog)
   }
 
   "A super admin user" should {
@@ -84,11 +86,11 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
           .withHeader("Content-Type", "application/json; charset=utf-8")
           .withBody(CompactJsonWriter.toString(userBody))
       )
-      val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
+      val (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog) = calculateAuthSet(Some(cookie))
 
       authedAsAdmin should be('defined)
       authedToSeeUsers should be('defined)
-      authedToSeeCatalog should be('defined)
+      authedToSeeLockedDownCatalog should be('defined)
     }
   }
 
@@ -114,11 +116,11 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
           .withHeader("Content-Type", "application/json; charset=utf-8")
           .withBody(CompactJsonWriter.toString(userBody))
       )
-      val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
+      val (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog) = calculateAuthSet(Some(cookie))
 
       authedAsAdmin should be(None)
       authedToSeeUsers should be(None)
-      authedToSeeCatalog should be('defined)
+      authedToSeeLockedDownCatalog should be(None)
     }
   }
 
@@ -143,11 +145,11 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
           .withHeader("Content-Type", "application/json; charset=utf-8")
           .withBody(CompactJsonWriter.toString(userBody))
       )
-      val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(Some(cookie))
+      val (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog) = calculateAuthSet(Some(cookie))
 
       authedAsAdmin should be(None)
       authedToSeeUsers should be(None)
-      authedToSeeCatalog should be(None)
+      authedToSeeLockedDownCatalog should be(None)
     }
   }
 
@@ -169,11 +171,11 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
           .withHeader("Content-Type", "application/json; charset=utf-8")
           .withBody(CompactJsonWriter.toString(userBody))
       )
-      val (authedAsAdmin, authedToSeeUsers, authedToSeeCatalog) = calculateAuthSet(None)
+      val (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog) = calculateAuthSet(None)
 
       authedAsAdmin should be(None)
       authedToSeeUsers should be(None)
-      authedToSeeCatalog should be(None)
+      authedToSeeLockedDownCatalog should be(None)
     }
   }
 }

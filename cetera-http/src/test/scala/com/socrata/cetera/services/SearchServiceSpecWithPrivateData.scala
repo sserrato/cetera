@@ -2,7 +2,7 @@ package com.socrata.cetera.services
 
 import java.io.File
 
-import com.rojoma.json.v3.ast.{JBoolean, JString}
+import com.rojoma.json.v3.ast.{JBoolean, JString, JValue}
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.CompactJsonWriter
 import com.socrata.http.server.responses._
@@ -11,27 +11,34 @@ import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
+import com.socrata.cetera.auth.VerificationClient
 import com.socrata.cetera.handlers.Params
+import com.socrata.cetera.handlers.util.MultiQueryParams
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.response.Format
+import com.socrata.cetera.response.{Format, SearchResult, SearchResults}
 import com.socrata.cetera.search.{DocumentClient, DomainClient, Visibility}
 import com.socrata.cetera.{response => _, _}
 
-class SearchServiceSpecWithPrivateData extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll
-  with BeforeAndAfterEach{
+class SearchServiceSpecWithPrivateData
+  extends FunSuiteLike
+  with Matchers
+  with TestESData
+  with BeforeAndAfterAll
+  with BeforeAndAfterEach {
   val client = new TestESClient(testSuiteName)
 
   val coreTestPort = 8038
   val mockServer = startClientAndServer(coreTestPort)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
+  val verificationClient = new VerificationClient(coreClient)
 
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaDir = new File("balboa_test_trash")
   val balboaClient = new BalboaClient(balboaDir.getName)
 
-  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
 
   def emptyAndRemoveDir(dir: File): Unit = {
     if (dir.isDirectory) {
@@ -56,316 +63,282 @@ class SearchServiceSpecWithPrivateData extends FunSuiteLike with Matchers with T
     emptyAndRemoveDir(balboaDir)
   }
 
-  test("searching with full visibility requires auth") {
-    val (status, results, _, _) = service.doSearch(Map.empty, Visibility.full, None, None, None)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
-  }
-
-  test("searching with full visibility shows private bits") {
-    val cookie = "C = Cookie"
-    val host = "annabelle.island.net"
-
-    val authedUserBody =
-      j"""{
-        "id" : "cook-mons",
-        "roleName" : "tasteTester",
-        "rights" : [ "eat_cookies", "spell_words_starting_with_c"]
-        }"""
+  private def prepareAuthenticatedUser(cookie: String, host: String, userJson: JValue): Unit = {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
       .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
+
+    val expectedResponse =
       response()
         .withStatusCode(200)
         .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
+        .withBody(CompactJsonWriter.toString(userJson))
+
+    mockServer
+      .when(expectedRequest)
+      .respond(expectedResponse)
+  }
+
+  private def requestParams(
+      host: Option[String],
+      ownerUserId: Option[String],
+      sharedToUserId: Option[String],
+      showVisibility: Boolean = false)
+    : MultiQueryParams =
+    Seq(
+      Some(Seq(Params.showVisibility -> showVisibility.toString)),
+      host.map { cname =>
+        Seq(
+          Params.context -> cname,
+          Params.filterDomains -> cname
+        )
+      },
+      ownerUserId.map(u => Seq(Params.filterUser -> u)),
+      sharedToUserId.map(u => Seq(Params.filterSharedTo -> u))
+    ).flatten.flatten.toMap.mapValues(Seq(_))
+
+  private def validateRequest(
+      cookie: Option[String], host: Option[String],
+      owner: Option[String], sharedTo: Option[String],
+      showVisibility: Boolean, visibility: Visibility,
+      statusValidator: StatusResponse => Unit,
+      resultsValidator: SearchResults[SearchResult] => Unit)
+    : Unit = {
+    val (responseStatus, responseResults, _, _) =
+      service.doSearch(requestParams(host, owner, sharedTo, showVisibility), visibility, cookie, host, None)
+    statusValidator(responseStatus)
+    resultsValidator(responseResults)
+  }
+
+  private def fxfs(searchResults: SearchResults[SearchResult]): Seq[String] =
+    searchResults.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+
+  private def fxfsVisibility(searchResults: SearchResults[SearchResult]): Map[String, Boolean] =
+    searchResults.results.map { hit =>
+      val fxf = hit.resource.dyn.id.!.asInstanceOf[JString].string
+      val visibility = hit.metadata.getOrElse(Format.visibleToAnonKey, fail()).asInstanceOf[JBoolean].boolean
+      fxf -> visibility
+    }.toMap
+
+  test("searching with full visibility requires auth") {
+    validateRequest(
+      None, None, None, None, showVisibility = false, Visibility.full,
+      _ should be(Unauthorized),
+      _.results.headOption should be('empty)
     )
+  }
 
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host
-    ).mapValues(Seq(_))
-    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005")
+  test("searching with asset selector visibility requires auth") {
+    validateRequest(
+      None, None, None, None, showVisibility = false, Visibility.assetSelector,
+      _ should be(Unauthorized),
+      _.results.headOption should be('empty)
+    )
+  }
 
-    val (status, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    status should be(OK)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
-    actualFxfs should contain theSameElementsAs expectedFxfs
+  test("searching with full visibility shows public & private bits") {
+    val cookie = "C = Cookie"
+    val host = "annabelle.island.net"
+    val authedUserBody =
+      j"""{
+        "id" : "cook-mons",
+        "roleName" : "tasteTester",
+        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
+        }"""
+    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
+  }
+
+  test("searching with asset selector visibility shows public & private bits") {
+    val cookie = "C = Cookie"
+    val host = "annabelle.island.net"
+    val authedUserBody =
+      j"""{
+        "id" : "dr-acula",
+        "roleName" : "administrator",
+        "rights" : [ "bite_necks", "drink_blood" ]
+        }"""
+    val expectedFxfs = Set("zeta-0002", "zeta-0005", "zeta-0009")
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
+  }
+
+  test("searching with asset selector visibility shows public & private & shared bits") {
+    val cookie = "C = Cookie"
+    val host = "annabelle.island.net"
+    val authedUserBody =
+      j"""{
+        "id" : "lil-john",
+        "roleName" : "editor",
+        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
+        }"""
+    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("when requested, include post-calculated anonymous visibility field") {
     val cookie = "C = Cookie"
     val host = "annabelle.island.net"
-
     val authedUserBody =
       j"""{
-        "id" : "cook-mons",
-        "roleName" : "tasteTester",
-        "rights" : [ "eat_cookies", "spell_words_starting_with_c"]
+        "id" : "lil-john",
+        "roleName" : "editor",
+        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.showVisibility -> "true"
-    ).mapValues(Seq(_))
     val expectedFxfs = Map(
       "fxf-3" -> false,
       "fxf-7" -> false,
       "zeta-0002" -> true,
-      "zeta-0005"-> true
-    ).map { case (k, v) =>
-      JString(k) -> JBoolean(v)
-    }
+      "zeta-0005" -> true,
+      "zeta-0009" -> false
+    )
 
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map { hit =>
-      hit.resource.dyn.id.! -> hit.metadata.getOrElse(Format.visibleToAnonKey, fail())
-    }.toMap
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
+      _ should be(OK),
+      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("federated search results also know their own visibility") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "cook-mons",
         "roleName" : "tasteTester",
-        "rights" : [ "eat_cookies", "spell_words_starting_with_c"]
+        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.showVisibility -> "true"
-    ).mapValues(Seq(_))
     val expectedFxfs = Map(
       "fxf-0" -> true,
       "fxf-4" -> true,
       "fxf-8" -> true,
       "zeta-0001" -> true,
-      "zeta-0003"-> false,
-      "zeta-0004"-> false, // <-- this one is an unapproved datalens
-      "zeta-0006"-> false,
-      "zeta-0007"-> true
-    ).map { case (k, v) =>
-      JString(k) -> JBoolean(v)
-    }
+      "zeta-0003" -> false,
+      "zeta-0004" -> false, // <-- this one is an unapproved datalens
+      "zeta-0006" -> false,
+      "zeta-0007" -> true
+    )
 
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map { hit =>
-      hit.resource.dyn.id.! -> hit.metadata.getOrElse(Format.visibleToAnonKey, fail())
-    }.toMap
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
+      _ should be(OK),
+      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("shared_to param returns nothing if nothing is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "No One",
         "roleName" : "nothing",
         "rights" : [ "nothing" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/personal_catalog.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.context -> host,
-      Params.filterSharedTo -> "No One"
-    ).mapValues(Seq(_))
     val expectedFxfs = None
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
 
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, Some("No One"), showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("shared_to param works if a public/published asset is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "King Richard",
         "roleName" : "King",
-        "rights" : [ "collect_taxes", "wear_crown"]
+        "rights" : [ "collect_taxes", "wear_crown" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.context -> host,
-      Params.filterSharedTo -> "King Richard"
-    ).mapValues(Seq(_))
     val expectedFxfs = Seq("zeta-0007")
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
 
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, Some("King Richard"), showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("shared_to param work if a private/unpublished asset is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "Little John",
         "roleName" : "secondInCommand",
         "rights" : [ "rob_from_the_rich", "give_to_the_poor" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.context -> host,
-      Params.filterSharedTo -> "Little John"
-    ).mapValues(Seq(_))
     val expectedFxfs = Seq("zeta-0003", "zeta-0006")
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
 
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("for_user param returns nothing if user owns nothing") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "No One",
         "roleName" : "nothing",
         "rights" : [ "nothing" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
-    )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.context -> host,
-      Params.filterUser -> "No One"
-    ).mapValues(Seq(_))
     val expectedFxfs = None
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
 
-    actualFxfs should contain theSameElementsAs expectedFxfs
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), Some("No One"), None, showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
   }
 
   test("for_user param shows all assets the user owns, regardless of private/public/approval status") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
-
     val authedUserBody =
       j"""{
         "id" : "robin-hood",
         "roleName" : "leader",
         "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
         }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(authedUserBody))
+    val expectedFxfs = Seq("fxf-0", "fxf-4", "fxf-8", "zeta-0001", "zeta-0003", "zeta-0006")
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.full,
+      _ should be(OK),
+      fxfs(_) should contain theSameElementsAs expectedFxfs
     )
-
-    val params = Map(
-      Params.context -> host,
-      Params.filterDomains -> host,
-      Params.context -> host,
-      Params.filterUser -> "robin-hood"
-    ).mapValues(Seq(_))
-    val expectedFxfs = Seq("fxf-4", "fxf-8", "fxf-0", "zeta-0001", "zeta-0003", "zeta-0006")
-    val (_, res, _, _) = service.doSearch(params, Visibility.full, Some(cookie), Some(host), None)
-    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
-
-    actualFxfs should contain theSameElementsAs expectedFxfs
   }
 }
