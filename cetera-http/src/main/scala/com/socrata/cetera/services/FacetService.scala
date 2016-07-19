@@ -74,53 +74,47 @@ class FacetService(
     val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
 
-    // Authorization is not required for this service, but if a request attempted and failed then respond UNAUTHORIZED.
-    if (authorizedUser.isEmpty && cookie.nonEmpty) {
-      (Unauthorized, Seq.empty, InternalTimings(Timings.elapsedInMillis(startMs), Seq.empty), setCookies)
-    } else {
+    val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
+      Some(cname), Some(Set(cname)), excludeLockedDomains = true, authorizedUser, requestId
+    )
 
-      val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
-        Some(cname), Some(Set(cname)), excludeLockedDomains = true, authorizedUser, requestId
-      )
+    domainSet.searchContext match {
+      case Some(d) => // domain exists and is viewable by user
+        val request = documentClient.buildFacetRequest(domainSet, authorizedUser, Visibility.anonymous)
+        logger.info(LogHelper.formatEsRequest(request))
+        val res = request.execute().actionGet()
+        val aggs = res.getAggregations.asMap().asScala
+          .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
+          .getAggregations.asMap().asScala
 
-      domainSet.searchContext match {
-        case Some(d) => // domain exists and is viewable by user
-          val request = documentClient.buildFacetRequest(domainSet, authorizedUser, Visibility.anonymous)
-          logger.info(LogHelper.formatEsRequest(request))
-          val res = request.execute().actionGet()
-          val aggs = res.getAggregations.asMap().asScala
-            .getOrElse("domain_filter", throw new NoSuchElementException).asInstanceOf[Filter]
-            .getAggregations.asMap().asScala
+        val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+        val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
 
-          val datatypesValues = aggs("datatypes").asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
-          val datatypesFacets = Seq(FacetCount("datatypes", datatypesValues.map(_.count).sum, datatypesValues))
+        val categoriesValues = aggs("categories").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+        val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
 
-          val categoriesValues = aggs("categories").asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
-          val categoriesFacets = Seq(FacetCount("categories", categoriesValues.map(_.count).sum, categoriesValues))
+        val tagsValues = aggs("tags").asInstanceOf[Terms]
+          .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
+        val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
 
-          val tagsValues = aggs("tags").asInstanceOf[Terms]
-            .getBuckets.asScala.map(b => ValueCount(b.getKey, b.getDocCount)).filter(_.value.nonEmpty)
-          val tagsFacets = Seq(FacetCount("tags", tagsValues.map(_.count).sum, tagsValues))
+        val metadataFacets = aggs("metadata").asInstanceOf[Nested]
+          .getAggregations.get("keys").asInstanceOf[Terms]
+          .getBuckets.asScala.map { b =>
+          val values = b.getAggregations.get("values").asInstanceOf[Terms]
+            .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }
+          FacetCount(b.getKey, b.getDocCount, values)
+        }
 
-          val metadataFacets = aggs("metadata").asInstanceOf[Nested]
-            .getAggregations.get("keys").asInstanceOf[Terms]
-            .getBuckets.asScala.map { b =>
-            val values = b.getAggregations.get("values").asInstanceOf[Terms]
-              .getBuckets.asScala.map { v => ValueCount(v.getKey, v.getDocCount) }
-            FacetCount(b.getKey, b.getDocCount, values)
-          }
+        val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
+        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
+        (OK, facets, timings, setCookies)
 
-          val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
-          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
-          (OK, facets, timings, setCookies)
-
-        case None => // domain exists but user isn't authorized to see it
-          val facets = Seq.empty[FacetCount]
-          val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
-          (OK, facets, timings, setCookies)
-      }
+      case None => // domain exists but user isn't authorized to see it
+        val facets = Seq.empty[FacetCount]
+        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
+        (OK, facets, timings, setCookies)
     }
   }
 }

@@ -53,35 +53,30 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
     val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
 
-    // Authorization is not required for this service, but if a request attempted and failed then respond UNAUTHORIZED.
-    if (authorizedUser.isEmpty && cookie.nonEmpty) {
-      (Unauthorized, SearchResults(Seq.empty, 0), InternalTimings(Timings.elapsedInMillis(now), Seq.empty), setCookies)
-    } else {
-      QueryParametersParser(queryParameters, extendedHost) match {
-        case Left(errors) =>
-          val msg = errors.map(_.message).mkString(", ")
-          throw new IllegalArgumentException(s"Invalid query parameters: $msg")
+    QueryParametersParser(queryParameters, extendedHost) match {
+      case Left(errors) =>
+        val msg = errors.map(_.message).mkString(", ")
+        throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
-        case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
-          val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
-            searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
-          )
+      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
+        val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
+          searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
+        )
 
-          val search = domainClient.buildCountRequest(domainSet, authorizedUser)
-          logger.info(LogHelper.formatEsRequest(search))
+        val search = domainClient.buildCountRequest(domainSet, authorizedUser)
+        logger.info(LogHelper.formatEsRequest(search))
 
-          val res = search.execute.actionGet
-          val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-          val json = JsonReader.fromString(res.toString)
-          val counts = extract(json) match {
-            case Right(extracted) => extracted
-            case Left(error) =>
-              logger.error(error.english)
-              throw new JsonDecodeException(error)
-          }
-          val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
-          (OK, formattedResults, timings, setCookies)
-      }
+        val res = search.execute.actionGet
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
+        val json = JsonReader.fromString(res.toString)
+        val counts = extract(json) match {
+          case Right(extracted) => extracted
+          case Left(error) =>
+            logger.error(error.english)
+            throw new JsonDecodeException(error)
+        }
+        val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
+        (OK, formattedResults, timings, setCookies)
     }
   }
 

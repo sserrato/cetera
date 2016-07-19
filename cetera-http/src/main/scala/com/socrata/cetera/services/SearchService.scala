@@ -50,9 +50,8 @@ class SearchService(
       verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
 
     // If authentication is required (varies by endpoint, see Visibility) then respond OK only when a valid user is
-    // authorized, otherwise respond UNAUTHORIZED. Additionally, even if authentication is not required but the request
-    // did attempt to authenticate and failed then also respond UNAUTHORIZED.
-    if (authorizedUser.isEmpty && (visibility.authenticationRequired || cookie.nonEmpty)) {
+    // authorized, otherwise respond HTTP/401 Unauthorized.
+    if (authorizedUser.isEmpty && visibility.authenticationRequired) {
       (
         Unauthorized,
         SearchResults(Seq.empty[SearchResult], 0),
