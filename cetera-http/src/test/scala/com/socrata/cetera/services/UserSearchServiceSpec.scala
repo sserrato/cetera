@@ -63,7 +63,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results.headOption should be('empty)
   }
 
-  test("search without domain is rejected") {
+  test("search with cookie, but no socrata host is rejected") {
     val cookie = "Traditional = WASD"
     val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), None, None)
     status should be(Unauthorized)
@@ -90,7 +90,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = users.map(u => DomainUser(context, u)).flatten
+    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
@@ -121,7 +121,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results.headOption should be('empty)
   }
 
-  test("email search should produce most relevant result first") {
+  test("query search with an email should produce most relevant result first") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -141,11 +141,11 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(context, users(2)).get
+    val expectedFirstUser = DomainUser(None, users(2)).get
     results.results.head should be(expectedFirstUser)
   }
 
-  test("screen name search should produce most relevant result first") {
+  test("query search with a screen name should produce most relevant result first") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -165,7 +165,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(context, users(1)).get
+    val expectedFirstUser = DomainUser(None, users(1)).get
     results.results.head should be(expectedFirstUser)
   }
 
@@ -183,13 +183,13 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.querySimple -> "dark.star@deathcity.com", "role" -> "assasin").mapValues(Seq(_))
+    val params = Map(Params.querySimple -> "dark.star@deathcity.com", Params.filterRole -> "assasin").mapValues(Seq(_))
     val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(context, users(2)).get
+    val expectedFirstUser = DomainUser(None, users(2)).get
     results.results.head should be(expectedFirstUser)
 
   }

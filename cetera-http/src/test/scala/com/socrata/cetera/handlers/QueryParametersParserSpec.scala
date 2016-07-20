@@ -370,6 +370,26 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       case Right(ValidatedQueryParameters(searchParams, _, _, _)) => searchParams.parentDatasetId shouldNot be('defined)
       case _ => fail()
     }
+
+    QueryParametersParser.prepUserParams(Map("role" -> Seq(""))) match {
+      case ValidatedUserQueryParameters(searchParams, _) => searchParams.roles shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser.prepUserParams(Map("email" -> Seq(""))) match {
+      case ValidatedUserQueryParameters(searchParams, _) => searchParams.emails shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser.prepUserParams(Map("screen_name" -> Seq(""))) match {
+      case ValidatedUserQueryParameters(searchParams, _) => searchParams.screenNames shouldNot be('defined)
+      case _ => fail()
+    }
+
+    QueryParametersParser.prepUserParams(Map("domain" -> Seq(""))) match {
+      case ValidatedUserQueryParameters(searchParams, _) => searchParams.domain shouldNot be('defined)
+      case _ => fail()
+    }
   }
 
   test("domain boosts can be parsed") {

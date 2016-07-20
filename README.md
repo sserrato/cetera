@@ -9,31 +9,6 @@ By default, cetera runs on port 5704.
 ## Run locally
 `sbt cetera-http/run`
 
-## Endpoints!
-
-We support a few endpoints:
-
-* `/version` returns the version
-* `/catalog` returns search results for query passed in parameter `q`
-* `/catalog/domains` returns a count query grouped by domain
-* `/catalog/categories` returns a count query grouped by category
-* `/catalog/tags` returns a count query grouped by tag
-* `/catalog/owners` returns a count query grouped by owner
-
-You may specify the version if you like: `/catalog/v1?q=driver`
-
-If you do not specify a version, we default to the most recent.
-
-There is only one version.
-
-Examples (running locally):
-* `curl localhost:5704/version` # get the version
-* `curl localhost:5704/catalog\?q=search%20terms` # search for "search terms"
-* `curl localhost:5704/catalog/domains` # how many documents per domain
-* `curl localhost:5704/catalog/tags\?q=driver ` # get tag counts for documents matching "driver"
-
-See the [Apiary API spec](http://docs.cetera.apiary.io/#) for more detail.
-
 # Elasticsearch setup
 
 Cetera, in development use, assumes an ElasticSearch setup as follows:
@@ -62,6 +37,6 @@ In `/usr/local/opt/elasticsearch/config/elasticsearch.yml` set `cluster.name: ca
 
 Please find your elasticsearch.yml file, set `cluster.name: catalog`, and launch as appropriate.
 
-# API Spec
+# API
 
-Please see the [Apiary API spec](http://docs.cetera.apiary.io/#) for API details.
+Check out [Cetera's Apiary spec](http://docs.cetera.apiary.io/#) for the latest API info.

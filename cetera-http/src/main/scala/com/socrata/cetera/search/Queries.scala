@@ -6,7 +6,7 @@ import org.elasticsearch.index.query._
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDomainType
-import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
+import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet, UserSearchParamSet}
 import com.socrata.cetera.types._
 import com.socrata.cetera.search.UserFilters.compositeFilter
 
@@ -218,29 +218,22 @@ object DocumentQueries {
 }
 
 object UserQueries {
-  def emailNameQuery(query: Option[String]): QueryBuilder = {
+  def emailNameMatchQuery(query: Option[String]): QueryBuilder =
     query match {
       case None => QueryBuilders.matchAllQuery()
       case Some(q) =>
         QueryBuilders
           .queryStringQuery(q)
-          .field(ScreenName.fieldName)
-          .field(ScreenName.rawFieldName)
-          .field(Email.fieldName)
-          .field(Email.rawFieldName)
+          .field(UserScreenName.fieldName)
+          .field(UserScreenName.rawFieldName)
+          .field(UserEmail.fieldName)
+          .field(UserEmail.rawFieldName)
           .autoGeneratePhraseQueries(true)
     }
-  }
 
-  def userQuery(
-    query: Option[String],
-    role: Option[String],
-    domain: Option[Domain])
-  : FilteredQueryBuilder = {
-
-    val innerQuery = emailNameQuery(query)
-    val userFilter = compositeFilter(domain, role)
-
-    QueryBuilders.filteredQuery(innerQuery, userFilter)
+  def userQuery(searchParams: UserSearchParamSet, domainId: Option[Int]): FilteredQueryBuilder = {
+    val emailOrNameQuery = emailNameMatchQuery(searchParams.query)
+    val userFilter = compositeFilter(searchParams, domainId)
+    QueryBuilders.filteredQuery(emailOrNameQuery, userFilter)
   }
 }

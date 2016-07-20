@@ -270,7 +270,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   def wasSearchQueryLogged(filename: String, q: String): Boolean = {
     val decoder = Charset.forName("UTF-8").newDecoder()
     decoder.onMalformedInput(CodingErrorAction.IGNORE)
-    for (s <- managed(scala.io.Source.fromFile(filename)(decoder))) {
+    for {
+      s <- managed(scala.io.Source.fromFile(filename)(decoder))
+    }{
       val entries = s.getLines.toList.head
       entries.contains(s"datasets-search-$q")
     }

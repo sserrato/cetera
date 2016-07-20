@@ -89,11 +89,12 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   )
   val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)
 
-  def multiMatchJson(boosted: Boolean, matchType: String) = {
-    val fields = if (boosted)
+  def multiMatchJson(boosted: Boolean, matchType: String): JValue = {
+    val fields = if (boosted) {
       j"""["fts_analyzed", "fts_raw", "indexed_metadata.name^2.2", "indexed_metadata.description^1.1"]"""
-    else
+    } else {
       j"""["fts_analyzed", "fts_raw"]"""
+    }
 
     j"""{
       "multi_match": {
@@ -241,7 +242,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
   val matchAll = j"""{ "match_all" : {} }"""
 
-  def functionScoreQuery(query: JValue) = j"""{
+  def functionScoreQuery(query: JValue): JValue = j"""{
     "function_score" : {
       "query" : ${query},
       "functions" : [

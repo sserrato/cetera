@@ -11,6 +11,10 @@ case class ValidatedQueryParameters(
     pagingParamSet: PagingParamSet,
     formatParamSet: FormatParamSet)
 
+case class ValidatedUserQueryParameters(
+    searchParamSet: UserSearchParamSet,
+    pagingParamSet: PagingParamSet)
+
 // NOTE: this is really a validation error, not a parse error
 sealed trait ParseError { def message: String }
 
@@ -63,12 +67,14 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   // Used to support param=this,that and param[]=something&param[]=more
-  private def mergeParams(
+  // with the understanding that this produces values "this,that", "something" and "more"
+  private def mergeArrayCommaParams(
       queryParameters: MultiQueryParams,
-      selectKeys: Set[String],
-      transform: String => String = identity)
-    : Option[Set[String]] =
-    mergeOptionalSets(selectKeys.map(key => queryParameters.get(key).map(_.map(value => transform(value)).toSet)))
+      key: String)
+    : Option[Set[String]] = {
+    val keys = Set(key, Params.arrayify(key))
+    mergeOptionalSets(keys.map(key => queryParameters.get(key).map(_.toSet)))
+  }
 
   val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(filterDelimiter)
 
@@ -139,14 +145,14 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterCategories, Params.filterCategoriesArray)))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterCategories))
 
   def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeParams(queryParameters, Set(Params.filterTags, Params.filterTagsArray)))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterTags))
 
   def prepareDatatypes(queryParameters: MultiQueryParams): Either[DatatypeError, Option[Set[String]]] = {
     val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(filterDelimiter))).map(_.toSet)
-    val arrayParams = queryParameters.get(Params.filterDatatypesArray).map(_.toSet)
+    val arrayParams = queryParameters.get(Params.arrayify(Params.filterDatatypes)).map(_.toSet)
     val mergedParams = mergeOptionalSets[String](Set(csvParams, arrayParams))
 
     mergedParams.map { params =>
@@ -246,7 +252,29 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       ).value
     )
 
-  //
+  //  user search param preparers
+
+  def prepareUserId(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterId))
+
+  def prepareEmail(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterEmail))
+
+  def prepareScreenName(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterScreenName))
+
+  def prepareRole(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterRole))
+
+  def prepareUserDomain(queryParameters: MultiQueryParams): Option[String] =
+    filterNonEmptyStringParams(queryParameters.first(Params.filterDomain))
+
+  def prepareUserQuery(queryParameters: MultiQueryParams): Option[String] =
+    filterNonEmptyStringParams(queryParameters.first(Params.querySimple))
+
+
+
+
   //////////////////
 
   ////////
@@ -298,17 +326,35 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
         Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams))
     }
   }
+
+  def prepUserParams(queryParameters: MultiQueryParams): ValidatedUserQueryParameters = {
+     val searchParams = UserSearchParamSet(
+       prepareUserId(queryParameters),
+       prepareEmail(queryParameters),
+       prepareScreenName(queryParameters),
+       prepareRole(queryParameters),
+       prepareUserDomain(queryParameters),
+       prepareUserQuery(queryParameters)
+     )
+     val pagingParams = PagingParamSet(
+       prepareOffset(queryParameters),
+       prepareLimit(queryParameters),
+       None  // sort-order
+     )
+     ValidatedUserQueryParameters(searchParams, pagingParams)
+  }
 }
 
 object Params {
+
+  def arrayify(param: String): String = s"${param}[]"
+
+  // catalog params
   val context = "search_context"
   val filterDomains = "domains"
   val filterCategories = "categories"
-  val filterCategoriesArray = "categories[]"
   val filterTags = "tags"
-  val filterTagsArray = "tags[]"
   val filterDatatypes = "only"
-  val filterDatatypesArray = "only[]"
   val filterUser = "for_user"
   val filterAttribution = "attribution"
   val filterParentDatasetId = "derived_from"
@@ -316,6 +362,13 @@ object Params {
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
+
+  // whitepages params
+  val filterId = "ids"
+  val filterEmail = "emails"
+  val filterScreenName = "screen_names"
+  val filterRole = "roles"
+  val filterDomain = "domain"
 
   // We allow catalog datatypes to be boosted using the boost{typename}={factor}
   // (eg. boostDatasets=10.0) syntax. To avoid redundancy, we get the available
@@ -379,7 +432,7 @@ object Params {
   // These are used to distinguish catalog keys from custom metadata fields
 
   // If your param is a simple key/value pair, add it here
-  private val stringKeys = Set(
+  private val catalogKeys = Set(
     filterAttribution,
     context,
     filterDomains,
@@ -407,22 +460,22 @@ object Params {
   ) ++ datatypeBoostParams.toSet
 
   // If your param is an array like tags[]=fun&tags[]=ice+cream, add it here
-  private val arrayKeys = Set(
-    filterCategoriesArray,
-    filterDatatypesArray,
-    filterTagsArray
+  private val catalogArrayKeys = Set(
+    arrayify(filterCategories),
+    arrayify(filterDatatypes),
+    arrayify(filterTags)
   )
 
   // If your param is a hashmap like boostDomains[example.com]=1.23, add it here
-  private val mapKeys = Set(
+  private val catalogMapKeys = Set(
     boostDomains
   )
 
   // For example: search_context, tags[], boostDomains[example.com]
   def isCatalogKey(key: String): Boolean = {
-    stringKeys.contains(key) ||
-      arrayKeys.contains(key) ||
-      key.endsWith("]") && mapKeys.contains(key.split('[').head)
+    catalogKeys.contains(key) ||
+      catalogArrayKeys.contains(key) ||
+      key.endsWith("]") && catalogMapKeys.contains(key.split('[').head)
   }
 
   // Remaining keys are treated as custom metadata fields and filtered on

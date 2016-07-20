@@ -5,7 +5,7 @@ import org.elasticsearch.index.query.FilterBuilders._
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDocumentType
-import com.socrata.cetera.handlers.SearchParamSet
+import com.socrata.cetera.handlers.{SearchParamSet, UserSearchParamSet}
 import com.socrata.cetera.types._
 
 object DocumentFilters {
@@ -296,28 +296,44 @@ object DomainFilters {
 }
 
 object UserFilters {
-  def compositeFilter(
-      domain: Option[Domain],
-      role: Option[String])
-    : FilterBuilder = {
 
-    val baseFilter = boolFilter()
-    val filters = Seq(domainFilter(domain.map(_.domainId)), roleFilter(role)).flatten
+  def idFilter(ids: Option[Set[String]]): Option[FilterBuilder] =
+    ids.map(i => termsFilter(UserId.fieldName, i.toSeq: _*))
+
+  def emailFilter(emails: Option[Set[String]]): Option[FilterBuilder] =
+    emails.map(e => termsFilter(UserEmail.rawFieldName, e.toSeq: _*))
+
+  def screenNameFilter(screenNames: Option[Set[String]]): Option[FilterBuilder] =
+    screenNames.map(s => termsFilter(UserScreenName.rawFieldName, s.toSeq: _*))
+
+  def roleFilter(roles: Option[Set[String]]): Option[FilterBuilder] =
+    roles.map(r => termsFilter(UserRole.fieldName, r.toSeq: _*))
+
+  def domainFilter(domainId: Option[Int]): Option[FilterBuilder] =
+    domainId.map(d => termFilter(UserDomainId.fieldName, d))
+
+  def nestedRolesFilter(roles: Option[Set[String]], domainId: Option[Int]): Option[FilterBuilder] = {
+    val filters = Seq(domainFilter(domainId), roleFilter(roles)).flatten
     if (filters.isEmpty) {
-      FilterBuilders.matchAllFilter()
+      None
     } else {
-      val query = boolFilter()
-      filters.foreach(f => query.must(f))
-      val nestedQueries = nestedFilter(Roles.fieldName, query)
-
-      baseFilter.must(nestedQueries)
+      val path = "roles"
+      val query = filters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+      Some(nestedFilter(path, query))
     }
   }
 
-    def domainFilter(domainId: Option[Int]): Option[FilterBuilder] =
-      domainId.map(d => termFilter(Roles.Domain_Id.fieldName, d))
-
-    def roleFilter(role: Option[String]): Option[FilterBuilder] =
-      role.map(r => termFilter(Roles.Role_Name.fieldName, r))
-
+  def compositeFilter(searchParams: UserSearchParamSet, domainId: Option[Int]): FilterBuilder = {
+    val filters = Seq(
+      idFilter(searchParams.ids),
+      emailFilter(searchParams.emails),
+      screenNameFilter(searchParams.screenNames),
+      nestedRolesFilter(searchParams.roles, domainId)
+    ).flatten
+    if (filters.isEmpty) {
+      FilterBuilders.matchAllFilter()
+    } else {
+      filters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+    }
+  }
 }

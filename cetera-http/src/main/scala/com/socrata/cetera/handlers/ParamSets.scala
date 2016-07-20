@@ -43,3 +43,15 @@ case class FormatParamSet(
 object FormatParamSet {
   def empty: FormatParamSet = FormatParamSet(locale = None, showScore = false, showVisibility = false)
 }
+
+case class UserSearchParamSet(
+    ids: Option[Set[String]],
+    emails: Option[Set[String]],
+    screenNames: Option[Set[String]],
+    roles: Option[Set[String]],
+    domain: Option[String],
+    query: Option[String])
+
+object UserSearchParamSet {
+  def empty: UserSearchParamSet = UserSearchParamSet(None, None, None, None, None, None)
+}

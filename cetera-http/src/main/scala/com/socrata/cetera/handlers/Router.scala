@@ -69,8 +69,10 @@ class Router(
     Route("/personal_catalog/v1", catalogResource(Visibility.personalCatalog)),
 
     // internal user search
-    Route("/whitepages", userSearchResource),
-    Route("/whitepages/v1", userSearchResource)
+    Route("/catalog/users", userSearchResource),
+    Route("/catalog/v1/users", userSearchResource),
+    Route("/whitepages", userSearchResource),   // TODO: remove when ruby gem replaces whitepages usage
+    Route("/whitepages/v1", userSearchResource)  // TODO: remove when ruby gem replaces whitepages usage
   )
 
   def route(req: HttpRequest): HttpResponse =

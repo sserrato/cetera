@@ -163,8 +163,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
   }
 
   "Sorts.paramSortMap" should {
-    val order_asc = "\"order\" : \"asc\""
-    val order_desc = "\"order\" : \"desc\""
+    val orderAsc = "\"order\" : \"asc\""
+    val orderDesc = "\"order\" : \"desc\""
 
     def testSortOrder(keys: Iterable[String], order: String): Unit = {
       keys.foreach { key =>
@@ -176,28 +176,28 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
     }
 
     "explicit ascending sorts are all ascending" in {
-      val ascending_sort_keys = Sorts.paramSortMap.keys.filter { k => k.endsWith("ASC") }
-      testSortOrder(ascending_sort_keys, order_asc)
+      val ascendingSortKeys = Sorts.paramSortMap.keys.filter { k => k.endsWith("ASC") }
+      testSortOrder(ascendingSortKeys, orderAsc)
     }
 
     "explicit descending sorts are all descending" in {
-      val descending_sort_keys = Sorts.paramSortMap.keys.filter { k => k.endsWith("DESC") }
-      testSortOrder(descending_sort_keys,  order_desc)
+      val descendingSortKeys = Sorts.paramSortMap.keys.filter { k => k.endsWith("DESC") }
+      testSortOrder(descendingSortKeys,  orderDesc)
     }
 
     "default ascending sorts are all ascending" in {
-      val default_ascending_sort_keys = Seq[String]("name")
-      testSortOrder(default_ascending_sort_keys, order_asc)
+      val defaultAscendingSortKeys = Seq[String]("name")
+      testSortOrder(defaultAscendingSortKeys, orderAsc)
     }
 
     "default descending sorts are all descending" in {
-      val default_descending_sort_keys = Seq[String]("createdAt",
+      val defaultDescendingSortKeys = Seq[String]("createdAt",
         "updatedAt",
         "page_views_last_week",
         "page_views_last_month",
         "page_views_total")
 
-      testSortOrder(default_descending_sort_keys, order_desc)
+      testSortOrder(defaultDescendingSortKeys, orderDesc)
     }
   }
 }

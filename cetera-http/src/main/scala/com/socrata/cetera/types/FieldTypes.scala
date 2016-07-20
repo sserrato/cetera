@@ -253,22 +253,23 @@ case object NameFieldType extends DocumentFieldType with Sortable {
 ////////////////
 // U'sarians
 
-case object ScreenName extends UserFieldType with Rawable {
+case object UserId extends UserFieldType {
+  val fieldName: String = "id"
+}
+
+case object UserScreenName extends UserFieldType with Rawable {
   val fieldName: String = "screen_name"
 }
 
-case object Email extends UserFieldType with Rawable {
+case object UserEmail extends UserFieldType with Rawable {
   val fieldName: String = "email"
 }
 
-case object Roles extends UserFieldType with Rawable {
-  val fieldName: String = "roles"
-
-  case object Role_Name extends NestedField {
-    protected lazy val path: String = Roles.fieldName
-  }
-
-  case object Domain_Id extends NestedField {
-    protected lazy val path: String = Roles.fieldName
-  }
+case object UserRole extends UserFieldType {
+  val fieldName: String = "roles.role_name"
 }
+
+case object UserDomainId extends UserFieldType {
+  val fieldName: String = "roles.domain_id"
+}
+

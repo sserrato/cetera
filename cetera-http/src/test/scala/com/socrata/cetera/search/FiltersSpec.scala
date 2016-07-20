@@ -4,6 +4,9 @@ import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest.{ShouldMatchers, WordSpec}
 
+import com.socrata.cetera.handlers.UserSearchParamSet
+import com.socrata.cetera.types.Domain
+
 class FiltersSpec extends WordSpec with ShouldMatchers {
 
   "DocumentFilters: datatypeFilter" should {
@@ -242,6 +245,89 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
           }
         }
       }"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: idFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.idFilter(Some(Set("foo-bar"))).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"terms" : {"id" : ["foo-bar"]}}"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: domainFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.domainFilter(Some(1)).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"roles.domain_id" : 1}}"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: roleFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.roleFilter(Some(Set("muffin", "scone"))).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"terms" : {"roles.role_name" : ["muffin", "scone"]}}"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: emailFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.emailFilter(Some(Set("foo@baz.bar"))).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"terms" : {"email.raw" : ["foo@baz.bar"]}}"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: screenNameFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.screenNameFilter(Some(Set("nombre"))).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"terms" : {"screen_name.raw" : ["nombre"]}}"""
+      actual should be(expected)
+    }
+  }
+
+  "UserFilters: compositeFilter" should {
+    "return the expected filter" in {
+      val params = UserSearchParamSet(
+        None,
+        Some(Set("admin@gmail.com")),
+        Some(Set("Ad men")),
+        Some(Set("admin")),
+        None,
+        None
+      )
+      val filter = UserFilters.compositeFilter(params, Some(1042))
+      val actual = JsonReader.fromString(filter.toString)
+      val expected =j"""
+        {
+          "bool": {
+            "must": [
+              { "terms": {"email.raw": ["admin@gmail.com"]}},
+              { "terms": {"screen_name.raw": ["Ad men"]}},
+              {
+                "nested": {
+                  "path": "roles",
+                  "filter": {
+                    "bool": {
+                      "must": [
+                        {"term": {"roles.domain_id": 1042}},
+                        {"terms": {"roles.role_name": ["admin"]}}
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }"""
       actual should be(expected)
     }
   }
