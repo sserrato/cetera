@@ -356,7 +356,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = false, isPublished = true, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None
+        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood", sharedTo = Seq("Little John"), None
       )),
       (0, buildEsDoc(
         "zeta-0004", None, 0,
@@ -385,7 +385,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Unpublished", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None
+        "42", "Unpublished", Seq.empty, 0L, "robin-hood", "Robin Hood", sharedTo = Seq("Little John"), None
        )),
       (0, buildEsDoc(
         "zeta-0007", None, 0,
@@ -405,7 +405,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty,
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(8), isApprovedByParentDomain = true,
-        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
+        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", sharedTo = Seq("robin-hood"),
         attribution = None
       )),
       (9, buildEsDoc(

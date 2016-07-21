@@ -205,7 +205,6 @@ object DocumentFilters {
 
   def visibilityFilters(
       domainSet: DomainSet,
-      user: Option[User],
       visibility: Visibility,
       isDomainAgg: Boolean = false)
     : List[FilterBuilder] = {
@@ -232,21 +231,21 @@ object DocumentFilters {
       None
     }
 
-    val userId = user.map(_.id)
-    val userOwned = if (visibility.loggedInUserOwnedOnly) userFilter(userId) else None
-    val userShared = if (visibility.loggedInUserSharedOnly) sharedToFilter(userId) else None
-
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter, userOwned, userShared).flatten
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
   }
 
   def visibilityUserOverrideFilters(
       user: Option[User],
+      searchParams: SearchParamSet,
       visibility: Visibility)
     : List[FilterBuilder] = {
     val userId = user.map(_.id)
-    val userIsOwnerFilter = if (visibility.alsoIncludeLoggedInUserOwned) userFilter(userId) else None
-    val userIsSharedFilter = if (visibility.alsoIncludeLoggedInUserShared) sharedToFilter(userId) else None
-    List(userIsOwnerFilter, userIsSharedFilter).flatten
+
+    if (visibility == Visibility.assetSelector) {
+      List(userFilter(userId), sharedToFilter(userId)).flatten
+    } else {
+      List.empty
+    }
   }
 
   def compositeFilter(
@@ -259,10 +258,10 @@ object DocumentFilters {
     val searchFilters = searchParamsFilters(searchParams)
 
     // standard visibility: must satisfy all filters
-    val visFilters = visibilityFilters(domainSet, user, visibility)
+    val visFilters = visibilityFilters(domainSet, visibility)
 
     // override visibility: satisfy any filter and supersedes standard visibility
-    val visOverrideFilters = visibilityUserOverrideFilters(user, visibility)
+    val visOverrideFilters = visibilityUserOverrideFilters(user, searchParams, visibility)
 
     // combine the two visibility filter paths
     val visFinalFilter = (visFilters, visOverrideFilters) match {
@@ -287,7 +286,9 @@ object DocumentFilters {
     }
 
     val allFilters = visFinalFilter +: domainFilter +: searchFilters
-    allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+    val f = allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+    println(f)
+    f
   }
 }
 

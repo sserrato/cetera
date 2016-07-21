@@ -107,6 +107,7 @@ class SearchServiceSpecWithPrivateData
     : Unit = {
     val (responseStatus, responseResults, _, _) =
       service.doSearch(requestParams(host, owner, sharedTo, showVisibility), visibility, cookie, host, None)
+
     statusValidator(responseStatus)
     resultsValidator(responseResults)
   }
@@ -121,152 +122,312 @@ class SearchServiceSpecWithPrivateData
       fxf -> visibility
     }.toMap
 
-  test("searching with full visibility requires auth") {
-    validateRequest(
-      None, None, None, None, showVisibility = false, Visibility.full,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
-  }
+//  test("searching with full visibility requires auth") {
+//    validateRequest(
+//      None, None, None, None, showVisibility = false, Visibility.full,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("searching with personalCatalog visibility requires auth") {
+//    validateRequest(
+//      None, None, None, None, showVisibility = false, Visibility.personalCatalog,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("searching with asset selector visibility requires auth") {
+//    validateRequest(
+//      None, None, None, None, showVisibility = false, Visibility.assetSelector,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("trying to view assets shared to another user returns unauthorized") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("trying to view assets shared to another user returns unauthorized, if no for_user param is passed") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("trying to view assets shared to another user returns unauthorized, if a for_user param is passed that's the same as logged in user") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), Some("robin-hood"), Some("Little John"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("trying to view assets shared to another user returns unauthorized, if a for_user param is passed that's different from logged in user") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), Some("King Richard"), Some("Little John"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(Unauthorized),
+//      _.results.headOption should be('empty)
+//    )
+//  }
+//
+//  test("searching with full visibility shows public & private bits") {
+//    val cookie = "C = Cookie"
+//    val host = "annabelle.island.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "cook-mons",
+//        "roleName" : "tasteTester",
+//        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
+//        }"""
+//    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.full,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("searching with asset selector visibility shows public & private bits") {
+//    val cookie = "C = Cookie"
+//    val host = "annabelle.island.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "dr-acula",
+//        "roleName" : "administrator",
+//        "rights" : [ "bite_necks", "drink_blood" ]
+//        }"""
+//    val expectedFxfs = Set("zeta-0002", "zeta-0005", "zeta-0009")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("searching with asset selector visibility shows public & private & shared bits") {
+//    val cookie = "C = Cookie"
+//    val host = "annabelle.island.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "lil-john",
+//        "roleName" : "editor",
+//        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
+//        }"""
+//    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("when requested, include post-calculated anonymous visibility field") {
+//    val cookie = "C = Cookie"
+//    val host = "annabelle.island.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "lil-john",
+//        "roleName" : "editor",
+//        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
+//        }"""
+//    val expectedFxfs = Map(
+//      "fxf-3" -> false,
+//      "fxf-7" -> false,
+//      "zeta-0002" -> true,
+//      "zeta-0005" -> true,
+//      "zeta-0009" -> false
+//    )
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
+//      _ should be(OK),
+//      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("federated search results also know their own visibility") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "cook-mons",
+//        "roleName" : "tasteTester",
+//        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
+//        }"""
+//    val expectedFxfs = Map(
+//      "fxf-0" -> true,
+//      "fxf-4" -> true,
+//      "fxf-8" -> true,
+//      "zeta-0001" -> true,
+//      "zeta-0003" -> false,
+//      "zeta-0004" -> false, // <-- this one is an unapproved datalens
+//      "zeta-0006" -> false,
+//      "zeta-0007" -> true
+//    )
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
+//      _ should be(OK),
+//      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("shared_to param returns nothing if nothing is shared") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "No One",
+//        "roleName" : "nothing",
+//        "rights" : [ "nothing" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, Some("No One"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("for_user param returns nothing if user owns nothing") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "No One",
+//        "roleName" : "nothing",
+//        "rights" : [ "nothing" ]
+//        }"""
+//    val expectedFxfs = None
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), Some("No One"), None, showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("shared_to param works if a public/published asset is shared") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "King Richard",
+//        "roleName" : "King",
+//        "rights" : [ "collect_taxes", "wear_crown" ]
+//        }"""
+//    val expectedFxfs = Seq("zeta-0007")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, Some("King Richard"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("shared_to param work if a private/unpublished asset is shared") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "Little John",
+//        "roleName" : "secondInCommand",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor" ]
+//        }"""
+//    val expectedFxfs = Seq("zeta-0003", "zeta-0006")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
+//  test("for_user param shows all assets the user owns, regardless of private/public/approval status, if it's the same as logged in user") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = Seq("fxf-0", "fxf-4", "fxf-8", "zeta-0001", "zeta-0003", "zeta-0006")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
 
-  test("searching with asset selector visibility requires auth") {
-    validateRequest(
-      None, None, None, None, showVisibility = false, Visibility.assetSelector,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
-  }
-
-  test("searching with full visibility shows public & private bits") {
-    val cookie = "C = Cookie"
-    val host = "annabelle.island.net"
-    val authedUserBody =
-      j"""{
-        "id" : "cook-mons",
-        "roleName" : "tasteTester",
-        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
-        }"""
-    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.full,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("searching with asset selector visibility shows public & private bits") {
-    val cookie = "C = Cookie"
-    val host = "annabelle.island.net"
-    val authedUserBody =
-      j"""{
-        "id" : "dr-acula",
-        "roleName" : "administrator",
-        "rights" : [ "bite_necks", "drink_blood" ]
-        }"""
-    val expectedFxfs = Set("zeta-0002", "zeta-0005", "zeta-0009")
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("searching with asset selector visibility shows public & private & shared bits") {
-    val cookie = "C = Cookie"
-    val host = "annabelle.island.net"
-    val authedUserBody =
-      j"""{
-        "id" : "lil-john",
-        "roleName" : "editor",
-        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
-        }"""
-    val expectedFxfs = Set("fxf-3", "fxf-7", "zeta-0002", "zeta-0005", "zeta-0009")
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.assetSelector,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("when requested, include post-calculated anonymous visibility field") {
-    val cookie = "C = Cookie"
-    val host = "annabelle.island.net"
-    val authedUserBody =
-      j"""{
-        "id" : "lil-john",
-        "roleName" : "editor",
-        "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
-        }"""
-    val expectedFxfs = Map(
-      "fxf-3" -> false,
-      "fxf-7" -> false,
-      "zeta-0002" -> true,
-      "zeta-0005" -> true,
-      "zeta-0009" -> false
-    )
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
-      _ should be(OK),
-      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("federated search results also know their own visibility") {
-    val cookie = "C = Cookie"
-    val host = "petercetera.net"
-    val authedUserBody =
-      j"""{
-        "id" : "cook-mons",
-        "roleName" : "tasteTester",
-        "rights" : [ "eat_cookies", "spell_words_starting_with_c" ]
-        }"""
-    val expectedFxfs = Map(
-      "fxf-0" -> true,
-      "fxf-4" -> true,
-      "fxf-8" -> true,
-      "zeta-0001" -> true,
-      "zeta-0003" -> false,
-      "zeta-0004" -> false, // <-- this one is an unapproved datalens
-      "zeta-0006" -> false,
-      "zeta-0007" -> true
-    )
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, None, showVisibility = true, Visibility.full,
-      _ should be(OK),
-      fxfsVisibility(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("shared_to param returns nothing if nothing is shared") {
-    val cookie = "C = Cookie"
-    val host = "petercetera.net"
-    val authedUserBody =
-      j"""{
-        "id" : "No One",
-        "roleName" : "nothing",
-        "rights" : [ "nothing" ]
-        }"""
-    val expectedFxfs = None
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, Some("No One"), showVisibility = false, Visibility.full,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("shared_to param works if a public/published asset is shared") {
+  test("for_user param shows only public assets the user owns, if it's different from the logged in user") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -275,70 +436,35 @@ class SearchServiceSpecWithPrivateData
         "roleName" : "King",
         "rights" : [ "collect_taxes", "wear_crown" ]
         }"""
-    val expectedFxfs = Seq("zeta-0007")
+    val expectedFxfs = Seq("fxf-0", "fxf-4", "fxf-8", "zeta-0001")
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), None, Some("King Richard"), showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
     )
   }
 
-  test("shared_to param work if a private/unpublished asset is shared") {
-    val cookie = "C = Cookie"
-    val host = "petercetera.net"
-    val authedUserBody =
-      j"""{
-        "id" : "Little John",
-        "roleName" : "secondInCommand",
-        "rights" : [ "rob_from_the_rich", "give_to_the_poor" ]
-        }"""
-    val expectedFxfs = Seq("zeta-0003", "zeta-0006")
+//  test("personalCatalog visibility with no params returns all items owned and shared to logged in user") {
+//    val cookie = "C = Cookie"
+//    val host = "petercetera.net"
+//    val authedUserBody =
+//      j"""{
+//        "id" : "robin-hood",
+//        "roleName" : "leader",
+//        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+//        }"""
+//    val expectedFxfs = Seq("fxf-0", "fxf-4", "fxf-8", "zeta-0001", "zeta-0003", "zeta-0006")
+//
+//    prepareAuthenticatedUser(cookie, host, authedUserBody)
+//    validateRequest(
+//      Some(cookie), Some(host), None, None, showVisibility = false, Visibility.personalCatalog,
+//      _ should be(OK),
+//      fxfs(_) should contain theSameElementsAs expectedFxfs
+//    )
+//  }
+//
 
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.full,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
 
-  test("for_user param returns nothing if user owns nothing") {
-    val cookie = "C = Cookie"
-    val host = "petercetera.net"
-    val authedUserBody =
-      j"""{
-        "id" : "No One",
-        "roleName" : "nothing",
-        "rights" : [ "nothing" ]
-        }"""
-    val expectedFxfs = None
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), Some("No One"), None, showVisibility = false, Visibility.full,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
-
-  test("for_user param shows all assets the user owns, regardless of private/public/approval status") {
-    val cookie = "C = Cookie"
-    val host = "petercetera.net"
-    val authedUserBody =
-      j"""{
-        "id" : "robin-hood",
-        "roleName" : "leader",
-        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
-        }"""
-    val expectedFxfs = Seq("fxf-0", "fxf-4", "fxf-8", "zeta-0001", "zeta-0003", "zeta-0006")
-
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.full,
-      _ should be(OK),
-      fxfs(_) should contain theSameElementsAs expectedFxfs
-    )
-  }
 }

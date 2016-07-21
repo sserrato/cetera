@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{CoreClient, User}
+import com.socrata.cetera.handlers.SearchParamSet
 import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, DomainSet}
 import com.socrata.cetera.util.LogHelper

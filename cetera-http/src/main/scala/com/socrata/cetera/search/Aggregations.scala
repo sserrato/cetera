@@ -6,6 +6,7 @@ import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, Aggreg
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDocumentType
+import com.socrata.cetera.handlers.SearchParamSet
 import com.socrata.cetera.types._
 
 object DocumentAggregations {
@@ -83,7 +84,7 @@ object DomainAggregations {
   def domains(domainSet: DomainSet, user: Option[User]): AbstractAggregationBuilder = {
     val visibilityFilter = FilterBuilders.boolFilter()
     DocumentFilters
-      .visibilityFilters(domainSet, user, Visibility.anonymous, isDomainAgg = true)
+      .visibilityFilters(domainSet, Visibility.anonymous, isDomainAgg = true)
       .foreach(visibilityFilter.must)
 
     AggregationBuilders
