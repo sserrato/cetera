@@ -85,10 +85,6 @@ object DocumentQueries {
         scoringParams.slop)
     }
 
-    // Add datatype boosts (if any). These end up in the should clause. Regardless of query type!
-    // NOTE: These boosts are normalized (i.e., not absolute weights on final scores).
-    Boosts.applyDatatypeBoosts(matchQuery, scoringParams.datatypeBoosts)
-
     matchQuery
   }
 

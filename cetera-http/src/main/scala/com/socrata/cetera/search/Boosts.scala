@@ -2,22 +2,20 @@ package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.functionscore.{FunctionScoreQueryBuilder, ScoreFunctionBuilders}
 import org.elasticsearch.index.query.{BoolQueryBuilder, FilterBuilders, QueryBuilders}
-
-import com.socrata.cetera.types.{Datatype, DatatypeFieldType, ScriptScoreFunction, SocrataIdDomainIdFieldType}
+import com.socrata.cetera.types.{
+  Datatype, Datatypes, DatatypeFieldType, ScriptScoreFunction, SocrataIdDomainIdFieldType}
 
 object Boosts {
   def applyDatatypeBoosts(
-      query: BoolQueryBuilder,
-      datatypeBoosts
-    : Map[Datatype, Float]): Unit = {
+      query: FunctionScoreQueryBuilder,
+      datatypeBoosts: Map[Datatype, Float])
+    : Unit = {
 
     datatypeBoosts.foreach {
       case (datatype, boost) =>
-        query.should(
-          QueryBuilders.termQuery(
-            DatatypeFieldType.fieldName,
-            datatype.singular
-          ).boost(boost)
+        query.add(
+          FilterBuilders.termFilter(DatatypeFieldType.fieldName, datatype.singular),
+          ScoreFunctionBuilders.weightFactorFunction(boost)
         )
     }
   }

@@ -10,7 +10,7 @@ import com.socrata.cetera.types.{Datatype, TypeDatalenses, TypeDatasets, TypeFil
 class BoostsSpec extends WordSpec with ShouldMatchers {
   "applyDatatypeBoosts" should {
     "add datatype boosts to the query" in {
-      val query = QueryBuilders.boolQuery()
+      val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
       val datatypeBoosts = Map[Datatype, Float](
         TypeDatasets -> 1.23f,
         TypeDatalenses -> 2.34f,
@@ -19,12 +19,24 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
       Boosts.applyDatatypeBoosts(query, datatypeBoosts)
 
       val expectedJson = j"""{
-        "bool" : {
-          "should" : [
-            { "term" : { "datatype" : { "value" : "dataset", "boost" : 1.23 } } },
-            { "term" : { "datatype" : { "value" : "datalens", "boost" : 2.34 } } },
-            { "term" : { "datatype" : { "value" : "filter", "boost" : 0.98 } } }
-          ]
+        "function_score": {
+          "functions": [
+            {
+              "filter": { "term": { "datatype" : "dataset" } },
+              "weight": 1.23
+            },
+            {
+              "filter": { "term": { "datatype" : "datalens" } },
+              "weight": 2.34
+            },
+            {
+              "filter": { "term": { "datatype" : "filter" } },
+              "weight": 0.98
+            }
+          ],
+          "query": {
+            "match_all": {}
+          }
         }
       }"""
 
@@ -32,15 +44,15 @@ class BoostsSpec extends WordSpec with ShouldMatchers {
       actualJson should be (expectedJson)
     }
 
-    "return empty bool if called with empty map" in {
-      val query = QueryBuilders.boolQuery()
+    "do nothing to the query if given no datatype boosts" in {
+      val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
       val datatypeBoosts = Map.empty[Datatype, Float]
+
+      val beforeJson = JsonReader.fromString(query.toString)
       Boosts.applyDatatypeBoosts(query, datatypeBoosts)
+      val afterJson = JsonReader.fromString(query.toString)
 
-      val expectedJson = j"""{"bool" : { } }"""
-
-      val actualJson = JsonReader.fromString(query.toString)
-      actualJson should be(expectedJson)
+      afterJson should be(beforeJson)
     }
   }
 

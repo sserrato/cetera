@@ -482,8 +482,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
             "fields" : [ "fts_analyzed", "fts_raw" ],
             "type" : "cross_fields",
             "minimum_should_match" : "20%"}},
-          "should" :[
-            {"multi_match" :{
+          "should": {"multi_match" :{
               "query" : "query string OR (query AND string)",
               "fields" :[
                 "fts_analyzed",
@@ -491,9 +490,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                 "indexed_metadata.description^7.77",
                 "indexed_metadata.name^8.88"],
               "type" : "phrase",
-              "slop" : 12}},
-            {"term" : { "datatype" : { "value" : "datalens", "boost" : 9.99 }}},
-            {"term" : { "datatype" : { "value" : "datalens_map", "boost" : 10.1 }}}]}
+              "slop" : 12}}}
       }"""
 
       val actual = DocumentQueries.chooseMatchQuery(

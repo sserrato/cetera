@@ -643,6 +643,31 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       resource.dyn.attribution.!.asInstanceOf[JString].string
     } should be(Some("The Merry Men"))
   }
+
+  test("passing a datatype boost should have no effect on the size of the result set") {
+    val (_, results, _, _) = service.doSearch(Map.empty, Visibility.anonymous, None, None, None)
+    val params = Map("boostFiles" -> Seq("2.0"))
+    val (_, resultsBoosted, _, _) = service.doSearch(params, Visibility.anonymous, None, None, None)
+    resultsBoosted.resultSetSize should be (results.resultSetSize)
+  }
+
+  test("giving a datatype a boost of >1 should promote assets of that type to the top") {
+    val params = Map("boostFiles" -> Seq("10.0"))
+    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, None, None, None)
+    val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
+    val topResultType = resultTypes.headOption
+    val lastResultType = resultTypes.last
+    topResultType shouldBe(Some("file"))
+  }
+
+  test("giving a datatype a boost of <<1 should demote assets of that type to the bottom") {
+    val params = Map("boostFiles" -> Seq(".0000001"))
+    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, None, None, None)
+    val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
+    val lastResultType = resultTypes.last
+
+    lastResultType shouldBe("file")
+  }  
 }
 
 class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {

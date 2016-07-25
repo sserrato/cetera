@@ -69,6 +69,7 @@ class DocumentClient(
     // Wrap filtered query in function score query for boosting
     val query = QueryBuilders.functionScoreQuery(filteredQuery)
     Boosts.applyScoreFunctions(query, scriptScoreFunctions)
+    Boosts.applyDatatypeBoosts(query, scoringParams.datatypeBoosts)
     Boosts.applyDomainBoosts(query, domainSet.domainIdBoosts)
     query.scoreMode("multiply").boostMode("replace")
 

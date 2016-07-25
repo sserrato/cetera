@@ -71,9 +71,8 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
         {"bool" : {
           "must" :
             {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw" ], "type" : "cross_fields"}},
-          "should" : [
-            {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw" ], "type" : "phrase"}},
-            {"term" : {"datatype" : {"value" : "dataset", "boost" : 1.0}}}]
+          "should" :
+            {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw" ], "type" : "phrase"}}
         }}"""
 
       val actual = JsonReader.fromString(simpleQuery.toString)
@@ -114,9 +113,8 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
         {"bool" : {
           "must" :
             {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw" ], "type" : "cross_fields", "minimum_should_match" : "2<-25% 9<-3"}},
-          "should" : [
-            {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw", "indexed_metadata.name^2.2"], "type" : "phrase", "slop": 2}},
-            {"term" : {"datatype" : {"value" : "dataset", "boost" : 1.0}}}]
+          "should" :
+            {"multi_match" :{"query" : "snuffy", "fields" : [ "fts_analyzed", "fts_raw", "indexed_metadata.name^2.2"], "type" : "phrase", "slop": 2}}
         }}"""
 
       val actual = JsonReader.fromString(simpleQuery.toString)
