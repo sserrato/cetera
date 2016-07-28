@@ -64,13 +64,9 @@ class Router(
     Route("/asset_selector", catalogResource(Visibility.assetSelector)),
     Route("/asset_selector/v1", catalogResource(Visibility.assetSelector)),
 
-    // internal search for assets owned by a user
-    Route("/personal_catalog/owned", catalogResource(Visibility.personallyOwned)),
-    Route("/personal_catalog/v1/owned", catalogResource(Visibility.personallyOwned)),
-
-    // internal search for assets shared to a user
-    Route("/personal_catalog/shared", catalogResource(Visibility.personallyShared)),
-    Route("/personal_catalog/v1/shared", catalogResource(Visibility.personallyShared)),
+    // internal search for assets owned by or shared to a user
+    Route("/personal_catalog", catalogResource(Visibility.personalCatalog)),
+    Route("/personal_catalog/v1", catalogResource(Visibility.personalCatalog)),
 
     // internal user search
     Route("/whitepages", userSearchResource),

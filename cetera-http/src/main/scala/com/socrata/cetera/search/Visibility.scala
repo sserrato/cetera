@@ -4,8 +4,6 @@ case class Visibility(
     authenticationRequired: Boolean,
     alsoIncludeLoggedInUserOwned: Boolean,
     alsoIncludeLoggedInUserShared: Boolean,
-    loggedInUserOwnedOnly: Boolean,
-    loggedInUserSharedOnly: Boolean,
     publicOnly: Boolean,
     publishedOnly: Boolean,
     approvedOnly: Boolean,
@@ -16,8 +14,6 @@ object Visibility {
     authenticationRequired = false,
     alsoIncludeLoggedInUserOwned = false,
     alsoIncludeLoggedInUserShared = false,
-    loggedInUserOwnedOnly = false,
-    loggedInUserSharedOnly = false,
     publicOnly = true,
     publishedOnly = true,
     approvedOnly = true,
@@ -27,30 +23,15 @@ object Visibility {
     authenticationRequired = true,
     alsoIncludeLoggedInUserOwned = true,
     alsoIncludeLoggedInUserShared = true,
-    loggedInUserOwnedOnly = false,
-    loggedInUserSharedOnly = false,
     publicOnly = false,
     publishedOnly = false,
     approvedOnly = true,
     moderatedOnly = true)
 
-  val personallyOwned = Visibility(
+  val personalCatalog = Visibility(
     authenticationRequired = true,
     alsoIncludeLoggedInUserOwned = false,
     alsoIncludeLoggedInUserShared = false,
-    loggedInUserOwnedOnly = true,
-    loggedInUserSharedOnly = false,
-    publicOnly = false,
-    publishedOnly = false,
-    approvedOnly = false,
-    moderatedOnly = false)
-
-  val personallyShared = Visibility(
-    authenticationRequired = true,
-    alsoIncludeLoggedInUserOwned = false,
-    alsoIncludeLoggedInUserShared = false,
-    loggedInUserOwnedOnly = false,
-    loggedInUserSharedOnly = true,
     publicOnly = false,
     publishedOnly = false,
     approvedOnly = false,
@@ -60,8 +41,6 @@ object Visibility {
     authenticationRequired = true,
     alsoIncludeLoggedInUserOwned = false,
     alsoIncludeLoggedInUserShared = false,
-    loggedInUserOwnedOnly = false,
-    loggedInUserSharedOnly = false,
     publicOnly = false,
     publishedOnly = false,
     approvedOnly = false,

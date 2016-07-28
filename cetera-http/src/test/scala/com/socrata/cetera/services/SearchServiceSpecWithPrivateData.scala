@@ -137,6 +137,14 @@ class SearchServiceSpecWithPrivateData
     )
   }
 
+  test("searching with personal catalog visibility requires auth") {
+    validateRequest(
+      None, None, None, None, showVisibility = false, Visibility.personalCatalog,
+      _ should be(Unauthorized),
+      _.results.headOption should be('empty)
+    )
+  }
+
   test("searching with full visibility shows public & private bits") {
     val cookie = "C = Cookie"
     val host = "annabelle.island.net"
@@ -247,7 +255,7 @@ class SearchServiceSpecWithPrivateData
     )
   }
 
-  test("shared_to param returns nothing if nothing is shared") {
+  test("searching for assets shared to logged in user returns nothing if nothing is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -260,13 +268,13 @@ class SearchServiceSpecWithPrivateData
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), None, Some("No One"), showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), None, Some("No One"), showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
     )
   }
 
-  test("shared_to param works if a public/published asset is shared") {
+  test("searching for assets shared to logged in user works if a public/published asset is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -279,13 +287,13 @@ class SearchServiceSpecWithPrivateData
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), None, Some("King Richard"), showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), None, Some("King Richard"), showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
     )
   }
 
-  test("shared_to param work if a private/unpublished asset is shared") {
+  test("searching for assets shared to logged in user works if a private/unpublished asset is shared") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -298,13 +306,13 @@ class SearchServiceSpecWithPrivateData
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), None, Some("Little John"), showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
     )
   }
 
-  test("for_user param returns nothing if user owns nothing") {
+  test("searching for assets owned by logged in user returns nothing if user owns nothing") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -317,13 +325,13 @@ class SearchServiceSpecWithPrivateData
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), Some("No One"), None, showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), Some("No One"), None, showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
     )
   }
 
-  test("for_user param shows all assets the user owns, regardless of private/public/approval status") {
+  test("searching for assets owned by logged in user returns all assets the user owns, regardless of private/public/approval status") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -336,9 +344,63 @@ class SearchServiceSpecWithPrivateData
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
     validateRequest(
-      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.full,
+      Some(cookie), Some(host), Some("robin-hood"), None, showVisibility = false, Visibility.personalCatalog,
       _ should be(OK),
       fxfs(_) should contain theSameElementsAs expectedFxfs
+    )
+  }
+
+  test("searching for assets shared to anyone except logged in user returns unauthorized") {
+    val cookie = "C = Cookie"
+    val host = "petercetera.net"
+    val authedUserBody =
+      j"""{
+        "id" : "No One",
+        "roleName" : "nothing",
+        "rights" : [ "nothing" ]
+        }"""
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), None, Some("Different Person"), showVisibility = false, Visibility.personalCatalog,
+      _ should be(Unauthorized),
+      _.results.headOption should be('empty)
+    )
+  }
+
+  test("searching for assets owned by anyone except logged in user via personal catalog returns unauthorized") {
+    val cookie = "C = Cookie"
+    val host = "petercetera.net"
+    val authedUserBody =
+      j"""{
+        "id" : "No One",
+        "roleName" : "nothing",
+        "rights" : [ "nothing" ]
+        }"""
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), Some("Different Person"), None, showVisibility = false, Visibility.personalCatalog,
+      _ should be(Unauthorized),
+      _.results.headOption should be('empty)
+    )
+  }
+
+  test("searching for assets by sending for_user and shared_to params returns no results") {
+    val cookie = "C = Cookie"
+    val host = "petercetera.net"
+    val authedUserBody =
+      j"""{
+        "id" : "robin-hood",
+        "roleName" : "leader",
+        "rights" : [ "rob_from_the_rich", "give_to_the_poor", "get_all_the_glory" ]
+        }"""
+
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    validateRequest(
+      Some(cookie), Some(host), Some("robin-hood"), Some("robin-hood"), showVisibility = false, Visibility.personalCatalog,
+      _ should be(OK),
+      fxfs(_) should be('empty)
     )
   }
 }

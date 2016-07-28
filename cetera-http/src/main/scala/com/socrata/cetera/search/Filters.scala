@@ -232,11 +232,7 @@ object DocumentFilters {
       None
     }
 
-    val userId = user.map(_.id)
-    val userOwned = if (visibility.loggedInUserOwnedOnly) userFilter(userId) else None
-    val userShared = if (visibility.loggedInUserSharedOnly) sharedToFilter(userId) else None
-
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter, userOwned, userShared).flatten
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
   }
 
   def visibilityUserOverrideFilters(
