@@ -14,7 +14,7 @@ trait BaseUserClient {
       searchParams: UserSearchParamSet,
       pagingParams: PagingParamSet,
       domainId: Option[Int])
-    : (Seq[EsUser], Long)
+    : (Seq[EsUser], Long, Long)
 }
 
 class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends BaseUserClient {
@@ -32,7 +32,7 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
       searchParams: UserSearchParamSet,
       pagingParams: PagingParamSet,
       domainId: Option[Int])
-    : (Seq[EsUser], Long) = {
+    : (Seq[EsUser], Long, Long) = {
 
     val req = esClient.client.prepareSearch(indexAliasName)
       .setTypes(esUserType)
@@ -44,6 +44,7 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
     val res = req.execute.actionGet
     val timing = res.getTookInMillis
 
+    val totalHits = res.getHits.totalHits()
     val users = res.getHits.hits.flatMap { hit =>
       try { EsUser(hit.sourceAsString) }
       catch { case e: Exception =>
@@ -52,6 +53,6 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
       }
     }
 
-    (users, timing)
+    (users, totalHits, timing)
   }
 }

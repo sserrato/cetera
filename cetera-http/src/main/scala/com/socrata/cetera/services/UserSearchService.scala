@@ -50,8 +50,8 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
         case Some(d) => domainClient.find(d)
       }
 
-      val (results, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
-      val formattedResults = SearchResults(results.flatMap(u => DomainUser(domain, u)), results.size)
+      val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
+      val formattedResults = SearchResults(users.flatMap(u => DomainUser(domain, u)), totalCount)
       val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
       (
         OK,
