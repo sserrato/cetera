@@ -63,9 +63,10 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     )
 
     mockDomainClient.expects('findSearchableDomains)(Some(hostCname), None, true, authedUser, Some("1"))
-      .returns((DomainSet(Set.empty, None), 123L))
+      .returns((DomainSet(), 123L))
 
-    mockDocumentClient.expects('buildSearchRequest)(DomainSet.empty, SearchParamSet.empty.copy(searchContext = Some(hostCname)), ScoringParamSet.empty, PagingParamSet(0,100,None), authedUser, Visibility.anonymous)
+    mockDocumentClient.expects('buildSearchRequest)(
+      DomainSet(), SearchParamSet(searchContext = Some(hostCname)), ScoringParamSet(), PagingParamSet(), authedUser, Visibility.anonymous)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]

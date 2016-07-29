@@ -297,12 +297,9 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
   "UserFilters: compositeFilter" should {
     "return the expected filter" in {
       val params = UserSearchParamSet(
-        None,
-        Some(Set("admin@gmail.com")),
-        Some(Set("Ad men")),
-        Some(Set("admin")),
-        None,
-        None
+        emails = Some(Set("admin@gmail.com")),
+        screenNames = Some(Set("Ad men")),
+        roles = Some(Set("admin"))
       )
       val filter = UserFilters.compositeFilter(params, Some(1042))
       val actual = JsonReader.fromString(filter.toString)

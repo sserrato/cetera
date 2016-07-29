@@ -57,37 +57,22 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val searchParams = SearchParamSet(
     searchQuery = SimpleQuery("search query terms"),
     domains = Some(Set("www.example.com", "test.example.com", "socrata.com")),
-    domainMetadata = None,
-    searchContext = None,
     categories = Some(Set("Social Services", "Environment", "Housing & Development")),
     tags = Some(Set("taxi", "art", "clowns")),
-    datatypes = Some(Set("datasets")),
-    parentDatasetId = None,
-    user = None,
-    sharedTo = None,
-    attribution = None
+    datatypes = Some(Set("datasets"))
   )
   val scoringParams = ScoringParamSet(
     fieldBoosts = Map[CeteraFieldType with Boostable, Float](
       TitleFieldType -> 2.2f,
       DescriptionFieldType -> 1.1f
-    ),
-    datatypeBoosts = Map.empty,
-    domainBoosts = Map.empty[String, Float],
-    minShouldMatch = None,
-    slop = None
+    )
   )
   val pagingParams = PagingParamSet(
     offset = 10,
     limit = 20,
     sortOrder = Option("relevance") // should be the same as None
   )
-  val formatParams = FormatParamSet(
-    locale = None,
-    showScore = false,
-    showVisibility = false
-  )
-  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)
+  val params = ValidatedQueryParameters(searchParams, scoringParams, pagingParams, FormatParamSet())
 
   def multiMatchJson(boosted: Boolean, matchType: String): JValue = {
     val fields = if (boosted) {
@@ -279,7 +264,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": ${functionScoreQuery(query)}
       }"""
 
-      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(Set.empty[Domain], None), searchParams, None, Visibility.anonymous)
+      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(), searchParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -338,7 +323,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                   {"terms" :{"field" : "customer_metadata_flattened.value.raw", "size" : 0}}}}}}}}}
       }"""
 
-      val request = documentClient.buildFacetRequest(DomainSet(Set(domain), None), None, Visibility.anonymous)
+      val request = documentClient.buildFacetRequest(DomainSet(domains = Set(domain)), None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be(expected)
@@ -366,7 +351,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams, ScoringParamSet.empty, pagingParams, None, Visibility.anonymous)
+      val request = documentClient.buildSearchRequest(DomainSet(), searchParams, ScoringParamSet(), pagingParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -393,7 +378,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
           "missing": "_last"}}]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet.empty, searchParams.copy(searchQuery = NoQuery), ScoringParamSet.empty, pagingParams, None, Visibility.anonymous)
+      val request = documentClient.buildSearchRequest(
+        DomainSet(), searchParams.copy(searchQuery = NoQuery), ScoringParamSet(), pagingParams, None, Visibility.anonymous)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -498,11 +484,10 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         SimpleQuery("query string OR (query AND string)"),
         None,
         ScoringParamSet(
-          Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f), // test field boosts
-          Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f), // test type boosts
-          Map.empty,
-          Some("20%"), // minShouldMatch is a String because it can be a percentage
-          Some(12) // slop is max num of intervening unmatched positions permitted
+          fieldBoosts = Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f),
+          datatypeBoosts = Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f),
+          minShouldMatch = Some("20%"), // minShouldMatch is a String because it can be a percentage
+          slop = Some(12) // slop is max num of intervening unmatched positions permitted
         ),
         None,
         None

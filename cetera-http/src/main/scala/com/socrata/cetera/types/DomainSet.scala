@@ -4,8 +4,8 @@ package com.socrata.cetera.types
 // a copy of the DomainSet via the `addDomainBoosts` method with the appropriate domainBoosts
 // parameter in order for those boosts to have an effect.
 case class DomainSet(
-    domains: Set[Domain],
-    searchContext: Option[Domain],
+    domains: Set[Domain] = Set.empty,
+    searchContext: Option[Domain] = None,
     domainBoosts: Map[String, Float] = Map.empty) {
 
   def addDomainBoosts(boosts: Map[String, Float]): DomainSet = copy(domainBoosts = boosts)
@@ -34,8 +34,4 @@ case class DomainSet(
   val moderationEnabledIds = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
   val moderationDisabledIds = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
   val raDisabledIds = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
-}
-
-object DomainSet {
-  def empty: DomainSet = DomainSet(Set.empty, None)
 }

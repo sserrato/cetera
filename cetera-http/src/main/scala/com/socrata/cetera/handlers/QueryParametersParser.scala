@@ -22,11 +22,7 @@ case class DatatypeError(override val message: String) extends ParseError
 
 // Parses and validates
 object QueryParametersParser { // scalastyle:ignore number.of.methods
-  val defaultPageOffset = 0
-  val defaultPageLength = 100
-
   val filterDelimiter = "," // to be deprecated
-
   val limitLimit = 10000
 
   def validated[T](x: Either[ParamConversionFailure, T]): T = x match {
@@ -241,14 +237,14 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   def prepareOffset(queryParameters: MultiQueryParams): Int =
     validated(
-      queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(defaultPageOffset))
+      queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(PagingParamSet.defaultPageOffset))
     ).value
 
   def prepareLimit(queryParameters: MultiQueryParams): Int =
     Math.min(
       limitLimit,
       validated(
-        queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(defaultPageLength))
+        queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(PagingParamSet.defaultPageLength))
       ).value
     )
 
@@ -319,10 +315,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareSortOrder(queryParameters)
         )
         val formatParams = FormatParamSet(
-          prepareLocale(queryParameters),
           prepareShowScore(queryParameters),
-          prepareShowVisiblity(queryParameters)
-        )
+          prepareShowVisiblity(queryParameters),
+          prepareLocale(queryParameters))
         Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams))
     }
   }
@@ -338,8 +333,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
      )
      val pagingParams = PagingParamSet(
        prepareOffset(queryParameters),
-       prepareLimit(queryParameters),
-       None  // sort-order
+       prepareLimit(queryParameters)
      )
      ValidatedUserQueryParameters(searchParams, pagingParams)
   }

@@ -161,24 +161,24 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   "removeLockedDomainsFromUnauthorizedUsers" should {
     "return None for a locked context if the user has no cookie" in {
       val withoutDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set.empty[Domain], Some(lockedDomain)), None, None)
-      withoutDomains should be(DomainSet.empty)
+        DomainSet(searchContext = Some(lockedDomain)), None, None)
+      withoutDomains should be(DomainSet())
 
       val withDomains = domainClient.removeLockedDomainsForbiddenToUser(
         DomainSet(Set(domains(1)), Some(lockedDomain)), None, None)
-      withDomains should be(DomainSet(Set(domains(1)), None))
+      withDomains should be(DomainSet(domains = Set(domains(1))))
     }
 
     "return None for a locked context if the user has no role" in {
       val user = User("lazy-bear", None, None, None)
 
       val withoutDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set.empty[Domain], Some(doublyLockedDomain)), Some(user), None)
-      withoutDomains should be(DomainSet.empty)
+        DomainSet(searchContext = Some(doublyLockedDomain)), Some(user), None)
+      withoutDomains should be(DomainSet())
 
       val withDomains = domainClient.removeLockedDomainsForbiddenToUser(
         DomainSet(Set(domains(1)), Some(doublyLockedDomain)), Some(user), None)
-      withDomains should be(DomainSet(Set(domains(1)), None))
+      withDomains should be(DomainSet(domains = Set(domains(1))))
     }
 
     "return the locked down context if the user is logged in and has a role" in {
@@ -210,8 +210,8 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
 
     "remove locked domains if the user has no cookie" in {
       val relevantDomains = Set(unlockedDomain0, lockedDomain)
-      val withoutContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, None), None, None)
-      withoutContext should be(DomainSet(Set(unlockedDomain0), None))
+      val withoutContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(domains = relevantDomains), None, None)
+      withoutContext should be(DomainSet(domains = Set(unlockedDomain0)))
 
       val withContext = domainClient.removeLockedDomainsForbiddenToUser(
         DomainSet(relevantDomains, Some(unlockedDomain0)), None, None)
@@ -269,7 +269,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
       )
 
       val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, Some(apiLockedDomain)), None, None)
-      res should be(DomainSet(Set(unlockedDomain2), None))
+      res should be(DomainSet(domains = Set(unlockedDomain2)))
     }
 
     "remove locked domains if the user has a good cookie, but no role on the locked domain (where domain is not the context)" in {
@@ -318,15 +318,15 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     }
 
     "return all the things if nothing is locked down" in {
-      val noContextNoDomains = domainClient.removeLockedDomainsForbiddenToUser(DomainSet.empty, None, None)
-      noContextNoDomains should be(DomainSet.empty)
+      val noContextNoDomains = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(), None, None)
+      noContextNoDomains should be(DomainSet())
 
       val noDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set.empty[Domain], Some(unlockedDomain0)), None, None)
-      noDomains should be(DomainSet(Set.empty[Domain], Some(unlockedDomain0)))
+        DomainSet(searchContext = Some(unlockedDomain0)), None, None)
+      noDomains should be(DomainSet(searchContext = Some(unlockedDomain0)))
 
-      val noContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(Set(unlockedDomain1), None), None, None)
-      noContext should be(DomainSet(Set(unlockedDomain1), None))
+      val noContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(domains = Set(unlockedDomain1)), None, None)
+      noContext should be(DomainSet(domains = Set(unlockedDomain1)))
 
       val bothUnsharedContext = domainClient.removeLockedDomainsForbiddenToUser(
         DomainSet(Set(unlockedDomain2), Some(unlockedDomain0)), None, None)

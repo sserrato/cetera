@@ -83,7 +83,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
     "order by query score descending when given an advanced query" in {
       val expected = Sorts.sortScoreDesc
 
-      val searchParams = SearchParamSet.empty.copy(searchQuery = AdvancedQuery("sandwich AND (soup OR salad)"))
+      val searchParams = SearchParamSet(searchQuery = AdvancedQuery("sandwich AND (soup OR salad)"))
       val actual = Sorts.chooseSort(None, searchParams)
 
       // sortScores is a val so it's the same object
@@ -105,7 +105,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         apiLockedDown = false
       )
 
-      val searchParams = SearchParamSet.empty.copy(searchQuery = SimpleQuery("soup salad sandwich"))
+      val searchParams = SearchParamSet(searchQuery = SimpleQuery("soup salad sandwich"))
       val actual = Sorts.chooseSort(Some(searchContext), searchParams)
 
       // sortScores is a val so it's the same object
@@ -125,7 +125,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         |  }
         |}""".stripMargin
 
-      val searchParams = SearchParamSet.empty.copy(tags = Some(tags), categories = Some(cats))
+      val searchParams = SearchParamSet(tags = Some(tags), categories = Some(cats))
       val actual = Sorts.chooseSort(None, searchParams)
 
       actual.toString should be(expectedAsString)
@@ -147,7 +147,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         |}""".stripMargin
 
 
-      val searchParams = SearchParamSet.empty.copy(tags = Some(tags))
+      val searchParams = SearchParamSet(tags = Some(tags))
       val actual = Sorts.chooseSort(None, searchParams)
 
       actual.toString should be(expectedAsString)
@@ -155,7 +155,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
 
     "order by score descending for default null query" in {
       val expected = Sorts.sortScoreDesc
-      val searchParams = SearchParamSet.empty
+      val searchParams = SearchParamSet()
       val actual = Sorts.chooseSort(None, searchParams)
 
       actual should be (expected)

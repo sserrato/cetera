@@ -115,7 +115,7 @@ class DocumentClient(
 
     val aggregation = chooseAggregation(field)
 
-    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet.empty, user, visibility)
+    val baseRequest = buildBaseRequest(domainSet, searchParams, ScoringParamSet(), user, visibility)
 
     baseRequest
       .addAggregation(aggregation)
@@ -152,7 +152,7 @@ class DocumentClient(
           .field(DomainMetadataFieldType.Value.rawFieldName)
           .size(aggSize)))
 
-    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet.empty, user, visibility)
+    val domainSpecificFilter = compositeFilter(domainSet, SearchParamSet(), user, visibility)
 
     val filteredAggs = AggregationBuilders
       .filter("domain_filter")

@@ -54,7 +54,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     Domain(0, "socrata.com", None, None, true, false, false, false, false),
     Domain(1, "first-socrata.com", None, None, true, false, false, false, false),
     Domain(2, "second-socrata.com", None, None, true, false, false, false ,false))
-  val domainSet = DomainSet(domains, None)
+  val domainSet = DomainSet(domains = domains)
 
   val searchResponse = {
     val shardTarget = new SearchShardTarget("1", "catalog", 1)
@@ -178,7 +178,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
-    val searchResults = Format.formatDocumentResponse(FormatParamSet.empty, domainSet, searchResponse)
+    val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, searchResponse)
 
     searchResults.resultSetSize should be (searchResponse.getHits.getTotalHits)
     searchResults.timings should be (None) // not yet added
@@ -212,7 +212,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
                         routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
-    val searchResults = Format.formatDocumentResponse(FormatParamSet.empty, domainSet, badSearchResponse)
+    val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, badSearchResponse)
 
     val results = searchResults.results
     results.size should be (1)
@@ -667,7 +667,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val lastResultType = resultTypes.last
     lastResultType shouldBe("file")
-  }  
+  }
 }
 
 class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {

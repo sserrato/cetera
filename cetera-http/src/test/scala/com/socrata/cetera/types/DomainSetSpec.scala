@@ -10,20 +10,20 @@ class DomainSetSpec extends WordSpec with ShouldMatchers with TestESData {
 
   "the idCnameMap" should {
     "return an empty map if no domains are given" in {
-      val domainSet = DomainSet(Set.empty, None)
+      val domainSet = DomainSet()
       val actualMap = domainSet.idCnameMap
       actualMap should be(empty)
     }
 
     "return a map with one entry if only a search context is given" in {
-      val domainSet = DomainSet(Set.empty, Some(domains(0)))
+      val domainSet = DomainSet(searchContext = Some(domains(0)))
       val actualMap = domainSet.idCnameMap
       val expectedMap = Map(0 -> "petercetera.net")
       actualMap should be(expectedMap)
     }
 
     "return a map with one entry if only a single domain is given" in {
-      val domainSet = DomainSet(Set(domains(2)), None)
+      val domainSet = DomainSet(domains = Set(domains(2)))
       val actualMap = domainSet.idCnameMap
       val expectedMap = Map(2 -> "blue.org")
       actualMap should be(expectedMap)
@@ -39,20 +39,20 @@ class DomainSetSpec extends WordSpec with ShouldMatchers with TestESData {
 
   "the cnameIdMap" should {
     "return an empty map if no domains are given" in {
-      val domainSet = DomainSet(Set.empty, None)
+      val domainSet = DomainSet()
       val actualMap = domainSet.cnameIdMap
       actualMap should be(empty)
     }
 
     "return a map with one entry if only a search context is given" in {
-      val domainSet = DomainSet(Set.empty, Some(domains(0)))
+      val domainSet = DomainSet(searchContext = Some(domains(0)))
       val actualMap = domainSet.cnameIdMap
       val expectedMap = Map("petercetera.net" -> 0)
       actualMap should be(expectedMap)
     }
 
     "return a map with one entry if only a single domain is given" in {
-      val domainSet = DomainSet(Set(domains(2)), None)
+      val domainSet = DomainSet(domains = Set(domains(2)))
       val actualMap = domainSet.cnameIdMap
       val expectedMap = Map("blue.org" -> 2)
       actualMap should be(expectedMap)
