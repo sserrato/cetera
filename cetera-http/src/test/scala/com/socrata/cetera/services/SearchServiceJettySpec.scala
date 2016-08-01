@@ -78,6 +78,7 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     servReq.expects('getHeader)(HeaderCookieKey).returns("c=cookie")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns(hostCname)
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
+    servReq.expects('getHeader)(HeaderAuthorizationKey).returns("")
     servReq.expects('getQueryString)().anyNumberOfTimes.returns("")
     servReq.expects('getRemoteHost)().anyNumberOfTimes.returns("remotehost")
 

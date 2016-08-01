@@ -13,7 +13,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
@@ -34,7 +34,7 @@ class FacetService(
   }
 
   def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
-    val cookie = req.header(HeaderCookieKey)
+    val authParams = AuthParams.fromHttpRequest(req)
     val extendedHost = req.header(HeaderXSocrataHostKey)
     val requestId = req.header(HeaderXSocrataRequestIdKey)
 
@@ -44,7 +44,7 @@ class FacetService(
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
       case Right(params) =>
         try {
-          val (status, facets, timings, setCookies) = doAggregate(cname, cookie, extendedHost, requestId)
+          val (status, facets, timings, setCookies) = doAggregate(cname, authParams, extendedHost, requestId)
           logger.info(LogHelper.formatRequest(req, timings))
           Http.decorate(Json(facets, pretty = true), status, setCookies)
         } catch {
@@ -64,7 +64,7 @@ class FacetService(
 
   def doAggregate( // scalastyle:ignore method.length
       cname: String,
-      cookie: Option[String],
+      authParams: AuthParams,
       extendedHost: Option[String],
       requestId: Option[String])
     : (StatusResponse, Seq[FacetCount], InternalTimings, Seq[String]) = {
@@ -72,7 +72,7 @@ class FacetService(
     val startMs = Timings.now()
 
     val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
+      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
 
     val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
       Some(cname), Some(Set(cname)), excludeLockedDomains = true, authorizedUser, requestId

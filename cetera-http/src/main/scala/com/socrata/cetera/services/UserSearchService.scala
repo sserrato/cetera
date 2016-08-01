@@ -10,7 +10,7 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{User, VerificationClient}
+import com.socrata.cetera.auth.{AuthParams, User, VerificationClient}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses.jsonError
@@ -24,7 +24,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
 
   def doSearch(
       queryParameters: MultiQueryParams,
-      cookie: Option[String],
+      authParams: AuthParams,
       extendedHost: Option[String],
       requestId: Option[String])
     : (StatusResponse, SearchResults[DomainUser], InternalTimings, Seq[String]) = {
@@ -32,7 +32,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
     val now = Timings.now()
 
     val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, { u: User => u.canViewUsers })
+      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, {u: User => u.canViewUsers})
 
     if (authorizedUser.isEmpty) {
       (
@@ -66,12 +66,12 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
   def search(req: HttpRequest): HttpResponse = {
     logger.debug(LogHelper.formatHttpRequestVerbose(req))
 
-    val cookie = req.header(HeaderCookieKey)
+    val authParams = AuthParams.fromHttpRequest(req)
     val extendedHost = req.header(HeaderXSocrataHostKey)
     val requestId = req.header(HeaderXSocrataRequestIdKey)
 
     try {
-      val (status, results, timings, setCookies) = doSearch(req.multiQueryParams, cookie, extendedHost, requestId)
+      val (status, results, timings, setCookies) = doSearch(req.multiQueryParams, authParams, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
       Http.decorate(Json(results, pretty = true), status, setCookies)
     } catch {

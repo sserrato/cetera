@@ -11,7 +11,7 @@ import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.handlers.util.MultiQueryParams
 import com.socrata.cetera.metrics.BalboaClient
@@ -106,7 +106,7 @@ class SearchServiceSpecWithPrivateData
       resultsValidator: SearchResults[SearchResult] => Unit)
     : Unit = {
     val (responseStatus, responseResults, _, _) =
-      service.doSearch(requestParams(host, owner, sharedTo, showVisibility), visibility, cookie, host, None)
+      service.doSearch(requestParams(host, owner, sharedTo, showVisibility), visibility, AuthParams(cookie=cookie), host, None)
     statusValidator(responseStatus)
     resultsValidator(responseResults)
   }

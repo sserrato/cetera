@@ -9,7 +9,7 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers._
 import com.socrata.cetera.handlers.ParamValidator
 import com.socrata.cetera.handlers.util._
@@ -41,7 +41,7 @@ class SearchService(
   def doSearch(
       queryParameters: MultiQueryParams,
       visibility: Visibility,
-      cookie: Option[String],
+      authParams: AuthParams,
       extendedHost: Option[String],
       requestId: Option[String])
     : (StatusResponse, SearchResults[SearchResult], InternalTimings, Seq[String]) = {
@@ -49,7 +49,8 @@ class SearchService(
     val now = Timings.now()
 
     val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
+      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
+
     val authedUserId = authorizedUser.map(_.id)
 
     // If authentication is required (varies by endpoint, see Visibility) then respond OK only when a valid user is
@@ -92,13 +93,13 @@ class SearchService(
   def search(visibility: Visibility)(req: HttpRequest): HttpResponse = {
     logger.debug(LogHelper.formatHttpRequestVerbose(req))
 
-    val cookie = req.header(HeaderCookieKey)
+    val authParams = AuthParams.fromHttpRequest(req)
     val extendedHost = req.header(HeaderXSocrataHostKey)
     val requestId = req.header(HeaderXSocrataRequestIdKey)
 
     try {
       val (status, formattedResults, timings, setCookies) =
-        doSearch(req.multiQueryParams, visibility, cookie, extendedHost, requestId)
+        doSearch(req.multiQueryParams, visibility, authParams, extendedHost, requestId)
 
       logger.info(LogHelper.formatRequest(req, timings))
       Http.decorate(Json(formattedResults, pretty = true), status, setCookies)

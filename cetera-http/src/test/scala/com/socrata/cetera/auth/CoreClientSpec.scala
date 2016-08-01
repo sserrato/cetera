@@ -69,11 +69,11 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
     )
   }
 
-  "The optionallyGetUserByCookie method" should {
-    "return None if no cookie is given" in {
+  "The optionallyAuthenticateuser method" should {
+    "return None if no auth params are given" in {
       setUpMockWithAuthorizedUser()
-      val userWithoutContext = coreClient.optionallyGetUserByCookie(None, None, None)
-      val userWithContext = coreClient.optionallyGetUserByCookie(Some(domain), None, None)
+      val userWithoutContext = coreClient.optionallyAuthenticateUser(None, AuthParams(), None)
+      val userWithContext = coreClient.optionallyAuthenticateUser(Some(domain), AuthParams(), None)
 
       userWithoutContext._1 should be(None)
       userWithContext._1 should be(None)
@@ -81,23 +81,23 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
 
     "return None if no context is given" in {
       setUpMockWithAuthorizedUser()
-      val userWithoutCookie = coreClient.optionallyGetUserByCookie(None, None, None)
-      val userWithCookie = coreClient.optionallyGetUserByCookie(None, Some(cookie), None)
+      val userWithoutAuthParams = coreClient.optionallyAuthenticateUser(None, AuthParams(), None)
+      val userWithAuthParams = coreClient.optionallyAuthenticateUser(None, AuthParams(cookie=Some(cookie)), None)
 
-      userWithoutCookie._1 should be(None)
-      userWithCookie._1 should be(None)
+      userWithoutAuthParams._1 should be(None)
+      userWithAuthParams._1 should be(None)
     }
 
-    "return Some user if both the valid context and correct cookie are given" in {
+    "return Some user if both a valid context and an auth with a valid cookie are given" in {
       setUpMockWithAuthorizedUser()
-      val (user, _) = coreClient.optionallyGetUserByCookie(Some(domain), Some(cookie), None)
+      val (user, _) = coreClient.optionallyAuthenticateUser(Some(domain), AuthParams(cookie=Some(cookie)), None)
 
       user should be('defined)
       user.get should have('id ("boo-bear"))
     }
   }
 
-  "The fetchUserByCookie method" should {
+  "The authenticateUser method" should {
     // WARNING: Socrata-http requires that cookies have the form key=value, otherwise it will respond with
     // 'The target server failed to respond'
 
@@ -120,7 +120,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
           .withBody(CompactJsonWriter.toString(userBody))
       )
 
-      coreClient.fetchUserByCookie(domain, cookie, Some(reqId))
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), Some(reqId))
       mockServer.verify(expectedRequest)
     }
 
@@ -141,7 +141,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
           .withBody(CompactJsonWriter.toString(userBody))
       )
 
-      val (_, setCookies) = coreClient.fetchUserByCookie(domain, cookie, None)
+      val (_, setCookies) = coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)
       setCookies should contain theSameElementsAs Seq(expectedSetCookie)
     }
 
@@ -153,7 +153,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
         Some(List("steal_honey", "scare_tourists")),
         Some(List("admin")))
 
-      val (actualUser, _) = coreClient.fetchUserByCookie(domain, cookie, None)
+      val (actualUser, _) = coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)
       actualUser.get should be(expectedUser)
     }
 
@@ -161,14 +161,25 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
       setUpMockWithUnauthorizeddUser()
       val expectedUser = User("lazy-bear", None, None, None)
 
-      val (actualUser, _) = coreClient.fetchUserByCookie(domain, cookie, None)
+      val (actualUser, _) = coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)
       actualUser.get should be(expectedUser)
     }
 
 
     "return None without calling core if passed an empty cookie" in {
-      setUpMockWithAuthorizedUser()
-      coreClient.fetchUserByCookie(domain, "", None)._1 should be(None)
+      mockServer.when(
+        request()
+          .withMethod("GET")
+          .withPath("/users.json")
+          .withHeader(HeaderXSocrataHostKey, domain)
+          .withHeader(HeaderCookieKey, "")
+      ).respond(
+        response()
+          .withStatusCode(401)
+          .withHeader("Content-Type", "application/json; charset=utf-8")
+      )
+
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some("")), None)._1 should be(None)
     }
 
     "return None if core returns a 401" in {
@@ -183,7 +194,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(401)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie, None)._1 should be(None)
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)._1 should be(None)
     }
 
     "return None if core returns a 403" in {
@@ -198,7 +209,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(403)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie, None)._1 should be(None)
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)._1 should be(None)
     }
 
     "return None if core returns a 500" in {
@@ -213,7 +224,7 @@ class CoreClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll
             .withStatusCode(500)
         )
 
-      coreClient.fetchUserByCookie(domain, cookie, None)._1 should be(None)
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)._1 should be(None)
     }
   }
 
@@ -349,9 +360,9 @@ class CoreClientlessSpec extends WordSpec with ShouldMatchers {
   val domain = "forest.com"
   val cookie = "c=cookie"
 
-  "When core is not reachable, the fetchUserByCookie method" should {
+  "When core is not reachable, the authenticateUser method" should {
     "return None" in {
-      coreClient.fetchUserByCookie(domain, cookie, None)._1 should be(None)
+      coreClient.authenticateUser(domain, AuthParams(cookie=Some(cookie)), None)._1 should be(None)
     }
   }
 

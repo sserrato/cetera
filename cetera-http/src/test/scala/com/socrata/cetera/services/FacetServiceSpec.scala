@@ -17,7 +17,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
 
@@ -55,7 +55,7 @@ class FacetServiceSpec
 
   test("retrieve all visible domain facets for domains that are unlocked") {
     val (datatypes, categories, tags, facets) = domainsWithData.map { cname =>
-      val (_, facets, timings, _) = service.doAggregate(cname, None, None, None)
+      val (_, facets, timings, _) = service.doAggregate(cname, AuthParams(), None, None)
       timings.searchMillis.headOption should be('defined)
 
       val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
@@ -140,7 +140,7 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (_, facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), Some(context.domainCname), None)
+    val (_, facets, timings, _) = service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
     val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
     val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
     val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
@@ -191,7 +191,7 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (_, facets, timings, _) = service.doAggregate(context.domainCname, Some("c=cookie"), Some(context.domainCname), None)
+    val (_, facets, timings, _) = service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
     facets should be(empty)
   }
 }
@@ -211,6 +211,7 @@ class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
+    servReq.expects('getHeader)(HeaderAuthorizationKey).anyNumberOfTimes.returns("BASIC ricky:awesome")
     servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")

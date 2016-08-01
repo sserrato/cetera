@@ -10,8 +10,12 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera._
 import com.socrata.cetera.util.LogHelper
 
-class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
-                 connectTimeoutMs: Int, appToken: Option[String]) {
+class CoreClient(
+    httpClient: HttpClientHttpClient,
+    host: String,
+    port: Int,
+    connectTimeoutMs: Int,
+    appToken: Option[String]) {
 
   val logger = LoggerFactory.getLogger(getClass)
   val headers = List(("Content-Type", "application/json; charset=utf-8")) ++
@@ -22,17 +26,17 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
     .connectTimeoutMS(connectTimeoutMs)
     .addHeaders(headers)
 
-  private def coreRequest(paths: Iterable[String],
-                          params: Map[String, String],
-                          domain: Option[String] = None,
-                          cookie: Option[String] = None,
-                          requestId: Option[String] = None
-                         ): RequestBuilder = {
+  private def coreRequest(
+      paths: Iterable[String],
+      params: Map[String, String],
+      domain: Option[String] = None,
+      authParams: AuthParams = AuthParams(),
+      requestId: Option[String] = None)
+    : RequestBuilder = {
     val headers = List(
       domain.map((HeaderXSocrataHostKey, _)),
-      cookie.map((HeaderCookieKey, _)),
       requestId.map((HeaderXSocrataRequestIdKey, _))
-    ).flatten
+    ).flatten ++ authParams.headers
 
     coreBaseRequest
       .addPaths(paths)
@@ -40,59 +44,88 @@ class CoreClient(httpClient: HttpClientHttpClient, host: String, port: Int,
       .addHeaders(headers)
   }
 
-  def optionallyGetUserByCookie(domain: Option[String],
-                                cookie: Option[String],
-                                requestId: Option[String]
-                               ): (Option[User], Seq[String]) = {
-    (domain, cookie) match {
-      case (Some(cname), None) =>
-        logger.warn("Search context was provided without cookie. Not validating user.")
+  /**
+   * Optionally authenticate a user.
+   *
+   * @param domain the domain of the user to authenticate
+   * @param authParams the authentication params for the user
+   * @param requestId a somewhat unique identifier that helps string requests together across services
+   * @return (user if `authParams` are defined and valid, client cookies to set)
+   */
+  def optionallyAuthenticateUser(
+      domain: Option[String],
+      authParams: AuthParams,
+      requestId: Option[String])
+    : (Option[User], Seq[String]) =
+    (domain, authParams) match {
+      case (Some(_), AuthParams(None, None)) =>
+        logger.warn("Search context was provided without auth params. Not authenticating user.")
         (None, Seq.empty)
-      case (None, Some(nomNom)) =>
-        logger.warn("Cookie provided without search context. Not validating user.")
+      case (None, authParams) if authParams.areDefined =>
+        logger.warn("Auth params provided without search context. Not authenticating user.")
         (None, Seq.empty)
-      case (Some(cname), Some(nomNom)) => fetchUserByCookie(cname, nomNom, requestId)
-      case (None, None) => (None, Seq.empty)
+      case (Some(cname), authParams) if authParams.areDefined =>
+        authenticateUser(cname, authParams, requestId)
+      case _ => (None, Seq.empty)
     }
-  }
 
-  def fetchUserByCookie(domain: String, cookie: String, requestId: Option[String]): (Option[User], Seq[String]) = {
-    if (cookie.nonEmpty) {
-      val req = coreRequest(List("users.json"), Map("method" -> "getCurrent"), Some(domain), Some(cookie), requestId)
+  /**
+   * Authenticate a user.
+   *
+   * @param domain the domain of the user to authenticate
+   * @param authParams the authentication params for the user
+   * @param requestId a somewhat unique identifier that helps string requests together across services
+   * @return (user if `authParams` are defined and valid, client cookies to set)
+   */
+  def authenticateUser(
+      domain: String,
+      authParams: AuthParams,
+      requestId: Option[String])
+    : (Option[User], Seq[String]) = {
+    val req = coreRequest(List("users.json"), Map("method" -> "getCurrent"), Some(domain), authParams, requestId)
 
-      logger.info(s"Validating user on domain $domain")
-      logger.debug(LogHelper.formatSimpleHttpRequestBuilderVerbose(req))
-      using(new ResourceScope(s"retrieving current user from core")) { rs =>
-        try {
-          val res = httpClient.execute(req.get, rs)
-          val setCookies = res.headers(HeaderSetCookieKey).toSeq
-          res.resultCode match {
-            case SC_OK => res.value[User]() match {
-              case Right(u) => (Some(u), setCookies)
-              case Left(err) =>
-                logger.error(s"Could not parse core user data: \n ${err.english}")
-                (None, setCookies)
-            }
-            case SC_FORBIDDEN | SC_UNAUTHORIZED =>
-              logger.warn(s"User is unauthorized on $domain.")
-              (None, setCookies)
-            case code: Int =>
-              logger.warn(s"Could not validate cookie with core. Core returned a $code.")
+    logger.info(s"Validating user on domain $domain")
+    logger.debug(LogHelper.formatSimpleHttpRequestBuilderVerbose(req))
+    using(new ResourceScope(s"retrieving current user from core")) { rs =>
+      try {
+        val res = httpClient.execute(req.get, rs)
+        val setCookies = res.headers(HeaderSetCookieKey).toSeq
+        res.resultCode match {
+          case SC_OK => res.value[User]() match {
+            case Right(u) => (Some(u), setCookies)
+            case Left(err) =>
+              logger.error(s"Could not parse core user data: \n ${err.english}")
               (None, setCookies)
           }
-        } catch {
-          case NonFatal(e) =>
-            logger.error("Cannot reach core to validate cookie")
-            (None, Seq.empty)
+          case SC_FORBIDDEN | SC_UNAUTHORIZED =>
+            logger.warn(s"User is unauthorized on $domain.")
+            (None, setCookies)
+          case code: Int =>
+            logger.warn(s"Could not validate user with core. Core returned a $code.")
+            (None, setCookies)
         }
+      } catch {
+        case NonFatal(e) =>
+          logger.error("Cannot reach core to validate user")
+          (None, Seq.empty)
       }
-    } else {
-      (None, Seq.empty)
     }
   }
 
-  def fetchUserById(domain: String, id: String, requestId: Option[String]): (Option[User], Seq[String]) = {
-    val req = coreRequest(List("users", id), Map.empty, Some(domain), None, requestId)
+  /**
+   * Fetch a user by ID.
+   *
+   * @param domain the domain of the user to fetch
+   * @param id the unique identifier for the user to fetch
+   * @param requestId a somewhat unique identifier that helps string requests together across services
+   * @return (user if one exists on `domain` with id `id`, client cookies to set)
+   */
+  def fetchUserById(
+      domain: String,
+      id: String,
+      requestId: Option[String])
+    : (Option[User], Seq[String]) = {
+    val req = coreRequest(List("users", id), Map.empty, Some(domain), AuthParams(), requestId)
 
     logger.info(s"Looking up user $id on domain $domain")
     logger.debug(LogHelper.formatSimpleHttpRequestBuilderVerbose(req))

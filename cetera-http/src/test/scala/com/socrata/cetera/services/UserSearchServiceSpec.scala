@@ -10,8 +10,8 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 
 import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
 import com.socrata.cetera.search.{DomainClient, UserClient}
-import com.socrata.cetera.HeaderXSocrataHostKey
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.{HeaderAuthorizationKey, HeaderCookieKey, HeaderXSocrataHostKey}
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.types.DomainUser
 
@@ -30,6 +30,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   val service = new UserSearchService(userClient, verificationClient, domainClient)
 
   val cookie = "Traditional = WASD"
+  val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
   val context = Some(domains(0))
   val host = context.get.domainCname
   val adminUserBody = j"""
@@ -58,23 +59,31 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   }
 
   test("search without authentication is rejected") {
-    val (status, results, _, _) = service.doSearch(Map.empty, None, None, None)
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(), None, None)
     status should be(Unauthorized)
     results.results.headOption should be('empty)
   }
 
   test("search with cookie, but no socrata host is rejected") {
     val cookie = "Traditional = WASD"
-    val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), None, None)
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), None, None)
     status should be(Unauthorized)
     results.results.headOption should be('empty)
   }
 
-  test("search with authentication returns any and all users, with required attributes") {
+  test("search with basic auth, but no socrata host is rejected") {
+    val basicAuth = "BASIC cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(), None, None)
+    status should be(Unauthorized)
+    results.results.headOption should be('empty)
+  }
+
+  test("search with cookie authentication returns any and all users, with required attributes") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
       .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderCookieKey, cookie)
     mockServer.when(
       expectedRequest
     ).respond(
@@ -84,7 +93,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), Some(host), None)
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -94,6 +103,31 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
+  test("search with basic HTTP authentication returns any and all users, with required attributes") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderAuthorizationKey, basicAuth)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
+
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+    results.results.headOption should be('defined)
+
+    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
+    results.results should contain theSameElementsAs(expectedUsers)
+  }
+  
   test("search with authentication but without authorization is rejected") {
     val userBody =
       j"""{
@@ -105,6 +139,8 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
       .withMethod("GET")
       .withPath("/users.json")
       .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderCookieKey, cookie)
+
     mockServer.when(
       expectedRequest
     ).respond(
@@ -114,7 +150,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (status, results, _, _) = service.doSearch(Map.empty, Some(cookie), Some(host), None)
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(Unauthorized)
@@ -136,7 +172,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.querySimple -> "dark.star@deathcity.com").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
+    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
@@ -160,7 +196,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.querySimple -> "death-the-kid").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
+    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
@@ -184,7 +220,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.querySimple -> "dark.star@deathcity.com", Params.filterRole -> "assasin").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, Some(cookie), Some(host), None)
+    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 

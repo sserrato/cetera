@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
@@ -41,7 +41,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     val (_, res, _, _) = service.doAggregate(Map(
       Params.context -> "petercetera.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
-      .mapValues(Seq(_)), None, None, None)
+      .mapValues(Seq(_)), AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -54,7 +54,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     val (_, res, _, _) = service.doAggregate(Map(
       Params.context -> "annabelle.island.net",
       Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
-      .mapValues(Seq(_)), None, None, None)
+      .mapValues(Seq(_)), AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -66,7 +66,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 5))
-    val (_, res, _, _) = service.doAggregate(Map.empty, None, None, None)
+    val (_, res, _, _) = service.doAggregate(Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 }
@@ -85,6 +85,7 @@ class DomainCountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
+    servReq.expects('getHeader)(HeaderAuthorizationKey).anyNumberOfTimes.returns("BASIC ricky:awesome")
     servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")

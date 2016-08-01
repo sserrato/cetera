@@ -13,7 +13,7 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
@@ -43,7 +43,7 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
 
   def doAggregate(
       queryParameters: MultiQueryParams,
-      cookie: Option[String],
+      authParams: AuthParams,
       extendedHost: Option[String],
       requestId: Option[String])
     : (StatusResponse, SearchResults[Count], InternalTimings, Seq[String]) = {
@@ -51,7 +51,7 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
     val now = Timings.now()
 
     val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, cookie, requestId, _ => true)
+      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
 
     QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
@@ -85,12 +85,12 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
     implicit val cEncode = Count.encode(esDomainType)
 
     try {
-      val cookie = req.header(HeaderCookieKey)
+      val authParams = AuthParams.fromHttpRequest(req)
       val extendedHost = req.header(HeaderXSocrataHostKey)
       val requestId = req.header(HeaderXSocrataRequestIdKey)
 
       val (status, formattedResults, timings, setCookies) =
-        doAggregate(req.multiQueryParams, cookie, extendedHost, requestId)
+        doAggregate(req.multiQueryParams, authParams, extendedHost, requestId)
       logger.info(LogHelper.formatRequest(req, timings))
       Http.decorate(Json(formattedResults, pretty = true), status, setCookies)
     } catch {

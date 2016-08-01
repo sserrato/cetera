@@ -7,7 +7,7 @@ import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterEach, ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.{HeaderXSocrataHostKey, TestCoreClient, TestHttpClient}
+import com.socrata.cetera.{HeaderXSocrataHostKey, HeaderCookieKey, TestCoreClient, TestHttpClient}
 
 class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfterEach {
 
@@ -22,13 +22,13 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
   override protected def beforeEach(): Unit = mockServer.reset()
 
   def calculateAuthSet(cookie: Option[String]): (Option[User], Option[User], Option[User]) = {
-    val (authedAsAdmin, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
+    val (authedAsAdmin, _) = verificationClient.fetchUserAuthorization(Some(domain), AuthParams(cookie=cookie),
       None, { u: User => u.isAdmin })
 
-    val (authedToSeeUsers, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
+    val (authedToSeeUsers, _) = verificationClient.fetchUserAuthorization(Some(domain), AuthParams(cookie=cookie),
       None, { u: User => u.canViewUsers })
 
-    val (authedToSeeLockedDownCatalog, _) = verificationClient.fetchUserAuthorization(Some(domain), cookie,
+    val (authedToSeeLockedDownCatalog, _) = verificationClient.fetchUserAuthorization(Some(domain), AuthParams(cookie=cookie),
       None, { u: User => u.canViewLockedDownCatalog })
 
     (authedAsAdmin, authedToSeeUsers, authedToSeeLockedDownCatalog)
@@ -110,6 +110,7 @@ class VerificationClientSpec extends WordSpec with ShouldMatchers with BeforeAnd
           .withMethod("GET")
           .withPath("/users.json")
           .withHeader(HeaderXSocrataHostKey, domain)
+          .withHeader(HeaderCookieKey, cookie)
       ).respond(
         response()
           .withStatusCode(200)

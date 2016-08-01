@@ -4,7 +4,7 @@ import com.rojoma.json.v3.ast.{JNumber, JString}
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.VerificationClient
+import com.socrata.cetera.auth.{AuthParams, VerificationClient}
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{SearchResult, SearchResults}
@@ -66,19 +66,19 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   }
 
   test("simple query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), Visibility.anonymous, None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), Visibility.anonymous, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("no query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(NoQuery), Visibility.anonymous, None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(NoQuery), Visibility.anonymous, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("advanced query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), Visibility.anonymous, None, None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), Visibility.anonymous, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
