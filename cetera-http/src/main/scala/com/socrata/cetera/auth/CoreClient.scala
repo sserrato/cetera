@@ -58,8 +58,8 @@ class CoreClient(
       requestId: Option[String])
     : (Option[User], Seq[String]) =
     (domain, authParams) match {
-      case (Some(_), AuthParams(None, None)) =>
-        logger.warn("Search context was provided without auth params. Not authenticating user.")
+      case (Some(_), AuthParams(None, None, None)) =>
+        logger.info("Search context was provided without auth params. Not authenticating user.")
         (None, Seq.empty)
       case (None, authParams) if authParams.areDefined =>
         logger.warn("Auth params provided without search context. Not authenticating user.")

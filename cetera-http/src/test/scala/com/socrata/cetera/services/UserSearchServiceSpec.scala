@@ -31,6 +31,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
 
   val cookie = "Traditional = WASD"
   val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
+  val oAuth = "OAuth 123456789"
   val context = Some(domains(0))
   val host = context.get.domainCname
   val adminUserBody = j"""
@@ -72,8 +73,15 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   }
 
   test("search with basic auth, but no socrata host is rejected") {
-    val basicAuth = "BASIC cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(), None, None)
+    val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), None, None)
+    status should be(Unauthorized)
+    results.results.headOption should be('empty)
+  }
+
+  test("search with oauth, but no socrata host is rejected") {
+    val oAuth = "OAuth cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), None, None)
     status should be(Unauthorized)
     results.results.headOption should be('empty)
   }
@@ -127,6 +135,32 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     val expectedUsers = users.map(u => DomainUser(None, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
   }
+
+  test("search with OAuth authentication returns any and all users, with required attributes") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderAuthorizationKey, oAuth)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), Some(host), None)
+
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+    results.results.headOption should be('defined)
+
+    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
+    results.results should contain theSameElementsAs(expectedUsers)
+  }
+
   
   test("search with authentication but without authorization is rejected") {
     val userBody =

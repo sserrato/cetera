@@ -186,7 +186,8 @@ class CountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
 
     val servReq = mock[HttpServletRequest]
-    servReq.expects('getHeader)(HeaderAuthorizationKey).anyNumberOfTimes.returns("BASIC ricky:awesome")
+    servReq.expects('getHeader)(HeaderAuthorizationKey).anyNumberOfTimes.returns("Basic ricky:awesome")
+    servReq.expects('getHeader)(HeaderAuthorizationKey).anyNumberOfTimes.returns("OAuth 123456789")
     servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
