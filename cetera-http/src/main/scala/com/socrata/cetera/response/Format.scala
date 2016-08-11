@@ -29,7 +29,8 @@ object Format {
       viewtype: Option[String],
       datasetId: String,
       datasetCategory: Option[String],
-      datasetName: String): Map[String, JString] = {
+      datasetName: String,
+      previewImageId: Option[String]): Map[String, JString] = {
 
     val cnameWithLocale = locale.foldLeft(cname){ (path, locale) => s"$path/$locale" }
 
@@ -50,10 +51,13 @@ object Format {
         s"${hyphenize(category)}/${hyphenize(datasetName)}"
     }
 
+    val previewImageUrl = previewImageId.map(id => JString(s"https://$cname/views/$datasetId/files/$id"))
+    if (previewImageId.isEmpty) logger.info(s"Missing previewImageId field for document $datasetId")
+
     Map(
-      "permalink" ->JString(s"https://$cnameWithLocale/$perma/$datasetId"),
+      "permalink" -> JString(s"https://$cnameWithLocale/$perma/$datasetId"),
       "link" -> JString(s"https://$cnameWithLocale/$pretty/$datasetId")
-    )
+    ) ++ previewImageUrl.map(url => ("previewImageUrl", url))
   }
 
   // TODO: rammy to rename customer_blah to domain_blah
@@ -123,6 +127,8 @@ object Format {
 
   def isDefaultView(j: JValue): Boolean = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
 
+  def previewImageId(j: JValue): Option[String] = extractJString(j.dyn.preview_image_id.?)
+
   def viewModerationApproved(j: JValue, domainSet: DomainSet, d: Domain): Boolean = {
     val literallyApproved = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
 
@@ -175,7 +181,8 @@ object Format {
         viewtype(j),
         datasetId(j).get,
         domainCategoryString(j),
-        datasetName(j).get)
+        datasetName(j).get,
+        previewImageId(j))
 
       Some(SearchResult(
         j.dyn.resource.!,
@@ -187,8 +194,9 @@ object Format {
           domainMetadata(j)),
         Map(esDomainType -> JString(cname(domainIdCnames, j))) ++ scoreMap ++ visibilityMap,
         linkMap.getOrElse("permalink", JString("")),
-        linkMap.getOrElse("link", JString(""))
-      ))
+        linkMap.getOrElse("link", JString("")),
+        linkMap.get("previewImageUrl"))
+      )
     }
     catch { case e: Exception =>
       logger.info(e.getMessage)

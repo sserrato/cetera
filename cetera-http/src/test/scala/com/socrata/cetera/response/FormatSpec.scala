@@ -79,10 +79,13 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
         val id = "1234-abcd"
         val expectedPermalink = s"https://$cname/$expectedPermaPath/$id"
         val expectedSeolink = s"https://$cname/$expectedSeoPath/$id"
+        val previewImageId = "123456789"
+        val expectedPreviewImageUrl = s"https://$cname/views/$id/files/$previewImageId"
 
-        val urls = Format.links(cname, None, datatype, viewType, id, category, name)
-        urls.get("permalink").get.string should be(expectedPermalink)
-        urls.get("link").get.string should be(expectedSeolink)
+        val urls = Format.links(cname, None, datatype, viewType, id, category, name, Some(previewImageId))
+        urls.get("permalink").map(_.string) should be(Some(expectedPermalink))
+        urls.get("link").map(_.string) should be(Some(expectedSeolink))
+        urls.get("previewImageUrl").map(_.string) should be(Some(expectedPreviewImageUrl))
       }
 
     // datatype/viewtype tests
@@ -146,7 +149,7 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
       val expectedPermaLink = s"https://$cname/$locale/d/$id"
       val expectedSeoLink = s"https://$cname/$locale/dataset/${Format.hyphenize(name)}/$id"
 
-      val urls = Format.links(cname, Some(locale), None, None, id, None, name)
+      val urls = Format.links(cname, Some(locale), None, None, id, None, name, None)
 
       urls.get("permalink").get.string should be(expectedPermaLink)
       urls.get("link").get.string should be(expectedSeoLink)

@@ -641,7 +641,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("attribution is included in the resulting resource") {
     val params = Map("q" -> Seq("merry men"))
     val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
-    results.results.headOption.map { case SearchResult(resource, _, _, _, _) =>
+    results.results.headOption.map { case SearchResult(resource, _, _, _, _, _) =>
       resource.dyn.attribution.!.asInstanceOf[JString].string
     } should be(Some("The Merry Men"))
   }
@@ -658,7 +658,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val topResultType = resultTypes.headOption
-    topResultType shouldBe(Some("file"))
+    topResultType should be (Some("file"))
   }
 
   test("giving a datatype a boost of <<1 should demote assets of that type to the bottom") {
@@ -666,7 +666,23 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val lastResultType = resultTypes.last
-    lastResultType shouldBe("file")
+    lastResultType should be ("file")
+  }
+
+  test("preview_image_url should be included in the search result when available") {
+    val params = Map("q" -> Seq("merry men"))
+    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val resultPreviewImageUrls = results.results.map(_.previewImageUrl.map(_.asInstanceOf[JString].string))
+    val firstPreviewImageUrl = resultPreviewImageUrls.headOption.flatten
+    firstPreviewImageUrl should be (Some("https://petercetera.net/views/zeta-0007/files/123456789"))
+  }
+
+  test("preview_image_url should be None in the search result when not available") {
+    val params = Map("boostFiles" -> Seq("10.0"))
+    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val resultPreviewImageUrls = results.results.map(_.previewImageUrl.map(_.asInstanceOf[JString].string))
+    val firstPreviewImageUrl = resultPreviewImageUrls.headOption.flatten
+    firstPreviewImageUrl should be (None)
   }
 }
 
@@ -706,8 +722,8 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
     val response = new MockHttpServletResponse()
 
     service.search(Visibility.anonymous)(httpReq)(response)
-    response.getStatus shouldBe SC_INTERNAL_SERVER_ERROR
-    response.getHeader("Access-Control-Allow-Origin") shouldBe "*"
-    response.getContentAsString shouldBe expectedResults
+    response.getStatus should be (SC_INTERNAL_SERVER_ERROR)
+    response.getHeader("Access-Control-Allow-Origin") should be ("*")
+    response.getContentAsString should be (expectedResults)
   }
 }

@@ -49,12 +49,14 @@ object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]
 }
 
+@JsonKeyStrategy(Strategy.Underscore)
 case class SearchResult(
   resource: JValue,
   classification: Classification,
   metadata: Map[String, JValue],
   permalink: JString,
-  link: JString)
+  link: JString,
+  previewImageUrl: Option[JString])
 
 object SearchResult {
   implicit val jCodec = AutomaticJsonCodecBuilder[SearchResult]
