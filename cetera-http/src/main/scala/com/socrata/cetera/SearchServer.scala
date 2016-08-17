@@ -4,12 +4,12 @@ import java.util.concurrent.{ExecutorService, Executors}
 
 import com.rojoma.simplearm.v2._
 import com.socrata.http.client.{HttpClientHttpClient, InetLivenessChecker}
-import com.socrata.http.server.SocrataServerJetty
+import com.socrata.http.server.{HttpRequest, HttpResponse, SocrataServerJetty}
 import com.socrata.thirdparty.typesafeconfig.Propertizer
 import com.typesafe.config.ConfigFactory
 import org.apache.log4j.PropertyConfigurator
 import org.elasticsearch.client.transport.TransportClient
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import com.socrata.cetera.auth.{CoreClient, VerificationClient}
 import com.socrata.cetera.config.CeteraConfig
@@ -109,7 +109,10 @@ object SearchServer extends App {
     )
 
     logger.info("Initializing handler")
-    val handler = router.route _
+    val handler: HttpRequest => HttpResponse = (req: HttpRequest) => {
+      MDC.put("requestId", req.requestId)
+      router.route(req)
+    }
 
     logger.info("Initializing server")
     val server = new SocrataServerJetty(
