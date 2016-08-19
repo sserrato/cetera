@@ -27,7 +27,8 @@ trait TestESData {
         moderationEnabled = tsvLine(5).toBoolean,
         routingApprovalEnabled = tsvLine(6).toBoolean,
         lockedDown = tsvLine(7).toBoolean,
-        apiLockedDown = tsvLine(8).toBoolean
+        apiLockedDown = tsvLine(8).toBoolean,
+        unmigratedNbeEnabled = tsvLine(9).toBoolean
       )
     }.toSeq
   }

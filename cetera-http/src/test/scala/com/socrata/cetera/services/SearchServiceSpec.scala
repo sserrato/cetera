@@ -51,9 +51,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
   val domains = Set(
-    Domain(0, "socrata.com", None, None, true, false, false, false, false),
-    Domain(1, "first-socrata.com", None, None, true, false, false, false, false),
-    Domain(2, "second-socrata.com", None, None, true, false, false, false ,false))
+    Domain(0, "socrata.com", None, None, true, false, false, false, false, false),
+    Domain(1, "first-socrata.com", None, None, true, false, false, false, false, false),
+    Domain(2, "second-socrata.com", None, None, true, false, false, false ,false, false))
   val domainSet = DomainSet(domains = domains)
 
   val searchResponse = {
@@ -175,7 +175,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
       moderationEnabled = false,
       routingApprovalEnabled = false,
       lockedDown = false,
-      apiLockedDown = false)
+      apiLockedDown = false,
+      unmigratedNbeEnabled = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
     val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, searchResponse)
@@ -209,7 +210,8 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   test("SearchResponse does not throw on bad documents it just ignores them") {
     val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"),
                         isCustomerDomain = true, moderationEnabled = false,
-                        routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
+                        routingApprovalEnabled = false, lockedDown = false,
+                        apiLockedDown = false, unmigratedNbeEnabled = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
     val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, badSearchResponse)

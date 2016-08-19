@@ -14,7 +14,8 @@ case class Domain(domainId: Int,
                   moderationEnabled: Boolean,
                   routingApprovalEnabled: Boolean,
                   lockedDown: Boolean,
-                  apiLockedDown: Boolean) {
+                  apiLockedDown: Boolean,
+                  unmigratedNbeEnabled: Boolean) {
 
   def isLocked: Boolean = lockedDown || apiLockedDown
 }

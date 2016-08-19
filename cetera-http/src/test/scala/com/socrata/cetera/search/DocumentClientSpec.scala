@@ -285,7 +285,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         moderationEnabled = false,
         routingApprovalEnabled = false,
         lockedDown = false,
-        apiLockedDown = false)
+        apiLockedDown = false,
+        unmigratedNbeEnabled = false)
 
       val domain42Filter =  j"""{"terms": {"socrata_id.domain_id": [42]}}"""
       val datalensSnowflakeFilter = j"""{"not" :{"filter" :{"terms" :{"datatype" :["datalens","datalens_chart","datalens_map"]}}}}"""
