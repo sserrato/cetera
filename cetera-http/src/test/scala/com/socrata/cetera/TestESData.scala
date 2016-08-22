@@ -385,7 +385,7 @@ trait TestESData {
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = false, isModerationApproved = None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
         "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John", Seq.empty, None, None,
-        Some("zeta-0004"), Some("data-0004")
+        None, Some("zeta-0004")
       )),
       (3, buildEsDoc(
         "zeta-0005", None, 3,
@@ -395,7 +395,7 @@ trait TestESData {
         "", "", Seq.empty, Seq.empty, Seq.empty, Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(3), isApprovedByParentDomain = true,
         "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane", Seq.empty, None, None,
-        Some("zeta-0005"), Some("data-0005")
+        None, Some("zeta-0005")
       )),
       (0, buildEsDoc(
         "zeta-0006", None, 0,
@@ -428,7 +428,8 @@ trait TestESData {
         Map.empty,
         isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(8), isApprovedByParentDomain = true,
         "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
-        attribution = None, previewImageId = None, Some("zeta-0008"), Some("data-0008")
+        attribution = None, previewImageId = None,
+        Some("zeta-0008"), None
       )),
       (9, buildEsDoc(
         "zeta-0009", None, 3,
@@ -438,7 +439,21 @@ trait TestESData {
         Map.empty,
         isPublic = false, isPublished = true, isDefaultView = false, Some(true), Seq(3), isApprovedByParentDomain = true,
         "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
-        attribution = None, previewImageId = None, Some("zeta-009"), Some("data-0009")
+        attribution = None, previewImageId = None,
+        Some("zeta-009"), Some("data-0009")
+      )),
+      // This document is a essentially a copy of "zeta-0008" but should never show up as a result because
+      // it is a NBE only dataset on a domain that does not display NBE only datasets
+      (10, buildEsDoc(
+        "zeta-0010", None, 0,
+        "a nbe only dataset",  "zeta-0009", DateTime.now.toString, DateTime.now.toString,
+        "zeta-0010", Seq.empty, "", None, Map.empty, Map.empty, TypeDatasets.singular, viewtype = "", 0F,
+        "", "", Seq.empty, Seq.empty, Seq.empty,
+        Map.empty,
+        isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(0), isApprovedByParentDomain = true,
+        "42", "Fun", List("fake", "king"), 0L, "barack-obama", "Barack Obama", Seq.empty,
+        attribution = None, previewImageId = None,
+        Some("zeta-0010"), None
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)

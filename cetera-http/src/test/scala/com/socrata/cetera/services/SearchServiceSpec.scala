@@ -51,7 +51,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
   val domains = Set(
-    Domain(0, "socrata.com", None, None, true, false, false, false, false, false),
+    Domain(0, "socrata.com", None, None, true, false, false, false, false, true),
     Domain(1, "first-socrata.com", None, None, true, false, false, false, false, false),
     Domain(2, "second-socrata.com", None, None, true, false, false, false ,false, false))
   val domainSet = DomainSet(domains = domains)
