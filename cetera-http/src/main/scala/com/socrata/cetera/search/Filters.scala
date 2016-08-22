@@ -153,11 +153,11 @@ object DocumentFilters {
     */
   def unmigratedNbeFilter(enabledIds: Set[Int]): FilterBuilder = {
     val parentDomainAllowsUnmigrated =
-      Some(enabledIds).filter(_.nonEmpty).map(eids => domainIdsFilter(eids))
+      Some(enabledIds).filter(_.nonEmpty).map(domainIdsFilter(_))
 
     val filter = boolFilter()
     filter.should(existsFilter(SocrataIdObeIdFieldType.fieldName))
-    parentDomainAllowsUnmigrated.foreach { f => filter.should(f)}
+    parentDomainAllowsUnmigrated.foreach(filter.should)
 
     filter
   }
