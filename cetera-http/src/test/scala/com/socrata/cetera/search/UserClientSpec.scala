@@ -85,6 +85,20 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Bef
     totalCount should be(2)
   }
 
+  test("search by singular flag") {
+    val params = UserSearchParamSet(flags = Some(Set("symmetrical")))
+    val (userRes, totalCount, _) = userClient.search(params, PagingParamSet(), None)
+    userRes should contain theSameElementsAs (Seq(users(0)))
+    totalCount should be(1)
+  }
+
+  test("search by multiple flags") {
+    val params = UserSearchParamSet(flags = Some(Set("yellow", "green")))
+    val (userRes, totalCount, _) = userClient.search(params, PagingParamSet(), None)
+    userRes should contain theSameElementsAs (Seq(users(3), users(4)))
+    totalCount should be(2)
+  }
+
   test("search by all the exact match conditions") {
     val params = UserSearchParamSet(
       emails = Some(Set("good.luck.bear@care.alot")),

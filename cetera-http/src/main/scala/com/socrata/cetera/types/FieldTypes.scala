@@ -265,6 +265,10 @@ case object UserEmail extends UserFieldType with Rawable {
   val fieldName: String = "email"
 }
 
+case object UserFlag extends UserFieldType {
+  val fieldName: String = "flags"
+}
+
 case object UserRole extends UserFieldType {
   val fieldName: String = "roles.role_name"
 }
