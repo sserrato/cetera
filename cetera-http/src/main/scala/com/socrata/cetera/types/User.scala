@@ -18,6 +18,7 @@ case class EsUser(
     screenName: Option[String],
     email: Option[String],
     roles: Option[Set[Role]],
+    flags: Option[Seq[String]],
     profileImageUrlLarge: Option[String],
     profileImageUrlMedium: Option[String],
     profileImageUrlSmall: Option[String]) {
@@ -48,6 +49,7 @@ case class DomainUser(
   screenName: Option[String],
   email: Option[String],
   roleName: Option[String],
+  flags: Option[Seq[String]],
   profileImageUrlLarge: Option[String],
   profileImageUrlMedium: Option[String],
   profileImageUrlSmall: Option[String])
@@ -62,6 +64,7 @@ object DomainUser {
         esUser.screenName,
         esUser.email,
         domain.flatMap { d: Domain => esUser.roleName(d.domainId) },
+        esUser.flags,
         esUser.profileImageUrlLarge,
         esUser.profileImageUrlMedium,
         esUser.profileImageUrlSmall

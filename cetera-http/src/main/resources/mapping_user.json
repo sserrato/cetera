@@ -32,6 +32,10 @@
         }
       }
     },
+    "flags": {
+      "type": "string",
+      "index": "not_analyzed"
+    },
     "profile_image_url_large": {
       "type": "string",
       "index": "no"

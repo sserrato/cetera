@@ -154,7 +154,7 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Bef
   }
 
   test("search by non-existent domain, get no results") {
-    val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), Some(8))
+    val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), Some(80))
     userRes should be('empty)
     totalCount should be(0)
   }

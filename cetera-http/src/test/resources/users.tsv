@@ -1,6 +1,6 @@
-id	displayName	email	domainId	roleName	imageLarge	imageMedium	imageSmall
-death	death	death@city.org	0	death	""	""	""
-soul-eater	death the kid	death.kid@deathcity.com	0	headmaster	/api/users/soul-eater/profile_images/LARGE	/api/users/soul-eater/profile_images/THUMB	/api/users/soul-eater/profile_images/TINY
-dark-soul	dark-star	dark.star@deathcity.com	0	assasin	/api/users/soul-eater2/profile_images/LARGE	/api/users/soul-eater2/profile_images/THUMB	/api/users/soul-eater2/profile_images/TINY
-fun-shine	Funshine Bear	funshine.bear@care.alot	1	bear	""	""	""
-good-luck	Goodluck Bear	good.luck.bear@care.alot	1	bear	""	""	""
+id	displayName	email	domainId	roleName	flags	imageLarge	imageMedium	imageSmall
+death	death	death@city.org	0	death	symmetrical	""	""	""
+soul-eater	death the kid	death.kid@deathcity.com	0	headmaster		/api/users/soul-eater/profile_images/LARGE	/api/users/soul-eater/profile_images/THUMB	/api/users/soul-eater/profile_images/TINY
+dark-soul	dark-star	dark.star@deathcity.com	0	assasin		/api/users/soul-eater2/profile_images/LARGE	/api/users/soul-eater2/profile_images/THUMB	/api/users/soul-eater2/profile_images/TINY
+fun-shine	Funshine Bear	funshine.bear@care.alot	1	bear	yellow  ""	""	""
+good-luck	Goodluck Bear	good.luck.bear@care.alot	1	bear	green   ""	""	""

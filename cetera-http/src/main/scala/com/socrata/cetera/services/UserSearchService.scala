@@ -40,7 +40,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
         SearchResults(Seq.empty, 0),
         InternalTimings(Timings.elapsedInMillis(now), Seq(0)),
         setCookies
-        )
+      )
     } else {
       val params = QueryParametersParser.prepUserParams(queryParameters)
       val searchParams = params.searchParamSet
@@ -50,15 +50,24 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
         case Some(d) => domainClient.find(d)
       }
 
-      val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
-      val formattedResults = SearchResults(users.flatMap(u => DomainUser(domain, u)), totalCount)
-      val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
-      (
-        OK,
-        formattedResults.copy(timings = Some(timings)),
-        timings,
-        setCookies
+      if (searchParams.domain.isDefined && domain.isEmpty){
+        (
+          NotFound,
+          SearchResults(Seq.empty, 0),
+          InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime)),
+          setCookies
         )
+      } else {
+        val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
+        val formattedResults = SearchResults(users.flatMap(u => DomainUser(domain, u)), totalCount)
+        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
+        (
+          OK,
+          formattedResults.copy(timings = Some(timings)),
+          timings,
+          setCookies
+          )
+      }
     }
   }
 
