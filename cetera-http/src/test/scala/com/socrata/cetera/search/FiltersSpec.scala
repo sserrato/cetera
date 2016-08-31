@@ -294,11 +294,21 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     }
   }
 
+  "UserFilters: flagFilter" should {
+    "return the expected filter" in {
+      val filter = UserFilters.flagFilter(Some(Set("admin"))).get
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"terms" : {"flags" : ["admin"]}}"""
+      actual should be(expected)
+    }
+  }
+
   "UserFilters: compositeFilter" should {
     "return the expected filter" in {
       val params = UserSearchParamSet(
         emails = Some(Set("admin@gmail.com")),
         screenNames = Some(Set("Ad men")),
+        flags = Some(Set("admin")),
         roles = Some(Set("admin"))
       )
       val filter = UserFilters.compositeFilter(params, Some(1042))
@@ -309,6 +319,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
             "must": [
               { "terms": {"email.raw": ["admin@gmail.com"]}},
               { "terms": {"screen_name.raw": ["Ad men"]}},
+              { "terms": {"flags": ["admin"]}},
               {
                 "nested": {
                   "path": "roles",

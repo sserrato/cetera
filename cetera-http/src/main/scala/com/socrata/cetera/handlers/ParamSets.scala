@@ -41,6 +41,7 @@ case class UserSearchParamSet(
     ids: Option[Set[String]] = None,
     emails: Option[Set[String]] = None,
     screenNames: Option[Set[String]] = None,
+    flags: Option[Set[String]] = None,
     roles: Option[Set[String]] = None,
     domain: Option[String] = None,
     query: Option[String] = None)

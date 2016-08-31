@@ -259,6 +259,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareScreenName(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterScreenName))
 
+  def prepareFlag(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterFlag))
+
   def prepareRole(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterRole))
 
@@ -327,6 +330,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
        prepareUserId(queryParameters),
        prepareEmail(queryParameters),
        prepareScreenName(queryParameters),
+       prepareFlag(queryParameters),
        prepareRole(queryParameters),
        prepareUserDomain(queryParameters),
        prepareUserQuery(queryParameters)
@@ -361,6 +365,7 @@ object Params {
   val filterId = "ids"
   val filterEmail = "emails"
   val filterScreenName = "screen_names"
+  val filterFlag = "flags"
   val filterRole = "roles"
   val filterDomain = "domain"
 

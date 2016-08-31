@@ -306,6 +306,9 @@ object UserFilters {
   def screenNameFilter(screenNames: Option[Set[String]]): Option[FilterBuilder] =
     screenNames.map(s => termsFilter(UserScreenName.rawFieldName, s.toSeq: _*))
 
+  def flagFilter(flags: Option[Set[String]]): Option[FilterBuilder] =
+    flags.map(r => termsFilter(UserFlag.fieldName, r.toSeq: _*))
+
   def roleFilter(roles: Option[Set[String]]): Option[FilterBuilder] =
     roles.map(r => termsFilter(UserRole.fieldName, r.toSeq: _*))
 
@@ -328,6 +331,7 @@ object UserFilters {
       idFilter(searchParams.ids),
       emailFilter(searchParams.emails),
       screenNameFilter(searchParams.screenNames),
+      flagFilter(searchParams.flags),
       nestedRolesFilter(searchParams.roles, domainId)
     ).flatten
     if (filters.isEmpty) {
