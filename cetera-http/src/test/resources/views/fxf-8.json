@@ -77,5 +77,7 @@
  "shared_to": [  ],
  "attribution": null,
  "preview_image_id": null,
-  "grants": []
+ "grants": [],
+ "hide_from_catalog": false,
+ "hide_from_data_json": false
 }

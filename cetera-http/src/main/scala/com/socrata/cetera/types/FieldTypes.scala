@@ -174,6 +174,14 @@ case object IsPublishedFieldType extends DocumentFieldType {
   val fieldName: String = "is_published"
 }
 
+case object HideFromCatalogFieldType extends DocumentFieldType {
+  val fieldName: String = "hide_from_catalog"
+}
+
+case object HideFromDataJsonFieldType extends DocumentFieldType {
+  val fieldName: String = "hide_from_data_json"
+}
+
 
 /////////////////////////////////////////////////
 // Domain-specific Categories, Tags, and Metadata

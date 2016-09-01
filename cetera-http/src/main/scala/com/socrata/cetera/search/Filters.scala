@@ -192,6 +192,11 @@ object DocumentFilters {
     notFilter(termFilter(prefix + IsPublishedFieldType.fieldName, false))
   }
 
+  def hideFromCatalogFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+    val prefix = if (isDomainAgg) esDocumentType + "." else ""
+    notFilter(termFilter(prefix + HideFromCatalogFieldType.fieldName, true))
+  }
+
   def searchParamsFilters(searchParams: SearchParamSet): List[FilterBuilder] = {
     val typeFilter = datatypeFilter(searchParams.datatypes)
     val ownerFilter = userFilter(searchParams.user)
@@ -207,7 +212,8 @@ object DocumentFilters {
       domainSet: DomainSet,
       user: Option[User],
       visibility: Visibility,
-      isDomainAgg: Boolean = false)
+      isDomainAgg: Boolean = false,
+      showHidden: Boolean = false)
     : List[FilterBuilder] = {
     val privacyFilter = if (visibility.publicOnly) Some(publicFilter(isDomainAgg)) else None
 
@@ -232,7 +238,13 @@ object DocumentFilters {
       None
     }
 
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
+    val hideFromCatalog = if (showHidden) {
+      None
+    } else {
+      Some(hideFromCatalogFilter())
+    }
+
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter, hideFromCatalog).flatten
   }
 
   def visibilityUserOverrideFilters(
@@ -255,7 +267,7 @@ object DocumentFilters {
     val searchFilters = searchParamsFilters(searchParams)
 
     // standard visibility: must satisfy all filters
-    val visFilters = visibilityFilters(domainSet, user, visibility)
+    val visFilters = visibilityFilters(domainSet, user, visibility, showHidden=searchParams.showHidden)
 
     // override visibility: satisfy any filter and supersedes standard visibility
     val visOverrideFilters = visibilityUserOverrideFilters(user, visibility)
