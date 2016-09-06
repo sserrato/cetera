@@ -29,9 +29,19 @@ case class DomainSet(
     }
   }
 
+  /**
+    * @param predicate to determine which partition a Domain should go into
+    * @return A tuple where the first element is all the ids of the domains that the predicate was
+    *         true for and the second is all the ids of the domains that the predicate is false for
+    */
+  private def partitionIds(predicate: Domain => Boolean): (Set[Int], Set[Int]) = {
+    val (trueDomains, falseDomains) = domains.partition(predicate)
+    (trueDomains.map(_.domainId), falseDomains.map(_.domainId))
+  }
+
   val contextIsModerated = searchContext.exists(_.moderationEnabled)
   val allIds = domains.map(_.domainId)
-  val moderationEnabledIds = domains.collect { case d: Domain if d.moderationEnabled => d.domainId }
-  val moderationDisabledIds = domains.collect { case d: Domain if !d.moderationEnabled => d.domainId }
-  val raDisabledIds = domains.collect { case d: Domain if !d.routingApprovalEnabled => d.domainId }
+  val (moderationEnabledIds, moderationDisabledIds) = partitionIds(_.moderationEnabled)
+  val (_, raDisabledIds) = partitionIds(_.routingApprovalEnabled)
+  val (unmigratedNbeEnabledIds, _) = partitionIds(_.unmigratedNbeEnabled)
 }

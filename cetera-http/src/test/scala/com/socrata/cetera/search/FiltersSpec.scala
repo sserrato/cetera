@@ -213,6 +213,30 @@ class FiltersSpec extends WordSpec with ShouldMatchers {
     }
   }
 
+  "DocumentFilters: unmigratedNbeFilter" should {
+    "return the expected filter when given no domain ids" in {
+      val filter = DocumentFilters.unmigratedNbeFilter(Set())
+      val actual = JsonReader.fromString(filter.toString)
+      val expected =
+        j"""{"bool": {"should":
+              {"exists": {"field": "socrata_id.obe_id" }}
+            }}"""
+      actual should be(expected)
+    }
+
+
+    "return the expected filter when given domains with unmigrated_nbe_enabled turned on" in {
+      val filter = DocumentFilters.unmigratedNbeFilter(Set(1, 2, 3))
+      val actual = JsonReader.fromString(filter.toString)
+      val expected =
+        j"""{"bool": {"should": [
+              {"exists": {"field": "socrata_id.obe_id" }},
+              {"terms": {"socrata_id.domain_id": [1, 2, 3] }}
+            ]}}"""
+      actual should be(expected)
+    }
+  }
+
   "DocumentFilters: publicFilter" should {
     "return the expected filter" in {
       val filter = DocumentFilters.publicFilter(false)

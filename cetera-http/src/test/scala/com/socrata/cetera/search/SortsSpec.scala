@@ -102,7 +102,8 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
         moderationEnabled = false,
         routingApprovalEnabled = true,
         lockedDown = false,
-        apiLockedDown = false
+        apiLockedDown = false,
+        unmigratedNbeEnabled = false
       )
 
       val searchParams = SearchParamSet(searchQuery = SimpleQuery("soup salad sandwich"))
