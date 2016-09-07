@@ -9,48 +9,9 @@ import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ElasticsearchBootstrap
 
-trait TestESData {
+trait TestESData extends TestESDomains with TestESUsers {
   val client: ElasticSearchClient
   val testSuiteName: String = getClass.getSimpleName.toLowerCase
-
-  val domains = {
-    val domainTSV = Source.fromInputStream(getClass.getResourceAsStream("/domains.tsv"))
-    val iter = domainTSV.getLines().map(_.split("\t"))
-    iter.drop(1) // drop the header columns
-    iter.map { tsvLine =>
-      Domain(
-        domainId = tsvLine(0).toInt,
-        domainCname = tsvLine(1),
-        siteTitle = Option(tsvLine(2)).filter(_.nonEmpty),
-        organization = Option(tsvLine(3)).filter(_.nonEmpty),
-        isCustomerDomain = tsvLine(4).toBoolean,
-        moderationEnabled = tsvLine(5).toBoolean,
-        routingApprovalEnabled = tsvLine(6).toBoolean,
-        lockedDown = tsvLine(7).toBoolean,
-        apiLockedDown = tsvLine(8).toBoolean,
-        unmigratedNbeEnabled = tsvLine(9).toBoolean
-      )
-    }.toSeq
-  }
-
-  val users = {
-    val userTSV = Source.fromInputStream(getClass.getResourceAsStream("/users.tsv"))
-    userTSV.getLines()
-    val iter = userTSV.getLines().map(_.split("\t"))
-    iter.drop(1) // drop the header columns
-    iter.map { tsvLine =>
-      EsUser(
-        id = tsvLine(0),
-        screenName = Option(tsvLine(1)).filter(_.nonEmpty),
-        email = Option(tsvLine(2)).filter(_.nonEmpty),
-        roles = Some(Set(Role(tsvLine(3).toInt, tsvLine(4)))),
-        flags = Option(List(tsvLine(5)).filter(_.nonEmpty)),
-        profileImageUrlLarge = Option(tsvLine(6)).filter(_.nonEmpty),
-        profileImageUrlMedium = Option(tsvLine(7)).filter(_.nonEmpty),
-        profileImageUrlSmall = Option(tsvLine(8)).filter(_.nonEmpty)
-      )
-    }.toSeq
-  }
 
   private val esDocTemplate: String =
     """{

@@ -70,9 +70,7 @@ class Router(
 
     // internal user search
     Route("/catalog/users", userSearchResource),
-    Route("/catalog/v1/users", userSearchResource),
-    Route("/whitepages", userSearchResource),   // TODO: remove when ruby gem replaces whitepages usage
-    Route("/whitepages/v1", userSearchResource)  // TODO: remove when ruby gem replaces whitepages usage
+    Route("/catalog/v1/users", userSearchResource)
   )
 
   def route(req: HttpRequest): HttpResponse =

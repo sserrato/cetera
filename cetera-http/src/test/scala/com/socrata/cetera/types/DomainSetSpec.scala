@@ -2,11 +2,9 @@ package com.socrata.cetera.types
 
 import org.scalatest._
 
-import com.socrata.cetera.{TestESClient, TestESData}
+import com.socrata.cetera.TestESDomains
 
-class DomainSetSpec extends WordSpec with ShouldMatchers with TestESData {
-
-  val client = new TestESClient(testSuiteName)
+class DomainSetSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "the idCnameMap" should {
     "return an empty map if no domains are given" in {

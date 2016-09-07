@@ -192,19 +192,13 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
     datasetResponse.resource should be (j"""${resource}""")
     datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
-    datasetResponse.metadata.get(esDomainType) match {
-      case Some(domain) => domain should be (JString("socrata.com"))
-      case None => fail("metadata.domain field missing")
-    }
+    datasetResponse.metadata.domain should be ("socrata.com")
 
     val pageResponse = results(1)
     pageResponse.resource should be (j"""${resource}""")
     pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
 
-    pageResponse.metadata.get(esDomainType) match {
-      case Some(domain) => domain should be (JString("second-socrata.com"))
-      case None => fail("metadata.domain field missing")
-    }
+    pageResponse.metadata.domain should be ("second-socrata.com")
   }
 
   test("SearchResponse does not throw on bad documents it just ignores them") {
@@ -385,9 +379,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     )
     val (_, res, _, _) = service.doSearch(params.mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
     val metadata = res.results.map(_.metadata)
-    val annabelleRes = metadata.filter(_.get("domain").get == "annabelle.island.net")
+    val annabelleRes = metadata.filter(_.domain == "annabelle.island.net")
     annabelleRes.foreach{ r =>
-      r.get("score").get should be(0.0)
+      r.score.get should be(0.0)
     }
   }
 

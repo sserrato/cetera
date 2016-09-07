@@ -51,15 +51,12 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
     params.mapValues(Seq(_))
   }
 
-  private def extractBoostedAndAnyOtherScore(results: SearchResults[SearchResult]): (Float, Float) = {
+  private def extractBoostedAndAnyOtherScore(results: SearchResults[SearchResult]): (BigDecimal, BigDecimal) = {
     val oneBoosted = results.results.find(_.resource.dyn.`type`.! == JString(boostedDatatype.singular)).head
     val oneOtherThing = results.results.find(_.resource.dyn.`type`.! != JString(boostedDatatype.singular)).head
 
-    def extractScore(result: SearchResult): Float = {
-      result.metadata("score") match {
-        case n: JNumber => n.toFloat
-        case _ => fail()
-      }
+    def extractScore(result: SearchResult): BigDecimal = {
+      result.metadata.score.getOrElse(fail())
     }
 
     (extractScore(oneBoosted), extractScore(oneOtherThing))

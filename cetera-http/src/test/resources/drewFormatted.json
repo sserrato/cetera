@@ -55,8 +55,13 @@
     ]
   },
   "metadata": {
-    "domain": "data.redmond.gov"
+    "domain": "petercetera.net",
+    "is_public": true,
+    "is_published":true,
+    "visible_to_anonymous": true,
+    "score": 0.98
   },
-  "permalink": "https://data.redmond.gov/d/94sr-dmsy",
-  "link": "https://data.redmond.gov/Finance/drew/94sr-dmsy"
+  "permalink": "https://petercetera.net/d/94sr-dmsy",
+  "link": "https://petercetera.net/Finance/drew/94sr-dmsy"
 }
+

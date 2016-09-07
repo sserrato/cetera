@@ -50,10 +50,25 @@ object Classification {
 }
 
 @JsonKeyStrategy(Strategy.Underscore)
+case class Metadata(
+    domain: String,
+    isPublic: Option[Boolean] = None,
+    isPublished: Option[Boolean] = None,
+    isModerationApproved: Option[Boolean] = None,
+    isRoutingApproved: Option[Boolean] = None,
+    isDatalensApproved: Option[Boolean] = None,
+    visibleToAnonymous: Option[Boolean] = None,
+    score: Option[BigDecimal] = None)
+
+object Metadata {
+  implicit val jCodec = AutomaticJsonCodecBuilder[Metadata]
+}
+
+@JsonKeyStrategy(Strategy.Underscore)
 case class SearchResult(
   resource: JValue,
   classification: Classification,
-  metadata: Map[String, JValue],
+  metadata: Metadata,
   permalink: JString,
   link: JString,
   previewImageUrl: Option[JString])

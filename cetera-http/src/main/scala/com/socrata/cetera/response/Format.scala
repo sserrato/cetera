@@ -121,58 +121,92 @@ object Format {
     case jv: JValue => throw new NoSuchElementException(s"Unexpected json value $jv")
   }
 
+  def previewImageId(j: JValue): Option[String] = extractJString(j.dyn.preview_image_id.?)
+
   def isPublic(j: JValue): Boolean = extractJBoolean(j.dyn.is_public.?).exists(identity)
 
   def isPublished(j: JValue): Boolean = extractJBoolean(j.dyn.is_published.?).exists(identity)
 
-  def isDefaultView(j: JValue): Boolean = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
+  private def literallyApproved(j: JValue): Boolean = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
 
-  def previewImageId(j: JValue): Option[String] = extractJString(j.dyn.preview_image_id.?)
-
-  def viewModerationApproved(j: JValue, domainSet: DomainSet, d: Domain): Boolean = {
-    val literallyApproved = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
-
-    (domainSet.contextIsModerated, d.moderationEnabled) match { // bee do bee do bee do bee do
-      case (true, false) => isDefaultView(j)
-      case (false, false) => isDefaultView(j) || literallyApproved || !isDatalens(j)
-      case (_, true) => isDefaultView(j) || literallyApproved
+  private def approvalsContainId(j: JValue, id: Int): Boolean = {
+    j.dyn.approving_domain_ids.! match {
+      case jn: JNumber => jn.toInt == id
+      case JArray(elems) => elems.map(_.asInstanceOf[JNumber].toInt).contains(id)
+      case _ => false
     }
   }
 
-  def routingApproved(j: JValue, domain: Domain): Boolean = {
-    val d = domainId(j).getOrElse(throw new NoSuchElementException)
-    j.dyn.approving_domain_ids.! match {
-      case jn: JNumber => Some(jn.toInt == d)
-      case JArray(elems) => Some(elems.map(_.asInstanceOf[JNumber].toInt).contains(d))
-      case _ => None
-    }
-  }.exists(identity) || !domain.routingApprovalEnabled
-
   val datalensTypeStrings = List(TypeDatalenses, TypeDatalensCharts, TypeDatalensMaps).map(_.singular)
-  def isDatalens(j: JValue): Boolean = extractJString(j.dyn.datatype.?).exists(t => datalensTypeStrings.contains(t))
+  def datalensApproved(j: JValue): Option[Boolean] = {
+    val isDatalens = extractJString(j.dyn.datatype.?).exists(t => datalensTypeStrings.contains(t))
+    if (isDatalens) Some(literallyApproved(j)) else None
+  }
 
-  // I know, let's implement visibility calculations in another place, great idea right!
-  private def calculateAnonymousVisibility(j: JValue, domainSet: DomainSet): JBoolean = {
-    val domain = domainId(j).flatMap { i => domainSet.idMap.get(i) }
+  def moderationApproved(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
+    val isDefault = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
 
-    val visibility = domain.map { d =>
-      isPublic(j) && isPublished(j) && routingApproved(j, d) && viewModerationApproved(j, domainSet, d)
-    }.exists(identity)
+    (domainSet.contextIsModerated, viewsDomain.moderationEnabled) match {
+      // if a view comes from a moderated domain (regardless of context), it must be a default view or approved
+      case (_, true) => Some(isDefault || literallyApproved(j))
+      // only default views from unmoderated domains can flow into moderated contexts.
+      case (true, false) => Some(isDefault)
+      // if moderation isn't enabled anywhere, views flow freely
+      case (false, false) => None
+    }
+  }
 
-    JBoolean(visibility)
+  def routingApproved(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
+    val viewDomainId = viewsDomain.domainId
+    (domainSet.contextHasRoutingApproval, viewsDomain.routingApprovalEnabled) match {
+      // if both context and domain have R&A enabled, both must approve the view (or its parent)
+      case (true, true) => Some(approvalsContainId(j, domainSet.searchContext.get.domainId) &&
+        approvalsContainId(j, viewsDomain.domainId))
+      // if only the context has R&A enabled, only the context must approve the view (or its parent)
+      case (true, false) => Some(approvalsContainId(j, domainSet.searchContext.get.domainId))
+      // if only the domain has R&A enabled, only the domain must approve the view (or its parent)
+      case (false, true) => Some(approvalsContainId(j, viewsDomain.domainId))
+      // if R&A isn't enabled anywhere, views flow freely
+      case (false, false) => None
+    }
+  }
+
+  def calculateVisibility(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Metadata = {
+    val public = isPublic(j)
+    val published = isPublished(j)
+    val routingApproval = routingApproved(j, viewsDomain, domainSet)
+    val moderationApproval = moderationApproved(j, viewsDomain, domainSet)
+    val datalensApproval = datalensApproved(j)
+    val anonymousVis = public & published & routingApproval.getOrElse(true) &
+      moderationApproval.getOrElse(true) & datalensApproval.getOrElse(true)
+    Metadata(
+      domain = viewsDomain.domainCname,
+      isPublic = Some(public),
+      isPublished = Some(published),
+      isModerationApproved = moderationApproval,
+      isRoutingApproved = routingApproval,
+      isDatalensApproved = datalensApproval,
+      visibleToAnonymous = Some(anonymousVis))
   }
 
   def documentSearchResult(
       j: JValue,
-      domainIdCnames: Map[Int, String],
+      domainSet: DomainSet,
       locale: Option[String],
       score: Option[JNumber],
-      visibility: Option[JBoolean])
+      showVisibility: Boolean)
     : Option[SearchResult] = {
     try {
-      val scoreMap = score.map(s => Seq("score" -> s)).getOrElse(Seq.empty)
-
-      val visibilityMap = visibility.map(v => Seq(visibleToAnonKey -> v)).getOrElse(Seq.empty)
+      val viewsDomainId = domainId(j).getOrElse(throw new NoSuchElementException)
+      val domainIdCnames = domainSet.idMap.map { case (i, d) => i -> d.domainCname }
+      val viewsDomain = domainSet.idMap.getOrElse(viewsDomainId, throw new NoSuchElementException)
+      val scoreMap = score.map(s => s.toBigDecimal)
+      val scorelessMetadata = if (showVisibility) {
+        calculateVisibility(j, viewsDomain, domainSet)
+      } else {
+        Metadata(viewsDomain.domainCname)
+      }
+      val metadata = scorelessMetadata.copy(score = score.map(_.toBigDecimal))
 
       val linkMap = links(
         cname(domainIdCnames, j),
@@ -192,7 +226,7 @@ object Format {
           domainCategory(j),
           domainTags(j),
           domainMetadata(j)),
-        Map(esDomainType -> JString(cname(domainIdCnames, j))) ++ scoreMap ++ visibilityMap,
+        metadata,
         linkMap.getOrElse("permalink", JString("")),
         linkMap.getOrElse("link", JString("")),
         linkMap.get("previewImageUrl"))
@@ -212,8 +246,7 @@ object Format {
     val searchResult = hits.hits().flatMap { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
       val score = if (formatParams.showScore) Some(JNumber(hit.score)) else None
-      val visibility = if (formatParams.showVisibility) Some(calculateAnonymousVisibility(json, domainSet)) else None
-      documentSearchResult(json, domainIdCnames, formatParams.locale, score, visibility)
+      documentSearchResult(json, domainSet, formatParams.locale, score, formatParams.showVisibility)
     }
     SearchResults(searchResult, hits.getTotalHits)
   }

@@ -38,7 +38,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
         Params.context -> domain,
         Params.filterDomains -> activeDomainCnames.mkString(","),
         s"""boostDomains[${domain}]""" -> "2").mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
-      results.results.head.metadata(esDomainType) should be(JString(domain))
+      results.results.head.metadata.domain should be(domain)
     }
   }
 
@@ -49,7 +49,7 @@ class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with Be
         Params.context -> domain,
         Params.filterDomains -> activeDomainCnames.mkString(","),
         s"""boostDomains[${domain}]""" -> "0.5").mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
-      results.results.head.metadata(esDomainType) shouldNot be(JString(domain))
+      results.results.head.metadata.domain shouldNot be(JString(domain))
     }
   }
 

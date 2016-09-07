@@ -117,7 +117,7 @@ class SearchServiceSpecWithPrivateData
   private def fxfsVisibility(searchResults: SearchResults[SearchResult]): Map[String, Boolean] =
     searchResults.results.map { hit =>
       val fxf = hit.resource.dyn.id.!.asInstanceOf[JString].string
-      val visibility = hit.metadata.getOrElse(Format.visibleToAnonKey, fail()).asInstanceOf[JBoolean].boolean
+      val visibility = hit.metadata.visibleToAnonymous.getOrElse(fail())
       fxf -> visibility
     }.toMap
 

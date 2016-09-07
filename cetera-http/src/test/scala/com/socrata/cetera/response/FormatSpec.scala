@@ -2,15 +2,16 @@ package com.socrata.cetera.response
 
 import scala.io.Source
 
-import com.rojoma.json.v3.ast.{JArray, JObject, JString}
+import com.rojoma.json.v3.ast.{JArray, JNumber, JObject, JString}
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.interpolation._
 import com.rojoma.json.v3.io.JsonReader
 import org.scalatest._
 
-import com.socrata.cetera.types.Datatype
+import com.socrata.cetera.TestESDomains
+import com.socrata.cetera.types.{Datatype, DomainSet}
 
-class FormatSpec  extends WordSpec with ShouldMatchers {
+class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   val drewRawString = Source.fromInputStream(getClass.getResourceAsStream("/drewRaw.json")).getLines().mkString("\n")
   val drewRawJson = JsonReader.fromString(drewRawString)
@@ -233,7 +234,7 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
 
     "return the expected cname if passed good json and complete domainId map" in {
       val drewCname = "data.redmond.gov"
-      val cname = Format.cname(Map(283 -> drewCname), drewRawJson)
+      val cname = Format.cname(Map(0 -> drewCname), drewRawJson)
       cname should be(drewCname)
     }
   }
@@ -274,21 +275,195 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
     }
   }
 
-  "the datasetName method" should {
-    "return None if passed unexpected json" in {
-      val datasetName = Format.datasetName(j"""{"huh":"this ain't right"}""")
-      datasetName should be(None)
+  "the isPublic method" should {
+    "return false if the is_public flag is missing" in {
+      val view = j"""{ }"""
+      Format.isPublic(view) should be(false)
     }
 
-    "return the expected cname if passed good json" in {
-      val datasetName = Format.datasetName(drewRawJson)
-      datasetName.get should be("drew")
+    "return false if the is_public flag is false" in {
+      val view = j"""{ "is_public": false }"""
+      Format.isPublic(view) should be(false)
+    }
+
+    "return true if the is_public flag is true" in {
+      val view = j"""{ "is_public": true }"""
+      Format.isPublic(view) should be(true)
+    }
+  }
+
+  "the isPublished method" should {
+    "return false if the is_published flag is missing" in {
+      val view = j"""{ }"""
+      Format.isPublished(view) should be(false)
+    }
+
+    "return false if the is_published flag is false" in {
+      val view = j"""{ "is_published": false }"""
+      Format.isPublished(view) should be(false)
+    }
+
+    "return true if the is_published flag is true" in {
+      val view = j"""{ "is_published": true }"""
+      Format.isPublished(view) should be(true)
+    }
+  }
+
+  "the datalensApproved method" should {
+    "return None if the view isn't a datalens" in {
+      val view = j"""{ "datatype": "chart" }"""
+      val fakeDatalens = j"""{ "datatype": "datalens_fake_thing" }"""
+
+      Format.datalensApproved(view) should be(None)
+      Format.datalensApproved(fakeDatalens) should be(None)
+    }
+
+    "return false if the datalens is rejected" in {
+      val view = j"""{ "datatype": "datalens", "is_moderation_approved": false }"""
+      Format.datalensApproved(view).get should be(false)
+    }
+
+    "return true if the datalens is approved (for all datalens types)" in {
+      val datalens = j"""{ "datatype": "datalens", "is_moderation_approved": true }"""
+      val datalensChart = j"""{ "datatype": "datalens_chart", "is_moderation_approved": true }"""
+      val datalensMap = j"""{ "datatype": "datalens_map", "is_moderation_approved": true }"""
+
+      Format.datalensApproved(datalens).get should be(true)
+      Format.datalensApproved(datalensChart).get should be(true)
+      Format.datalensApproved(datalensMap).get should be(true)
+    }
+  }
+
+  "the moderationApproved method" should {
+    "return None if the domain does not have moderation enabled and there is no search context" in {
+      val view = j"""{ }"""
+      val unmoderatedDomain = domains(0)
+      val noContext = DomainSet(searchContext = None)
+      Format.moderationApproved(view, unmoderatedDomain, noContext) should be(None)
+    }
+
+    "return None if neither the domain or the context have moderation enabled" in {
+      val view = j"""{ }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedContext = DomainSet(searchContext = Some(domains(2)))
+      Format.moderationApproved(view, unmoderatedDomain, moderatedContext) should be(None)
+    }
+
+    "return false if the view is rejected and the context (but not the domain) has moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
+      Format.moderationApproved(view, unmoderatedDomain, moderatedContext).get should be(false)
+    }
+
+    "return false if the view is rejected and the domain has moderation enabled (regardless of search context settings)" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
+      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
+      val noContext = DomainSet(searchContext = None)
+
+      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(false)
+      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(false)
+      Format.moderationApproved(view, moderatedDomain, noContext).get should be(false)
+    }
+
+    "return true if the view is a dataset in all relevant cases" in {
+      val view = j"""{ "datatype": "dataset", "is_default_view": true }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
+      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
+      val noContext = DomainSet(searchContext = None)
+
+      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(true)
+      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(true)
+      Format.moderationApproved(view, moderatedDomain, noContext).get should be(true)
+      Format.moderationApproved(view, unmoderatedDomain, moderatedContext).get should be(true)
+    }
+
+    "return true if the view is approved and the domain has moderation enabled (regardless of search context settings)" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
+      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
+      val noContext = DomainSet(searchContext = None)
+
+      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(true)
+      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(true)
+      Format.moderationApproved(view, moderatedDomain, noContext).get should be(true)
+    }
+  }
+
+  "the routingApproved method" should {
+    "return None if the domain does not have R&A enabled and there is no search context" in {
+      val view = j"""{ }"""
+      val unroutedDomain = domains(0)
+      val noContext = DomainSet(searchContext = None)
+      Format.routingApproved(view, unroutedDomain, noContext) should be(None)
+    }
+
+    "return None if neither the domain or the context have R&A enabled" in {
+      val view = j"""{ }"""
+      val unroutedDomain = domains(0)
+      val unroutedContext = DomainSet(searchContext = Some(domains(1)))
+      Format.routingApproved(view, unroutedDomain, unroutedContext) should be(None)
+    }
+
+    "return false if the dataset isn't approved by its parent domain (regardless of context)" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 0 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(2)
+      val routedContext = DomainSet(searchContext = Some(routedDomain))
+      val unroutedContext = DomainSet(searchContext = Some(unroutedDomain))
+      val noContext = DomainSet(searchContext = None)
+
+      Format.routingApproved(view, routedDomain, routedContext).get should be(false)
+      Format.routingApproved(view, routedDomain, unroutedContext).get should be(false)
+      Format.routingApproved(view, routedDomain, noContext).get should be(false)
+    }
+
+    "return false if the dataset isn't approved by the context (regardless of domain)" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 3 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(3)
+      val routedContext = DomainSet(searchContext = Some(domains(2)))
+
+      Format.routingApproved(view, unroutedDomain, routedContext).get should be(false)
+      Format.routingApproved(view, routedDomain, routedContext).get should be(false)
+    }
+
+    "return true if the dataset is approved by the context but is from a domain with R&A disabled" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(2)
+      val routedContext = DomainSet(searchContext = Some(routedDomain))
+      Format.routingApproved(view, unroutedDomain, routedContext).get should be(true)
+    }
+
+    "return true if the dataset is approved by its domain but and the context has R&A disabled" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(2)
+      val unroutedContext = DomainSet(searchContext = Some(unroutedDomain))
+      Format.routingApproved(view, routedDomain, unroutedContext).get should be(true)
+    }
+
+    "return true if the dataset is approved by both its domain and the context" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2, 3 ] }"""
+      val routedDomain = domains(2)
+      val routedContext = DomainSet(searchContext = Some(domains(3)))
+      Format.routingApproved(view, routedDomain, routedContext).get should be(true)
     }
   }
 
   "the documentSearchResult method" should {
     "return the expected payload if passed good json" in {
-      val actualResult = Format.documentSearchResult(drewRawJson, Map(283 -> "data.redmond.gov"), None, None, None).get
+      val unmoderatedUnroutedContext = DomainSet(domains = Set(domains(0)), searchContext = Some(domains(0)))
+      val actualResult = Format.documentSearchResult(drewRawJson, unmoderatedUnroutedContext, None, Some(JNumber(.98)), true).get
       val drewFormattedString = Source.fromInputStream(getClass.getResourceAsStream("/drewFormatted.json")).getLines().mkString("\n")
       val drewFormattedJson = JsonReader.fromString(drewFormattedString)
 
@@ -308,7 +483,9 @@ class FormatSpec  extends WordSpec with ShouldMatchers {
     }
 
     "return None if passed bad json" in {
-      val actualResult = Format.documentSearchResult(j"""{"bad": "json"}""", Map.empty, None, None, None)
+      val view = j"""{"bad": "json", "socrata_id": { "domain_id": 0} }"""
+      val unmoderatedUnroutedContext = DomainSet(domains = Set(domains(0)), searchContext = Some(domains(0)))
+      val actualResult = Format.documentSearchResult(view, unmoderatedUnroutedContext, None, None, false)
       actualResult should be(None)
     }
   }
