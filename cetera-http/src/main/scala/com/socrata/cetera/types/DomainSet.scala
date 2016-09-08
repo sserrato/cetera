@@ -43,5 +43,4 @@ case class DomainSet(
   val allIds = domains.map(_.domainId)
   val (moderationEnabledIds, moderationDisabledIds) = partitionIds(_.moderationEnabled)
   val (_, raDisabledIds) = partitionIds(_.routingApprovalEnabled)
-  val (unmigratedNbeEnabledIds, _) = partitionIds(_.unmigratedNbeEnabled)
 }

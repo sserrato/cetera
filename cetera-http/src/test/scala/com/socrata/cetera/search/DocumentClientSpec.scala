@@ -119,7 +119,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val raApprovedFilter = j"""{"term": {"is_approved_by_parent_domain": true}}"""
   val moderationFilter = j"""{"bool": { "should": [$defaultViewFilter, $modApprovedFilter]}}"""
   val routingApprovalFilter = j"""{"bool": {"must": {"bool": {"should": $raApprovedFilter}}}}"""
-  val unmigratedNbeFilter = j"""{"bool": {"should": {"exists": {"field": "socrata_id.obe_id"}}}}"""
 
   val defaultFilter = j"""{
     "bool": {
@@ -128,8 +127,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publicFilter},
         ${publishedFilter},
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${unmigratedNbeFilter}]}
+        ${routingApprovalFilter}]}
   }"""
 
   val defaultFilterPlusDomainIds = j"""{
@@ -139,8 +137,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publishedFilter},
         ${domainsFilter},
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${unmigratedNbeFilter}]}
+        ${routingApprovalFilter}]}
   }"""
 
   val datatypeDatasetsFilter = j"""{
@@ -218,8 +215,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
               ${publicFilter},
               ${publishedFilter},
               ${moderationFilter},
-              ${routingApprovalFilter},
-              ${unmigratedNbeFilter}
+              ${routingApprovalFilter}
             ]
           }
         },
@@ -312,8 +308,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
               {"bool" :{"must" :{"bool" :{"should" :[
                 $domain42Filter,
                 $raApprovedFilter
-              ]}}}},
-              {"bool": {"should": {"exists": {"field": "socrata_id.obe_id"}}}}
+              ]}}}}
             ]}},
             $domain42Filter
           ]}},

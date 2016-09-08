@@ -443,18 +443,6 @@ trait TestESData {
         attribution = None, previewImageId = None,
         Some("zeta-009"), Some("data-0009")
       )),
-      // This document is a essentially a copy of "zeta-0008" but should never show up as a result because
-      // it is a NBE only dataset on a domain that does not display NBE only datasets
-      (10, buildEsDoc(
-        "zeta-0010", None, 0,
-        "a nbe only dataset",  "zeta-0009", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0010", Seq.empty, "", None, Map.empty, Map.empty, TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(0), isApprovedByParentDomain = true,
-        "42", "Fun", List("fake", "king"), 0L, "barack-obama", "Barack Obama", Seq.empty,
-        attribution = None, previewImageId = None,
-        Some("zeta-0010"), None
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
