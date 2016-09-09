@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
@@ -20,9 +20,8 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8034)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val service = new DomainCountService(domainClient, verificationClient)
+  val service = new DomainCountService(domainClient, coreClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -89,9 +88,8 @@ class DomainCountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8035)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val service = new DomainCountService(domainClient, verificationClient)
+  val service = new DomainCountService(domainClient, coreClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

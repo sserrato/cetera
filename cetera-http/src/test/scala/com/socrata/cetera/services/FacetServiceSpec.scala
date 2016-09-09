@@ -17,9 +17,8 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Match
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.errors.{DomainNotFoundError, UnauthorizedError}
-import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
 
@@ -34,10 +33,9 @@ class FacetServiceSpec
   val httpClient = new TestHttpClient()
   val coreTestPort = 8035
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new FacetService(documentClient, domainClient, verificationClient)
+  val service = new FacetService(documentClient, domainClient, coreClient)
   val mockServer = startClientAndServer(coreTestPort)
 
   override def beforeEach(): Unit = {
@@ -255,10 +253,9 @@ class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8036)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new FacetService(documentClient, domainClient, verificationClient)
+  val service = new FacetService(documentClient, domainClient, coreClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

@@ -13,7 +13,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.response.SearchResults
@@ -25,10 +25,9 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
   val esClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8031)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(esClient, coreClient, testSuiteName)
   val documentClient = new DocumentClient(esClient, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient, verificationClient)
+  val service = new CountService(documentClient, domainClient, coreClient)
 
   override protected def afterAll(): Unit = {
     esClient.close() // Important!!
@@ -128,10 +127,9 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8032)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient, verificationClient)
+  val service = new CountService(documentClient, domainClient, coreClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -190,10 +188,9 @@ class CountServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
   val client: ElasticSearchClient = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8033)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient, verificationClient)
+  val service = new CountService(documentClient, domainClient, coreClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""

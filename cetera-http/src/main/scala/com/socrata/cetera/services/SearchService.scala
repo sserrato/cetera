@@ -9,16 +9,15 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.{AuthParams, CoreClient}
 import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers._
-import com.socrata.cetera.handlers.ParamValidator
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.JsonResponses._
-import com.socrata.cetera.response._
 import com.socrata.cetera.response.SearchResults._
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
+import com.socrata.cetera.response._
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.LogHelper
 
@@ -26,7 +25,7 @@ class SearchService(
     documentClient: BaseDocumentClient,
     domainClient: BaseDomainClient,
     balboaClient: BalboaClient,
-    verificationClient: VerificationClient) extends SimpleResource {
+    coreClient: CoreClient) extends SimpleResource {
   lazy val logger = LoggerFactory.getLogger(classOf[SearchService])
 
   def logSearchTerm(domain: Option[Domain], query: QueryType): Unit = {
@@ -41,19 +40,16 @@ class SearchService(
 
   def doSearch(
       queryParameters: MultiQueryParams,
-      visibility: Visibility,
+      requireAuth: Boolean,
       authParams: AuthParams,
       extendedHost: Option[String],
       requestId: Option[String])
     : (StatusResponse, SearchResults[SearchResult], InternalTimings, Seq[String]) = {
 
     val now = Timings.now()
-    val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
+    val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
 
-    // If authentication is required (varies by endpoint, see Visibility) then respond OK only when a valid user is
-    // authorized, otherwise respond HTTP/401 Unauthorized.
-    if (authorizedUser.isEmpty && visibility.authenticationRequired) {
+    if (requireAuth && authorizedUser.isEmpty ) {
       throw UnauthorizedError(authorizedUser, "search the internal catalog")
     } else {
       QueryParametersParser(queryParameters, extendedHost) match {
@@ -63,35 +59,29 @@ class SearchService(
 
         case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)) =>
           val authedUserId = authorizedUser.map(_.id)
-          val paramValidator = ParamValidator(searchParams, authedUserId, visibility)
-          if (!paramValidator.userParamsAuthorized) {
-            throw UnauthorizedError(authorizedUser, "search another users shared files")
-          } else {
-            val (domains, domainSearchTime) = domainClient.findSearchableDomains(
-              searchParams.searchContext, extendedHost, searchParams.domains,
-              excludeLockedDomains = true, authorizedUser, requestId
-            )
-            val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
-            val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
+          val (domains, domainSearchTime) = domainClient.findSearchableDomains(
+            searchParams.searchContext, extendedHost, searchParams.domains,
+            excludeLockedDomains = true, authorizedUser, requestId
+          )
+          val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
+          val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
+          val req = documentClient.buildSearchRequest(
+            domainSet,
+            searchParams, scoringParams, pagingParams,
+            authedUser, requireAuth
+          )
+          logger.info(LogHelper.formatEsRequest(req))
+          val res = req.execute.actionGet
+          val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
+          val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
+          logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 
-            val req = documentClient.buildSearchRequest(
-              domainSet,
-              searchParams, scoringParams, pagingParams,
-              authedUser, visibility
-            )
-            logger.info(LogHelper.formatEsRequest(req))
-            val res = req.execute.actionGet
-            val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
-            val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-            logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
-
-            (OK, formattedResults.copy(timings = Some(timings)), timings, setCookies)
-          }
-      }
+          (OK, formattedResults.copy(timings = Some(timings)), timings, setCookies)
+        }
     }
   }
 
-  def search(visibility: Visibility)(req: HttpRequest): HttpResponse = {
+  def search(requireAuth: Boolean)(req: HttpRequest): HttpResponse = {
     logger.debug(LogHelper.formatHttpRequestVerbose(req))
 
     val authParams = AuthParams.fromHttpRequest(req)
@@ -100,7 +90,7 @@ class SearchService(
 
     try {
       val (status, formattedResults, timings, setCookies) =
-        doSearch(req.multiQueryParams, visibility, authParams, extendedHost, requestId)
+        doSearch(req.multiQueryParams, requireAuth, authParams, extendedHost, requestId)
 
       logger.info(LogHelper.formatRequest(req, timings))
       Http.decorate(Json(formattedResults, pretty = true), status, setCookies)
@@ -123,8 +113,8 @@ class SearchService(
   }
 
   // $COVERAGE-OFF$ jetty wiring
-  case class Service(visibility: Visibility) extends SimpleResource {
-    override def get: HttpService = search(visibility)
+  case class Service(requireAuth: Boolean) extends SimpleResource {
+    override def get: HttpService = search(requireAuth)
   }
 
   // $COVERAGE-ON$

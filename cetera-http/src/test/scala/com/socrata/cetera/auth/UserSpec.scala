@@ -1,69 +1,114 @@
 package com.socrata.cetera.auth
 
-import org.scalatest.{WordSpec, ShouldMatchers}
+import org.scalatest.{ShouldMatchers, WordSpec}
 
-class UserSpec extends WordSpec with ShouldMatchers {
+import com.socrata.cetera.TestESDomains
+
+class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
   val superAdmin = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
-  val customerAdmin = User("", None, roleName = Some("administrator"), rights = None, flags = None)
-  val customerEditor = User("", None, roleName = Some("editor"), rights = None, flags = None)
-  val customerPublisher = User("", None, roleName = Some("publisher"), rights = None, flags = None)
-  val customerViewer = User("", None, roleName = Some("viewer"), rights = None, flags = None)
+  val customerAdmin = User("", Some(domains(8)), roleName = Some("administrator"), rights = None, flags = None)
+  val customerEditor = User("", Some(domains(8)), roleName = Some("editor"), rights = None, flags = None)
+  val customerPublisher = User("", Some(domains(8)), roleName = Some("publisher"), rights = None, flags = None)
+  val customerViewer = User("", Some(domains(8)), roleName = Some("viewer"), rights = None, flags = None)
+  val customerDesigner = User("", Some(domains(8)), roleName = Some("designer"), rights = None, flags = None)
   val anonymous = User("", None, roleName = None, rights = None, flags = None)
+  val adminWithoutAuthenticatingDomain = User("", None, roleName = Some("administrator"), rights = None, flags = None)
+
+  "The authorizedOnDomain method" should {
+    "return false if the user has no authenticating domain" in  {
+      domains.foreach { d =>
+        adminWithoutAuthenticatingDomain.authorizedOnDomain(d) should be(false)
+      }
+    }
+
+    "return false if the user has an authenticating domain but is trying to authenticate on a different domain" in  {
+      customerAdmin.authorizedOnDomain(domains(1)) should be(false)
+    }
+
+    "return true if the user has an authenticating domain and is trying to authenticate on that domain" in  {
+      customerAdmin.authorizedOnDomain(domains(8)) should be(true)
+    }
+  }
+
+  "The canViewResource method" should {
+    "return false if the user has no authenticating domain and is not a super admin" in  {
+      adminWithoutAuthenticatingDomain.canViewResource(domains(1), isAuthorized = true) should be(false)
+    }
+
+    "return false if the user has an authenticating domain but is trying to authenticate on a different domain" in  {
+      customerAdmin.canViewResource(domains(1), isAuthorized = true) should be(false)
+    }
+
+    "return false if the user has an authenticating domain and is trying to authenticate on that domain but is not authorized" in  {
+      customerAdmin.canViewResource(domains(8), isAuthorized = false) should be(false)
+    }
+
+    "return true if the user is a super admin" in  {
+      domains.foreach { d =>
+        superAdmin.canViewResource(d, isAuthorized = false) should be(true)
+      }
+    }
+
+    "return true if the user has an authenticating domain and is trying to authenticate on that domain and is authorized" in  {
+      customerAdmin.canViewResource(domains(8), isAuthorized = true) should be(true)
+    }
+  }
 
   "The canViewLockedDownCatalog method" should {
     "return true if the user is a super admin" in {
-      superAdmin.canViewLockedDownCatalog should be(true)
+      superAdmin.canViewLockedDownCatalog(domains(6)) should be(true)
     }
 
-    "return true if the user has a role" in {
-      customerAdmin.canViewLockedDownCatalog should be(true)
-      customerEditor.canViewLockedDownCatalog should be(true)
-      customerPublisher.canViewLockedDownCatalog should be(true)
-      customerViewer.canViewLockedDownCatalog should be(true)
+    "return true if the user has a supported role from the authenticating domain" in {
+      customerAdmin.canViewLockedDownCatalog(domains(8)) should be(true)
+      customerEditor.canViewLockedDownCatalog(domains(8)) should be(true)
+      customerPublisher.canViewLockedDownCatalog(domains(8)) should be(true)
+      customerViewer.canViewLockedDownCatalog(domains(8)) should be(true)
+    }
+
+    "return false if the user has a role from the authenticating domain but it isn't supported" in {
+      customerDesigner.canViewLockedDownCatalog(domains(8)) should be(false)
+    }
+
+    "return false if the user has a role but it isn't from the authenticating domain" in {
+      customerAdmin.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerEditor.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerPublisher.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerViewer.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerDesigner.canViewLockedDownCatalog(domains(7)) should be(false)
     }
 
     "return false if the user is anonymous" in {
-      anonymous.canViewLockedDownCatalog should be(false)
+      anonymous.canViewLockedDownCatalog(domains(8)) should be(false)
     }
   }
 
-  "The canViewAdminDatasets method" should {
+  "The canViewAllViews method" should {
     "return true if the user is a super admin" in {
-      superAdmin.canViewAdminDatasets should be(true)
+      superAdmin.canViewAllViews(domains(6)) should be(true)
     }
 
-    "return true if the user has an elevated role" in {
-      customerAdmin.canViewAdminDatasets should be(true)
-      customerPublisher.canViewAdminDatasets should be(true)
+    "return true if the user has a supported role from the authenticating domain" in {
+      customerAdmin.canViewAllViews(domains(8)) should be(true)
+      customerDesigner.canViewAllViews(domains(8)) should be(true)
+      customerPublisher.canViewAllViews(domains(8)) should be(true)
+      customerViewer.canViewAllViews(domains(8)) should be(true)
     }
 
-    "return false if the user has an other role" in {
-      customerEditor.canViewAdminDatasets should be(false)
-      customerViewer.canViewAdminDatasets should be(false)
+    "return false if the user has a role from the authenticating domain but it isn't supported" in {
+      customerEditor.canViewAllViews(domains(8)) should be(false)
+    }
+
+    "return false if the user has a role but it isn't from the authenticating domain" in {
+      customerAdmin.canViewAllViews(domains(7)) should be(false)
+      customerEditor.canViewAllViews(domains(7)) should be(false)
+      customerPublisher.canViewAllViews(domains(7)) should be(false)
+      customerViewer.canViewAllViews(domains(7)) should be(false)
+      customerDesigner.canViewAllViews(domains(7)) should be(false)
     }
 
     "return false if the user is anonymous" in {
-      anonymous.canViewAdminDatasets should be(false)
-    }
-  }
-
-  "The canViewAssetSelector method" should {
-    "return true if the user is a super admin" in {
-      superAdmin.canViewAssetSelector should be(true)
-    }
-
-    "return true if the user has an elevated role" in {
-      customerAdmin.canViewAssetSelector should be(true)
-      customerPublisher.canViewAssetSelector should be(true)
-    }
-
-    "return true if the user has an other role" in {
-      customerEditor.canViewAssetSelector should be(true)
-      customerViewer.canViewAssetSelector should be(true)
-    }
-
-    "return false if the user is anonymous" in {
-      anonymous.canViewAssetSelector should be(false)
+      anonymous.canViewAllViews(domains(8)) should be(false)
     }
   }
 
@@ -72,11 +117,11 @@ class UserSpec extends WordSpec with ShouldMatchers {
       superAdmin.canViewUsers should be(true)
     }
 
-    "return true if the use is a customer admin" in {
+    "return true if the user is a customer admin" in {
       customerAdmin.canViewUsers should be(true)
     }
 
-    "return false if the user has an other role" in {
+    "return false if the user has any other role" in {
       customerEditor.canViewUsers should be(false)
       customerPublisher.canViewUsers should be(false)
       customerViewer.canViewUsers should be(false)

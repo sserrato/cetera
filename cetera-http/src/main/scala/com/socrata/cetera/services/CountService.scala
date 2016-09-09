@@ -13,20 +13,20 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
-import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError}
+import com.socrata.cetera.auth.{AuthParams, CoreClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.LogHelper
 
 class CountService(
     documentClient: BaseDocumentClient,
     domainClient: BaseDomainClient,
-    verificationClient: VerificationClient) {
+    coreClient: CoreClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[CountService])
   val bucketName = "buckets"
 
@@ -63,8 +63,7 @@ class CountService(
 
     val now = Timings.now()
 
-    val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
+    val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
 
     QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
@@ -79,7 +78,7 @@ class CountService(
         val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
 
         val search =
-          documentClient.buildCountRequest(field, domainSet, searchParams, authedUser, Visibility.anonymous)
+          documentClient.buildCountRequest(field, domainSet, searchParams, authedUser, requireAuth = false)
         logger.info(LogHelper.formatEsRequest(search))
 
         val res = search.execute.actionGet
@@ -97,6 +96,7 @@ class CountService(
   }
 
   // $COVERAGE-OFF$ jetty wiring
+  // scalastyle:ignore cyclomatic.complexity
   def aggregate(field: DocumentFieldType with Countable with Rawable)(req: HttpRequest): HttpResponse = {
     implicit val cEncode = field match {
       case CategoriesFieldType => Count.encode("category")
@@ -123,6 +123,9 @@ class CountService(
       case e: DomainNotFoundError =>
         logger.error(e.getMessage)
         NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: UnauthorizedError =>
+        logger.error(e.getMessage)
+        Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

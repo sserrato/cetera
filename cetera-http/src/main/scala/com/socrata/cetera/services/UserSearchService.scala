@@ -9,7 +9,7 @@ import com.socrata.http.server.routing.SimpleResource
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, User, VerificationClient}
+import com.socrata.cetera.auth.{AuthParams, CoreClient}
 import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
@@ -20,7 +20,7 @@ import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types.DomainUser
 import com.socrata.cetera.util.LogHelper
 
-class UserSearchService(userClient: UserClient, verificationClient: VerificationClient, domainClient: DomainClient) {
+class UserSearchService(userClient: UserClient, domainClient: DomainClient, coreClient: CoreClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
   def doSearch(
@@ -31,9 +31,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
     : (StatusResponse, SearchResults[DomainUser], InternalTimings, Seq[String]) = {
 
     val now = Timings.now()
-
-    val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, {u: User => u.canViewUsers})
+    val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
 
     if (authorizedUser.isEmpty) {
       throw UnauthorizedError(authorizedUser, "search users")
@@ -53,7 +51,9 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
       if (searchParams.domain.isDefined && domain.isEmpty){
         throw DomainNotFoundError(searchParams.domain.get)
       } else {
-        val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
+        val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainForRoles))
+        val (users, totalCount, userSearchTime) =
+          userClient.search(searchParams, pagingParams, domain.map(_.domainId), authedUser)
 
         val formattedResults = SearchResults(users.flatMap(u => DomainUser(domainForRoles, u)), totalCount)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))

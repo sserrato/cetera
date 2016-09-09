@@ -6,16 +6,16 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera.errors.JsonDecodeException
 
 @JsonKeyStrategy(Strategy.Underscore)
-case class Domain(domainId: Int,
-                  domainCname: String,
-                  siteTitle: Option[String],
-                  organization: Option[String],
-                  isCustomerDomain: Boolean,
-                  moderationEnabled: Boolean,
-                  routingApprovalEnabled: Boolean,
-                  lockedDown: Boolean,
-                  apiLockedDown: Boolean,
-                  unmigratedNbeEnabled: Boolean) {
+case class Domain(
+    domainId: Int,
+    domainCname: String,
+    siteTitle: Option[String],
+    organization: Option[String],
+    isCustomerDomain: Boolean,
+    moderationEnabled: Boolean,
+    routingApprovalEnabled: Boolean,
+    lockedDown: Boolean,
+    apiLockedDown: Boolean) {
 
   def isLocked: Boolean = lockedDown || apiLockedDown
 }

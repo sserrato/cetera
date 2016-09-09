@@ -14,6 +14,7 @@ case class SearchParamSet(
     sharedTo: Option[String] = None,
     attribution: Option[String] = None,
     parentDatasetId: Option[String] = None,
+    ids: Option[Set[String]] = None,
     showHidden: Boolean = false)
 
 case class ScoringParamSet(

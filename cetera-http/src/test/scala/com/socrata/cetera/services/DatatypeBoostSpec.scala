@@ -1,10 +1,10 @@
 package com.socrata.cetera.services
 
-import com.rojoma.json.v3.ast.{JNumber, JString}
+import com.rojoma.json.v3.ast.JString
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{SearchResult, SearchResults}
@@ -18,11 +18,10 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8033)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
   override protected def beforeAll(): Unit = {
     bootstrapData()
@@ -63,19 +62,19 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   }
 
   test("simple query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(SimpleQuery("one")), false, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("no query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(NoQuery), Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(NoQuery), false, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }
 
   test("advanced query - increases score when datatype matches") {
-    val (_, results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(constructQueryParams(AdvancedQuery("one OR two OR three OR four")), false, AuthParams(), None, None)
     val (boostedScore, otherScore) = extractBoostedAndAnyOtherScore(results)
     boostedScore should be > otherScore
   }

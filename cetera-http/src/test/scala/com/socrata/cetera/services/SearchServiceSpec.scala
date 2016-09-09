@@ -25,7 +25,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, MockHttpServletResponse}
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.handlers.{FormatParamSet, Params}
 import com.socrata.cetera.metrics.BalboaClient
@@ -38,11 +38,10 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8036)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
   override protected def afterAll(): Unit = {
     client.close() // Important!!
@@ -52,9 +51,9 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   val emptySearchHitMap = Map[String,SearchHitField]().asJava
 
   val domains = Set(
-    Domain(0, "socrata.com", None, None, true, false, false, false, false, true),
-    Domain(1, "first-socrata.com", None, None, true, false, false, false, false, false),
-    Domain(2, "second-socrata.com", None, None, true, false, false, false ,false, false))
+    Domain(0, "socrata.com", None, None, true, false, false, false, false),
+    Domain(1, "first-socrata.com", None, None, true, false, false, false, false),
+    Domain(2, "second-socrata.com", None, None, true, false, false, false, false))
   val domainSet = DomainSet(domains = domains)
 
   val searchResponse = {
@@ -167,17 +166,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   }
 
   test("extract and format resources from SearchResponse") {
-    val domain = Domain(
-      1,
-      "tempuri.org",
-      Some("Title"),
-      Some("Temp Org"),
-      isCustomerDomain = true,
-      moderationEnabled = false,
-      routingApprovalEnabled = false,
-      lockedDown = false,
-      apiLockedDown = false,
-      unmigratedNbeEnabled = false)
+    val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"), isCustomerDomain = true, moderationEnabled = false, routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
     val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, searchResponse)
@@ -203,10 +192,7 @@ class SearchServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAl
   }
 
   test("SearchResponse does not throw on bad documents it just ignores them") {
-    val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"),
-                        isCustomerDomain = true, moderationEnabled = false,
-                        routingApprovalEnabled = false, lockedDown = false,
-                        apiLockedDown = false, unmigratedNbeEnabled = false)
+    val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"), isCustomerDomain = true, moderationEnabled = false, routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
     val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, badSearchResponse)
@@ -237,13 +223,12 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8037)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaDir = new File("balboa_test_trash")
   val balboaClient = new BalboaClient(balboaDir.getName)
 
-  val service = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
   def emptyAndRemoveDir(dir: File): Unit = {
     if (dir.isDirectory) {
@@ -281,12 +266,12 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "bad-domain.com"
     ).mapValues(Seq(_))
     intercept[DomainNotFoundError] {
-      service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+      service.doSearch(params, false, AuthParams(), None, None)
     }
   }
 
   test("search response contains pretty and perma links") {
-    service.doSearch(Map.empty, Visibility.anonymous, AuthParams(), None, None)._2.results.foreach { r =>
+    service.doSearch(Map.empty, false, AuthParams(), None, None)._2.results.foreach { r =>
       val dsid = r.resource.dyn.id.!.asInstanceOf[JString].string
 
       val perma = "(d|stories/s|view)"
@@ -305,7 +290,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "opendata-demo.socrata.com",
       "q" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    service.doSearch(params, false, AuthParams(), None, None)._2.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
   }
@@ -317,7 +302,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "search_context" -> "opendata-demo.socrata.com",
       "q_internal" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    service.doSearch(params, false, AuthParams(), None, None)._2.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(true)
   }
@@ -328,23 +313,21 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "domains" -> "opendata-demo.socrata.com,petercetera.net",
       "q" -> query
     ).mapValues(Seq(_))
-    service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    service.doSearch(params, false, AuthParams(), None, None)._2.results
     val metricsFile = balboaDir.listFiles()(0)
     wasSearchQueryLogged(metricsFile.getAbsolutePath, query) should be(false)
   }
 
   test("search response without a searchContext should have the correct set of documents") {
-    // only domains 0, 2, 3 and 4 are unlocked, customer domains
-    // domain 0 has fxf-0, fxf-4, fxf-8, zeta-0001 and zeta-0007 that are anonymously viewable
-    // domain 2 has fxf-10 that is anonymously viewable
-    // domain 3 has zeta-0002 and zeta-0005 that are anonymously viewable
-    // domain 4 has no data at all
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007")
+    val customerDomainIds = domains.filter(d => d.isCustomerDomain).map(_.domainId)
+    val anonymousCustomerDocs = anonymouslyViewableDocs.filter(d => customerDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = anonymousCustomerDocs.map(_.socrataId.datasetId)
+
     // this shows that:
     //   * rejected and pending views don't show up regardless of domain setting
     //   * that the ES type returned includes only documents (i.e. no domains)
     //   * that non-customer domains don't show up
-    val (_, res, _, _) = service.doSearch(Map.empty, Visibility.anonymous, AuthParams(), None, None)
+    val (_, res, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -355,7 +338,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       s"${Params.boostDomains}[annabelle.island.net]" -> "0.0",
       Params.showScore -> "true"
     )
-    val (_, res, _, _) = service.doSearch(params.mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
+    val (_, res, _, _) = service.doSearch(params.mapValues(Seq(_)), false, AuthParams(), None, None)
     val metadata = res.results.map(_.metadata)
     val annabelleRes = metadata.filter(_.domain == "annabelle.island.net")
     annabelleRes.foreach{ r =>
@@ -369,7 +352,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       Params.filterDomains -> "petercetera.net",
       Params.context -> "petercetera.net",
       Params.querySimple -> "private"
-    ).mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
+    ).mapValues(Seq(_)), false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -380,7 +363,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       Params.filterDomains -> "petercetera.net",
       Params.context -> "petercetera.net",
       Params.querySimple -> "unpublished"
-    ).mapValues(Seq(_)), Visibility.anonymous, AuthParams(), None, None)
+    ).mapValues(Seq(_)), false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -393,7 +376,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // of those fxfs, only show: fxf-1 is approved and fxf-8 is a default view
     val expectedFxfs = Set("fxf-1", "fxf-8", "zeta-0007")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -405,10 +388,32 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // only these fxfs are approved by parent domain:
     val expectedFxfs = Set("fxf-10")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
+
+  // contrast this test to that in SearchServiceSpecWithPrivateData
+  test("if a domain is locked and no auth is provided, nothing should come back") {
+    val lockedDomain = domains(8).domainCname
+    val params = Map(
+      "domains" -> lockedDomain,
+      "search_context" -> lockedDomain
+    ).mapValues(Seq(_))
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
+    val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    // ensure nothing comes back
+    actualFxfs should be('empty)
+
+    // ensure something could have come back
+    val docFrom8 = docs(18)
+    docFrom8.socrataId.domainId should be(domains(8).domainId)
+    docFrom8.isPublic should be(true)
+    docFrom8.isPublished should be(true)
+    docFrom8.isApprovedByParentDomain should be(true)
+    docFrom8.isModerationApproved.get should be(true)
+  }
+
 
   test("if a search context has routing & approval, only datasets approved by that domain too should show up") {
     val params = Map(
@@ -417,7 +422,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
     // only these fxfs are approved by search context AND parent domain:
     val expectedFxfs = Set("fxf-10", "zeta-0002")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
@@ -427,7 +432,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "for_user" -> "robin-hood"
     ).mapValues(Seq(_))
     val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -440,7 +445,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set("zeta-0002", "zeta-0005")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -452,7 +457,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set("fxf-4", "fxf-8", "fxf-10")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -466,9 +471,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, Visibility.anonymous, AuthParams(), None, None)
+    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, false, AuthParams(), None, None)
+    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, false, AuthParams(), None, None)
+    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, false, AuthParams(), None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -483,9 +488,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, Visibility.anonymous, AuthParams(), None, None)
+    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, false, AuthParams(), None, None)
+    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, false, AuthParams(), None, None)
+    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, false, AuthParams(), None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -499,9 +504,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, Visibility.anonymous, AuthParams(), None, None)
+    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, false, AuthParams(), None, None)
+    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, false, AuthParams(), None, None)
+    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, false, AuthParams(), None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -516,9 +521,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val paramsLowerCase = paramsTitleCase.mapValues(_.map(_.toLowerCase))
     val paramsUpperCase = paramsTitleCase.mapValues(_.map(_.toUpperCase))
 
-    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, Visibility.anonymous, AuthParams(), None, None)
-    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, Visibility.anonymous, AuthParams(), None, None)
+    val (_, resultsTitleCase, _, _) = service.doSearch(paramsTitleCase, false, AuthParams(), None, None)
+    val (_, resultsLowerCase, _, _) = service.doSearch(paramsLowerCase, false, AuthParams(), None, None)
+    val (_, resultsUpperCase, _, _) = service.doSearch(paramsUpperCase, false, AuthParams(), None, None)
 
     resultsTitleCase.results should contain theSameElementsAs resultsLowerCase.results
     resultsTitleCase.results should contain theSameElementsAs resultsUpperCase.results
@@ -532,7 +537,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -547,7 +552,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -562,7 +567,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set.empty
-    val res = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)._2.results
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -570,7 +575,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("sorting by name works") {
     val params = Map("order" -> Seq("name"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.head
     val firstResult = results.results.head.resource.dyn("name").? match {
       case Right(n) => n should be (JString(expected))
@@ -580,7 +585,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("sorting by name DESC works") {
     val params = Map("order" -> Seq("name DESC"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val expected = results.results.map(_.resource.dyn("name").!.asInstanceOf[JString].string).sorted.last
     val firstResult = results.results.head.resource.dyn("name").? match {
       case Right(n) => n should be (JString(expected))
@@ -590,7 +595,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("filtering by attribution works") {
     val params = Map("attribution" -> Seq("The Merry Men"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val expectedFxfs = Set("zeta-0007")
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -598,7 +603,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("filtering by attribution is case sensitive") {
     val params = Map("attribution" -> Seq("the merry men"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val expectedFxfs = Set.empty
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -606,7 +611,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("searching for attribution via keyword searches should include individual term matches regardless of case") {
     val params = Map("q" -> Seq("merry men"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val expectedFxfs = Set("zeta-0007")
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -614,22 +619,22 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("attribution is included in the resulting resource") {
     val params = Map("q" -> Seq("merry men"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     results.results.headOption.map { case SearchResult(resource, _, _, _, _, _) =>
       resource.dyn.attribution.!.asInstanceOf[JString].string
     } should be(Some("The Merry Men"))
   }
 
   test("passing a datatype boost should have no effect on the size of the result set") {
-    val (_, results, _, _) = service.doSearch(Map.empty, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
     val params = Map("boostFiles" -> Seq("2.0"))
-    val (_, resultsBoosted, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, resultsBoosted, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     resultsBoosted.resultSetSize should be (results.resultSetSize)
   }
 
   test("giving a datatype a boost of >1 should promote assets of that type to the top") {
     val params = Map("boostFiles" -> Seq("10.0"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val topResultType = resultTypes.headOption
     topResultType should be (Some("file"))
@@ -637,7 +642,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("giving a datatype a boost of <<1 should demote assets of that type to the bottom") {
     val params = Map("boostFiles" -> Seq(".0000001"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val lastResultType = resultTypes.last
     lastResultType should be ("file")
@@ -645,7 +650,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("preview_image_url should be included in the search result when available") {
     val params = Map("q" -> Seq("merry men"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultPreviewImageUrls = results.results.map(_.previewImageUrl.map(_.asInstanceOf[JString].string))
     val firstPreviewImageUrl = resultPreviewImageUrls.headOption.flatten
     firstPreviewImageUrl should be (Some("https://petercetera.net/views/zeta-0007/files/123456789"))
@@ -653,10 +658,17 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("preview_image_url should be None in the search result when not available") {
     val params = Map("boostFiles" -> Seq("10.0"))
-    val (_, results, _, _) = service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultPreviewImageUrls = results.results.map(_.previewImageUrl.map(_.asInstanceOf[JString].string))
     val firstPreviewImageUrl = resultPreviewImageUrls.headOption.flatten
     firstPreviewImageUrl should be (None)
+  }
+
+  test("no results should come back if asked for a non-existent 4x4") {
+    val params = Map("ids" -> Seq("fake-4x4"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
   }
 }
 
@@ -666,12 +678,11 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
   val client = new TestESClient(testSuiteName)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, 8037)
-  val verificationClient = new VerificationClient(coreClient)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
   val balboaDir = new File("balboa_test_trash")
   val balboaClient = new BalboaClient(balboaDir.getName)
-  val service = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
+  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
   test("non fatal exceptions throw friendly error string") {
     val expectedResults = """{"error":"We're sorry. Something went wrong."}"""
@@ -695,7 +706,7 @@ class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with Mock
 
     val response = new MockHttpServletResponse()
 
-    service.search(Visibility.anonymous)(httpReq)(response)
+    service.search(false)(httpReq)(response)
     response.getStatus should be (SC_INTERNAL_SERVER_ERROR)
     response.getHeader("Access-Control-Allow-Origin") should be ("*")
     response.getContentAsString should be (expectedResults)

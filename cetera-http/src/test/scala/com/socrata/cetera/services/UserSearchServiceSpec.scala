@@ -8,13 +8,12 @@ import org.mockserver.model.HttpRequest._
 import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
-import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpClient}
-import com.socrata.cetera.search.{DomainClient, UserClient}
-import com.socrata.cetera.{HeaderAuthorizationKey, HeaderCookieKey, HeaderXSocrataHostKey}
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.errors.{DomainNotFoundError, UnauthorizedError}
 import com.socrata.cetera.handlers.Params
+import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types.DomainUser
+import com.socrata.cetera.{HeaderAuthorizationKey, HeaderCookieKey, HeaderXSocrataHostKey, TestCoreClient, TestESClient, TestESData, TestHttpClient}
 
 class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
@@ -23,12 +22,11 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   val coreTestPort = 8031
   val mockServer = startClientAndServer(coreTestPort)
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
-  val verificationClient = new VerificationClient(coreClient)
 
   val client = new TestESClient(testSuiteName)
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
-  val service = new UserSearchService(userClient, verificationClient, domainClient)
+  val service = new UserSearchService(userClient, domainClient, coreClient)
 
   val cookie = "Traditional = WASD"
   val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="

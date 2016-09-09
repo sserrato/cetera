@@ -5,7 +5,7 @@
   "socrata_id": {
    "dataset_id": "zeta-0003",
    "parent_dataset_id": [],
-   "domain_id": 0,
+   "domain_id": 2,
    "nbe_id": "zeta-0003",
    "obe_id": "data-0003"
  },

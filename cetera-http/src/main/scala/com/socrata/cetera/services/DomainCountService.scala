@@ -13,8 +13,8 @@ import com.socrata.http.server.{HttpRequest, HttpResponse, HttpService}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
-import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, JsonDecodeException}
+import com.socrata.cetera.auth.{AuthParams, CoreClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, JsonDecodeException, UnauthorizedError}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
@@ -23,7 +23,7 @@ import com.socrata.cetera.search.BaseDomainClient
 import com.socrata.cetera.types.Count
 import com.socrata.cetera.util.LogHelper
 
-class DomainCountService(domainClient: BaseDomainClient, verificationClient: VerificationClient) {
+class DomainCountService(domainClient: BaseDomainClient, coreClient: CoreClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[DomainCountService])
 
   private def extract(json: JValue): Either[DecodeError, Seq[JValue]] = {
@@ -51,8 +51,7 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
 
     val now = Timings.now()
 
-    val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
+    val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
 
     QueryParametersParser(queryParameters, extendedHost) match {
       case Left(errors) =>
@@ -104,6 +103,9 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
         val msg = s"Domain not found: $e"
         logger.error(msg)
         NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
+      case e: UnauthorizedError =>
+        logger.error(e.getMessage)
+        Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

@@ -253,9 +253,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   //  user search param preparers
 
-  def prepareUserId(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterId))
-
   def prepareEmail(queryParameters: MultiQueryParams): Option[Set[String]] =
     filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterEmail))
 
@@ -274,7 +271,10 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareUserQuery(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.querySimple))
 
+  // shared param preparers
 
+  def prepareId(queryParameters: MultiQueryParams): Option[Set[String]] =
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterId))
 
 
   //////////////////
@@ -307,6 +307,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareSharedTo(queryParameters),
           prepareAttribution(queryParameters),
           prepareParentDatasetId(queryParameters),
+          prepareId(queryParameters),
           prepareShowHidden(queryParameters)
         )
         val scoringParams = ScoringParamSet(
@@ -332,7 +333,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   def prepUserParams(queryParameters: MultiQueryParams): ValidatedUserQueryParameters = {
      val searchParams = UserSearchParamSet(
-       prepareUserId(queryParameters),
+       prepareId(queryParameters),
        prepareEmail(queryParameters),
        prepareScreenName(queryParameters),
        prepareFlag(queryParameters),
@@ -447,6 +448,7 @@ object Params {
     filterDatatypes,
     filterUser,
     filterParentDatasetId,
+    filterId,
     locale,
     filterSharedTo,
     queryAdvanced,
