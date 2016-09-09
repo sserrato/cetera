@@ -144,24 +144,6 @@ object DocumentFilters {
     if (searchContextIsModerated) contextualFilter else basicFilter
   }
 
-
-  /**
-    * @param enabledIds Ids of domains that have enabled showing NBE documents
-    *                   even if there is no OBE copy of that document
-    * @return A FilterBuilder to remove any NBE only documents for domains that
-    *         require OBE to show
-    */
-  def unmigratedNbeFilter(enabledIds: Set[Int]): FilterBuilder = {
-    val parentDomainAllowsUnmigrated =
-      Some(enabledIds).filter(_.nonEmpty).map(domainIdsFilter(_))
-
-    val filter = boolFilter()
-    filter.should(existsFilter(SocrataIdObeIdFieldType.fieldName))
-    parentDomainAllowsUnmigrated.foreach(filter.should)
-
-    filter
-  }
-
   /**
     * Filter to only show or aggregate documents that have passed the routing & approval workflow
     *
@@ -250,9 +232,7 @@ object DocumentFilters {
       None
     }
 
-    val unmigratedFilter = Some(unmigratedNbeFilter(domainSet.unmigratedNbeEnabledIds))
-
-    List(privacyFilter, publicationFilter, modStatusFilter, raFilter, unmigratedFilter).flatten
+    List(privacyFilter, publicationFilter, modStatusFilter, raFilter).flatten
   }
 
   def visibilityUserOverrideFilters(
