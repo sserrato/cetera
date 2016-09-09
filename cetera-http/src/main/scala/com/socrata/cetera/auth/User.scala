@@ -8,21 +8,36 @@ import com.socrata.cetera.types.Domain
 
 case class User(
     id: String,
-    authenticatingDomain: Option[Domain],
-    roleName: Option[String],
-    rights: Option[Seq[String]],
-    flags: Option[Seq[String]]) {
+    authenticatingDomain: Option[Domain] = None,
+    roleName: Option[String] = None,
+    rights: Option[Seq[String]] = None,
+    flags: Option[Seq[String]] = None) {
 
   def hasRole: Boolean = roleName.nonEmpty
   def hasRole(role: String): Boolean = roleName.contains(role)
   def hasOneOfRoles(roles: Seq[String]): Boolean = roles.map(hasRole(_)).fold(false)(_ || _)
-  def hasSuperAdminFlag: Boolean = flags.exists(_.contains("admin"))
-  def isAdmin: Boolean = hasRole("administrator") || hasSuperAdminFlag
+  def isSuperAdmin: Boolean = flags.exists(_.contains("admin"))
+  def isAdmin: Boolean = hasRole("administrator") || isSuperAdmin
 
-  def canViewLockedDownCatalog: Boolean = hasOneOfRoles(Seq("editor", "publisher", "viewer")) || isAdmin
-  def canViewAdminDatasets: Boolean = hasRole("publisher") || isAdmin
-  def canViewAssetSelector: Boolean = hasOneOfRoles(Seq("editor", "designer", "publisher", "viewer")) || isAdmin
-  def canViewUsers: Boolean = isAdmin
+  def authorizedOnDomain(d: Domain): Boolean = {
+    authenticatingDomain.exists(_.domainId == d.domainId) || isSuperAdmin
+  }
+
+  def canViewResource(domain: Domain, isAuthorized: Boolean): Boolean = {
+    authenticatingDomain match {
+      case None => isSuperAdmin
+      case Some(d) => (isAuthorized && authorizedOnDomain(domain)) || isSuperAdmin
+    }
+  }
+
+  def canViewLockedDownCatalog(domain: Domain): Boolean =
+    canViewResource(domain, hasOneOfRoles(Seq("editor", "publisher", "viewer", "administrator")))
+
+  def canViewAllViews(domain: Domain): Boolean =
+    canViewResource(domain, hasOneOfRoles(Seq("publisher", "designer", "viewer", "administrator")))
+
+  def canViewUsers: Boolean =
+    authenticatingDomain.exists(d => canViewResource(d, isAdmin)) || isSuperAdmin
 }
 
 object User {

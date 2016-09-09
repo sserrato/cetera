@@ -13,20 +13,20 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
-import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.auth.{AuthParams, CoreClient}
 import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response.{Http, InternalTimings, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.LogHelper
 
 class FacetService(
     documentClient: BaseDocumentClient,
     domainClient: BaseDomainClient,
-    verificationClient: VerificationClient) {
+    coreClient: CoreClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
 
   def doAggregate( // scalastyle:ignore method.length
@@ -37,8 +37,7 @@ class FacetService(
     : (StatusResponse, Seq[FacetCount], InternalTimings, Seq[String]) = {
 
     val startMs = Timings.now()
-    val (authorizedUser, setCookies) =
-      verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
+    val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
 
     val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
       Some(cname), extendedHost, Some(Set(cname)),
@@ -50,7 +49,7 @@ class FacetService(
       case None => // domain exists but user isn't authorized to see it
         throw UnauthorizedError(authedUser, s"search for facets on $cname")
       case Some(d) => // domain exists and is viewable by user
-        val request = documentClient.buildFacetRequest(domainSet, authedUser, Visibility.anonymous)
+        val request = documentClient.buildFacetRequest(domainSet, authedUser, requireAuth = false)
         logger.info(LogHelper.formatEsRequest(request))
         val res = request.execute().actionGet()
         val aggs = res.getAggregations.asMap().asScala

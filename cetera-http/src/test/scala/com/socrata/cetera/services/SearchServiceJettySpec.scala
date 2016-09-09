@@ -18,10 +18,10 @@ import org.scalamock.scalatest.proxy.MockFactory
 import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.springframework.mock.web.{DelegatingServletInputStream, DelegatingServletOutputStream}
 
-import com.socrata.cetera.auth.{User, VerificationClient}
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
 import com.socrata.cetera.metrics.BalboaClient
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient}
 import com.socrata.cetera.types.DomainSet
 import com.socrata.cetera.{response => _, _}
 
@@ -32,11 +32,10 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
   val mockCoreServer = startClientAndServer(coreTestPort)
   val httpClient = new TestHttpClient()
   val coreClient = new TestCoreClient(httpClient, coreTestPort)
-  val verificationClient = new VerificationClient(coreClient)
   val mockDomainClient = mock[BaseDomainClient]
   val mockDocumentClient = mock[BaseDocumentClient]
   val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient, verificationClient)
+  val service = new SearchService(mockDocumentClient, mockDomainClient, balboaClient, coreClient)
 
   override protected def afterAll(): Unit = {
     client.close()
@@ -67,7 +66,7 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
       .returns((DomainSet(), 123L))
 
     mockDocumentClient.expects('buildSearchRequest)(
-      DomainSet(), SearchParamSet(searchContext = Some(hostCname)), ScoringParamSet(), PagingParamSet(), authedUser, Visibility.anonymous)
+      DomainSet(), SearchParamSet(searchContext = Some(hostCname)), ScoringParamSet(), PagingParamSet(), authedUser, false)
       .returns(new SearchRequestBuilder(client.client))
 
     val servReq = mock[HttpServletRequest]
@@ -98,6 +97,6 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
     httpResponse.expects('getHeaders)("Set-Cookie").anyNumberOfTimes.returns(expectedSetCookie.asJava)
     httpResponse.expects('getOutputStream)().returns(new DelegatingServletOutputStream(outStream))
 
-    service.search(Visibility.anonymous)(httpReq)(httpResponse)
+    service.search(false)(httpReq)(httpResponse)
   }
 }

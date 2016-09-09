@@ -110,41 +110,44 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   // NOTE: In reality, the domain_id set would be populated or no results would come back.
   // But, when domains is empty, this filter must match no (rather than all) domain_ids.
   // See instances of `domains = Set.empty[Domain]`
-  val domainIdsFilterEmpty = j"""{"terms": {"socrata_id.domain_id": []}}"""
   val domainsFilter =  j"""{"terms": {"socrata_id.domain_id": [1, 2, 3]}}"""
+  val datatypeDatasetsFilter = j"""{ "terms" : { "datatype" : [ "dataset" ]}}"""
   val defaultViewFilter = j"""{"term" : {"is_default_view" : true }}"""
   val publicFilter = j"""{"not": {"filter": {"term": { "is_public": false }}}}"""
   val publishedFilter = j"""{"not": {"filter": {"term": { "is_published": false }}}}"""
   val modApprovedFilter = j"""{"term": {"is_moderation_approved": true}}"""
   val raApprovedFilter = j"""{"term": {"is_approved_by_parent_domain": true}}"""
-  val moderationFilter = j"""{"bool": { "should": [$defaultViewFilter, $modApprovedFilter]}}"""
-  val routingApprovalFilter = j"""{"bool": {"must": {"bool": {"should": $raApprovedFilter}}}}"""
+  val noDomainFilter = j"""{"terms" :{"socrata_id.domain_id" : []}}"""
+  val moderationFilter = j"""{"bool": { "should": [$defaultViewFilter, $modApprovedFilter, $noDomainFilter]}}"""
+  val routingApprovalFilter = j"""{"bool": {"must": {"bool": {"should": [$raApprovedFilter, $noDomainFilter]}}}}"""
   val hideFromCatalogFilter = j"""{"not": {"filter": {"term": {"hide_from_catalog": true}}}}"""
+  val datalensFilter = j"""{"terms" :{"datatype" :["datalens","datalens_chart","datalens_map"]}}"""
+  val unApprovedFilter = j"""{"not" :{"filter" :{"term" :{"is_moderation_approved" : true}}}}"""
+  val datalensApprovedFilter = j"""{"not" :{"filter" :{"bool" :{"must" :[$datalensFilter, $unApprovedFilter]}}}}"""
 
-  val defaultFilter = j"""{
+  val anonymousFilter = j"""{
     "bool": {
       "must": [
-        ${domainIdsFilterEmpty},
         ${publicFilter},
         ${publishedFilter},
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${hideFromCatalogFilter}]}
+        ${datalensApprovedFilter},
+        ${routingApprovalFilter}]}
   }"""
 
-  val defaultFilterPlusDomainIds = j"""{
+  val anonymousFilterWithDomainIds = j"""{
     "bool": {
       "must": [
         ${publicFilter},
         ${publishedFilter},
         ${domainsFilter},
         ${moderationFilter},
-        ${routingApprovalFilter},
-        ${hideFromCatalogFilter}]}
+        ${datalensApprovedFilter},
+        ${routingApprovalFilter}]}
   }"""
 
-  val datatypeDatasetsFilter = j"""{
-    "terms": {"datatype": ["dataset"]}
+  val searchParamsFilter = j"""{
+    "bool" :{ "must" : [$datatypeDatasetsFilter, $hideFromCatalogFilter]}
   }"""
 
   val animlCategoriesQuery = j"""{
@@ -213,18 +216,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val complexFilter = j"""{
     "bool": {
       "must": [
-        { "bool": {
-            "must": [
-              ${publicFilter},
-              ${publishedFilter},
-              ${moderationFilter},
-              ${routingApprovalFilter},
-              ${hideFromCatalogFilter}
-            ]
-          }
-        },
-        ${domainIdsFilterEmpty},
-        ${datatypeDatasetsFilter}
+        ${noDomainFilter},
+        ${searchParamsFilter},
+        ${anonymousFilter}
       ]
     }
   }"""
@@ -268,7 +262,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "query": ${functionScoreQuery(query)}
       }"""
 
-      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(), searchParams, None, Visibility.anonymous)
+      val request = documentClient.buildCountRequest(CategoriesFieldType, DomainSet(), searchParams, None, false)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
@@ -283,14 +277,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   "buildFacetRequest" should {
     "build a faceted request" in {
       val domainId = 42
-      val domain = Domain(
-        domainId, "", None, None,
-        isCustomerDomain = true,
-        moderationEnabled = false,
-        routingApprovalEnabled = false,
-        lockedDown = false,
-        apiLockedDown = false,
-        unmigratedNbeEnabled = false)
+      val domain = Domain(domainId, "", None, None, isCustomerDomain = true, moderationEnabled = false, routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
       val domain42Filter =  j"""{"terms": {"socrata_id.domain_id": [42]}}"""
       val datalensSnowflakeFilter = j"""{"not" :{"filter" :{"terms" :{"datatype" :["datalens","datalens_chart","datalens_map"]}}}}"""
@@ -298,24 +285,15 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "size" : 0,
         "aggregations" :{"domain_filter" :{
           "filter" :{"bool" :{"must" :[
+            $domain42Filter,
+            {"bool": { must: $hideFromCatalogFilter }},
             {"bool": {"must": [
               $publicFilter,
               $publishedFilter,
-              {"bool" :{"should" :[
-                $defaultViewFilter,
-                $modApprovedFilter,
-                {"bool" :{"must" :[
-                  $domain42Filter,
-                  $datalensSnowflakeFilter
-                ]}}
-              ]}},
-              {"bool" :{"must" :{"bool" :{"should" :[
-                $domain42Filter,
-                $raApprovedFilter
-              ]}}}},
-              $hideFromCatalogFilter
-            ]}},
-            $domain42Filter
+              {"bool" :{"should" :[$defaultViewFilter, $modApprovedFilter, $domain42Filter]}},
+              $datalensApprovedFilter,
+              {"bool" :{"must" :{"bool" :{"should" :[$raApprovedFilter, $domain42Filter]}}}}
+            ]}}
           ]}},
           "aggregations" :{
             "datatypes" : { "terms" : { "field" : "datatype", "size" : 0 } },
@@ -329,7 +307,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
                   {"terms" :{"field" : "customer_metadata_flattened.value.raw", "size" : 0}}}}}}}}}
       }"""
 
-      val request = documentClient.buildFacetRequest(DomainSet(domains = Set(domain)), None, Visibility.anonymous)
+      val request = documentClient.buildFacetRequest(DomainSet(domains = Set(domain)), None, false)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be(expected)
@@ -357,11 +335,11 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ]
       }"""
 
-      val request = documentClient.buildSearchRequest(DomainSet(), searchParams, ScoringParamSet(), pagingParams, None, Visibility.anonymous)
+      val request = documentClient.buildSearchRequest(DomainSet(), searchParams, ScoringParamSet(), pagingParams, None, false)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
+      request.toString.replaceAll("[\\s\\n]+", " ") should include(searchParamsFilter.toString().replaceAll("[\\s\\n]+", " "))
     }
 
     "sort by average category scores given search context and categories" in {
@@ -385,16 +363,16 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
       }"""
 
       val request = documentClient.buildSearchRequest(
-        DomainSet(), searchParams.copy(searchQuery = NoQuery), ScoringParamSet(), pagingParams, None, Visibility.anonymous)
+        DomainSet(), searchParams.copy(searchQuery = NoQuery), ScoringParamSet(), pagingParams, None, false)
       val actual = JsonReader.fromString(request.toString)
 
       actual should be (expected)
-      request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
+      request.toString.replaceAll("[\\s\\n]+", " ") should include(searchParamsFilter.toString().replaceAll("[\\s\\n]+", " "))
     }
 
     "not have a filter for hide from catalog if show_hidden is passed" in {
       val request = documentClient.buildSearchRequest(
-        DomainSet(), searchParams.copy(showHidden = true), ScoringParamSet(), pagingParams, None, Visibility.anonymous)
+        DomainSet(), searchParams.copy(showHidden = true), ScoringParamSet(), pagingParams, None, false)
 
       request.toString should not include ("hide_from_catalog")
     }
@@ -505,7 +483,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         None,
         None
       )
-
       val actualJson = JsonReader.fromString(actual.toString)
 
       actualJson should be (expectedJson)

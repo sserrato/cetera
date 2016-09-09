@@ -11,7 +11,7 @@ import org.apache.log4j.PropertyConfigurator
 import org.elasticsearch.client.transport.TransportClient
 import org.slf4j.{LoggerFactory, MDC}
 
-import com.socrata.cetera.auth.{CoreClient, VerificationClient}
+import com.socrata.cetera.auth.CoreClient
 import com.socrata.cetera.config.CeteraConfig
 import com.socrata.cetera.handlers.Router
 import com.socrata.cetera.metrics.BalboaClient
@@ -72,7 +72,6 @@ object SearchServer extends App {
       ScriptScoreFunction.getScriptFunction(fnName)).toSet
     )
     val userClient = new UserClient(esClient, config.elasticSearch.indexAliasName)
-    val verificationClient = new VerificationClient(coreClient)
 
     logger.info("ElasticSearchClient initialized on nodes " +
                   esClient.client.asInstanceOf[TransportClient].transportAddresses().toString)
@@ -84,19 +83,19 @@ object SearchServer extends App {
     val versionService = VersionService
 
     logger.info("Initializing SearchService with document, domain, balboa, and verification clients")
-    val searchService = new SearchService(documentClient, domainClient, balboaClient, verificationClient)
+    val searchService = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
     logger.info("Initializing FacetService with document, domain, and verification clients")
-    val facetService = new FacetService(documentClient, domainClient, verificationClient)
+    val facetService = new FacetService(documentClient, domainClient, coreClient)
 
     logger.info("Initializing DomainCountService with domain and verification clients")
-    val domainCountService = new DomainCountService(domainClient, verificationClient)
+    val domainCountService = new DomainCountService(domainClient, coreClient)
 
     logger.info("Initializing CountService with document, domain, and verification clients")
-    val countService = new CountService(documentClient, domainClient, verificationClient)
+    val countService = new CountService(documentClient, domainClient, coreClient)
 
     logger.info("Initializing UserSearchService with user, verification, and domain clients")
-    val userSearchService = new UserSearchService(userClient, verificationClient, domainClient)
+    val userSearchService = new UserSearchService(userClient, domainClient, coreClient)
 
     logger.info("Initializing router with services")
     val router = new Router(

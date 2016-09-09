@@ -171,7 +171,7 @@ object DocumentQueries {
       searchParams: SearchParamSet,
       query: BaseQueryBuilder,
       user: Option[User],
-      visibility: Visibility)
+      requireAuth: Boolean)
     : BaseQueryBuilder = {
 
     val categoriesAndTagsQuery = applyClassificationQuery(query, searchParams, domainSet.searchContext.isDefined)
@@ -179,7 +179,7 @@ object DocumentQueries {
     // This is a FilterBuilder, which incorporates all of the remaining constraints.
     // These constraints determine whether a document is considered part of the selection set, but
     // they do not affect the relevance score of the document.
-    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, user, visibility)
+    val compositeFilter = DocumentFilters.compositeFilter(domainSet, searchParams, user, requireAuth)
     QueryBuilders.filteredQuery(categoriesAndTagsQuery, compositeFilter)
   }
 
@@ -233,9 +233,14 @@ object UserQueries {
           .autoGeneratePhraseQueries(true)
     }
 
-  def userQuery(searchParams: UserSearchParamSet, domainId: Option[Int]): FilteredQueryBuilder = {
+  def userQuery(
+      searchParams: UserSearchParamSet,
+      domainId: Option[Int],
+      authorizedUser: Option[User])
+    : FilteredQueryBuilder = {
+
     val emailOrNameQuery = emailNameMatchQuery(searchParams.query)
-    val userFilter = compositeFilter(searchParams, domainId)
+    val userFilter = compositeFilter(searchParams, domainId, authorizedUser)
     QueryBuilders.filteredQuery(emailOrNameQuery, userFilter)
   }
 }

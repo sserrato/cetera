@@ -3,21 +3,13 @@ package com.socrata.cetera.search
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.handlers.{PagingParamSet, UserSearchParamSet}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.LogHelper
 import com.socrata.cetera.search.UserQueries.userQuery
 
-trait BaseUserClient {
-  def fetch(id: String): Option[EsUser]
-  def search(
-      searchParams: UserSearchParamSet,
-      pagingParams: PagingParamSet,
-      domainId: Option[Int])
-    : (Seq[EsUser], Long, Long)
-}
-
-class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends BaseUserClient {
+class UserClient(esClient: ElasticSearchClient, indexAliasName: String) {
   val logger = LoggerFactory.getLogger(getClass)
 
   def fetch(id: String): Option[EsUser] = {
@@ -31,12 +23,13 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) extends 
   def search(
       searchParams: UserSearchParamSet,
       pagingParams: PagingParamSet,
-      domainId: Option[Int])
+      domainId: Option[Int],
+      authorizedUser: Option[User])
     : (Seq[EsUser], Long, Long) = {
 
     val req = esClient.client.prepareSearch(indexAliasName)
       .setTypes(esUserType)
-      .setQuery(userQuery(searchParams, domainId))
+      .setQuery(userQuery(searchParams, domainId, authorizedUser))
       .setFrom(pagingParams.offset)
       .setSize(pagingParams.limit)
     logger.info(LogHelper.formatEsRequest(req))

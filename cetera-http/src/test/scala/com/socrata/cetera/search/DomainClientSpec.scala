@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, ShouldMatchers, Wor
 import com.socrata.cetera._
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.errors.DomainNotFoundError
-import com.socrata.cetera.types.{Domain, DomainSet}
+import com.socrata.cetera.types.DomainSet
 
 // Please see https://github.com/socrata/cetera/blob/master/cetera-http/src/test/resources/domains.tsv
 // if you have any questions about which domains are being used in these tests
@@ -24,12 +24,14 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   val domainClient = new DomainClient(client, coreClient, testSuiteName)
 
   val mockServer = startClientAndServer(coreTestPort)
-  val unlockedDomain0 = domains(0)
-  val unlockedDomain1 = domains(1)
-  val unlockedDomain2 = domains(2)
-  val lockedDomain = domains(6)
+  val unlockedCustomerDomain = domains(0)
+  val unlockedNonCustomerDomain = domains(1)
+  val unlockedCustomerDomain2 = domains(2)
+  val lockedNonCustomerDomain = domains(6)
   val apiLockedDomain = domains(7)
-  val doublyLockedDomain = domains(8)
+  val lockedCustomerDomain = domains(8)
+  val unlockedDomains = domains.filter(d => !d.isLocked)
+  val unlockedCustomerDomains = domains.filter(d => d.isCustomerDomain && !d.isLocked)
 
   override def beforeEach(): Unit = {
     mockServer.reset()
@@ -44,6 +46,26 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     client.close()
     mockServer.stop(true)
     httpClient.close()
+  }
+
+  def prepUserAuth(role: String): Option[User] = {
+    val userBody =
+      j"""{
+        "id" : "boo-bear",
+        "roleName" : $role
+      }"""
+
+    mockServer.when(
+      request()
+        .withMethod("GET")
+        .withPath("/users/boo-bear")
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(userBody))
+    )
+    User(userBody)
   }
 
   "find" should {
@@ -78,27 +100,187 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     }
   }
 
-  "findRelevantDomains" should {
-    "return the context if it exists among customer domains: petercetera.net" in {
-      val expectedContext = domains(0)
-      val (domainSet, _) = domainClient.findSearchableDomains(Some("petercetera.net"), None, None, true, None, None)
-      domainSet.searchContext.get should be(expectedContext)
+  "finding the context from findSearchableDomains when no cnames are given (and we rely on customer domain search)" should {
+    "return the context if it's unlocked and no auth is given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(Some(unlockedCustomerDomain.domainCname), None, None, true, None, None)
+      domainSet.searchContext.get should be(unlockedCustomerDomain)
     }
 
-    "return the domain if it exists among the given cnames : opendata-demo.socrata.com" in {
-      val expectedContext = domains(1)
+    "return None for the context if it's locked and no auth is given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(Some(lockedCustomerDomain.domainCname), None, None, true, None, None)
+      domainSet.searchContext should be(None)
+    }
+
+    "return the context if it's locked and auth is given for the context" in {
+      val user = prepUserAuth("editor")
       val (domainSet, _) = domainClient.findSearchableDomains(
-        Some("opendata-demo.socrata.com"), None, Some(Set("opendata-demo.socrata.com")), true, None, None)
-      domainSet.searchContext.get should be(expectedContext)
+        Some(lockedCustomerDomain.domainCname), Some(lockedCustomerDomain.domainCname), None, true, user, None)
+
+      domainSet.searchContext.get should be(lockedCustomerDomain)
     }
 
-    "return the extended host if it exists among the given cnames : opendata-demo.socrata.com" in {
-      val expectedHost = domains(1)
-      val (domainSet, _) = domainClient.findSearchableDomains(None,
-        Some("opendata-demo.socrata.com"), Some(Set("opendata-demo.socrata.com")), true, None, None)
-      domainSet.extendedHost.get should be(expectedHost)
+    "return None for the context if it's locked and auth is given, but it ain't for the context" in {
+      val user = prepUserAuth("editor")
+      val authingDomain = unlockedCustomerDomain2
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(lockedCustomerDomain.domainCname), Some(authingDomain.domainCname), None, true, user, None)
+
+      domainSet.searchContext should be(None)
+    }
+  }
+
+  "finding the extended host from findSearchableDomains when no cnames are given (and we rely on customer domain search)" should {
+    "return the extended host regardless of state if auth isn't given" in {
+      val (lockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedCustomerDomain.domainCname), None, true, None, None)
+      val (lockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedNonCustomerDomain.domainCname), None, true, None, None)
+      val (unlockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedCustomerDomain.domainCname), None, true, None, None)
+      val (unlockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedNonCustomerDomain.domainCname), None, true, None, None)
+
+      lockedCustomerDomainSet.extendedHost.get should be(lockedCustomerDomain)
+      lockedNonCustomerDomainSet.extendedHost.get should be(lockedNonCustomerDomain)
+      unlockedCustomerDomainSet.extendedHost.get should be(unlockedCustomerDomain)
+      unlockedNonCustomerDomainSet.extendedHost.get should be(unlockedNonCustomerDomain)
     }
 
+    "return the extended host regardless of state if auth is given" in {
+      val user = prepUserAuth("administrator")
+
+      val (lockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedCustomerDomain.domainCname), None, true, user, None)
+      val (lockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedNonCustomerDomain.domainCname), None, true, user, None)
+      val (unlockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedCustomerDomain.domainCname), None, true, user, None)
+      val (unlockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedNonCustomerDomain.domainCname), None, true, user, None)
+
+      lockedCustomerDomainSet.extendedHost.get should be(lockedCustomerDomain)
+      lockedNonCustomerDomainSet.extendedHost.get should be(lockedNonCustomerDomain)
+      unlockedCustomerDomainSet.extendedHost.get should be(unlockedCustomerDomain)
+      unlockedNonCustomerDomainSet.extendedHost.get should be(unlockedNonCustomerDomain)
+    }
+  }
+
+  "finding the domains to search from findSearchableDomains when no cnames are given (and we rely on customer domain search)" should {
+    "return only unlocked customer domains if auth isn't given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(None, None, None, true, None, None)
+      domainSet.domains should contain theSameElementsAs(unlockedCustomerDomains)
+    }
+
+    "return unlocked customer domains + locked customer domains if auth is given for the locked domain" in {
+      val expectedDomains = unlockedCustomerDomains ++ Some(lockedCustomerDomain)
+      val user = prepUserAuth("editor")
+      val (domainSet, _) = domainClient.findSearchableDomains(None, Some(lockedCustomerDomain.domainCname), None, true, user, None)
+
+      domainSet.domains should contain theSameElementsAs(expectedDomains)
+    }
+
+    "return only unlocked customer domains if auth is given but it ain't for any locked domain" in {
+      val user = prepUserAuth("editor")
+      val (domainSet, _) = domainClient.findSearchableDomains(None, Some(lockedNonCustomerDomain.domainCname), None, true, user, None)
+
+      domainSet.domains should contain theSameElementsAs(unlockedCustomerDomains)
+    }
+  }
+
+  "finding the context from findSearchableDomains when cnames are given" should {
+    val domainsToSearch = Some(domains.map(_.domainCname).toSet)
+
+    "return the context if it's unlocked and no auth is given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(Some(unlockedCustomerDomain.domainCname), None, domainsToSearch, true, None, None)
+      domainSet.searchContext.get should be(unlockedCustomerDomain)
+    }
+
+    "return None for the context if it's locked and no auth is given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(Some(lockedCustomerDomain.domainCname), None, domainsToSearch, true, None, None)
+      domainSet.searchContext should be(None)
+    }
+
+    "return the context if it's locked and auth is given for the context" in {
+      val user = prepUserAuth("editor")
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(lockedCustomerDomain.domainCname), Some(lockedCustomerDomain.domainCname), domainsToSearch, true, user, None)
+
+      domainSet.searchContext.get should be(lockedCustomerDomain)
+    }
+
+    "return None for the context if it's locked and auth is given, but it ain't for the context" in {
+      val user = prepUserAuth("editor")
+      val authingDomain = unlockedCustomerDomain2
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(lockedCustomerDomain.domainCname), Some(authingDomain.domainCname), domainsToSearch, true, user, None)
+
+      domainSet.searchContext should be(None)
+    }
+  }
+
+  "finding the extended host from findSearchableDomains when cnames are given" should {
+    val domainsToSearch = Some(domains.map(_.domainCname).toSet)
+
+    "return the extended host regardless of state if auth isn't given" in {
+      val (lockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedCustomerDomain.domainCname), domainsToSearch, true, None, None)
+      val (lockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedNonCustomerDomain.domainCname), domainsToSearch, true, None, None)
+      val (unlockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedCustomerDomain.domainCname), domainsToSearch, true, None, None)
+      val (unlockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedNonCustomerDomain.domainCname), domainsToSearch, true, None, None)
+
+      lockedCustomerDomainSet.extendedHost.get should be(lockedCustomerDomain)
+      lockedNonCustomerDomainSet.extendedHost.get should be(lockedNonCustomerDomain)
+      unlockedCustomerDomainSet.extendedHost.get should be(unlockedCustomerDomain)
+      unlockedNonCustomerDomainSet.extendedHost.get should be(unlockedNonCustomerDomain)
+    }
+
+    "return the extended host regardless of state if auth is given" in {
+      val user = prepUserAuth("administrator")
+
+      val (lockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedCustomerDomain.domainCname), domainsToSearch, true, user, None)
+      val (lockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(lockedNonCustomerDomain.domainCname), domainsToSearch, true, user, None)
+      val (unlockedCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedCustomerDomain.domainCname), domainsToSearch, true, user, None)
+      val (unlockedNonCustomerDomainSet, _) = domainClient.findSearchableDomains(
+        None, Some(unlockedNonCustomerDomain.domainCname), domainsToSearch, true, user, None)
+
+      lockedCustomerDomainSet.extendedHost.get should be(lockedCustomerDomain)
+      lockedNonCustomerDomainSet.extendedHost.get should be(lockedNonCustomerDomain)
+      unlockedCustomerDomainSet.extendedHost.get should be(unlockedCustomerDomain)
+      unlockedNonCustomerDomainSet.extendedHost.get should be(unlockedNonCustomerDomain)
+    }
+  }
+
+  "finding the domains to search from findSearchableDomains when cnames are given" should {
+    val domainsToSearch = Some(domains.map(_.domainCname).toSet)
+
+    "return only unlocked domains if auth isn't given" in {
+      val (domainSet, _) = domainClient.findSearchableDomains(None, None, domainsToSearch, true, None, None)
+      domainSet.domains should contain theSameElementsAs(unlockedDomains)
+    }
+
+    "return unlocked domains + locked domains if auth is given for the locked domain" in {
+      val expectedDomains = unlockedDomains ++ Some(lockedCustomerDomain)
+      val user = prepUserAuth("editor")
+      val (domainSet, _) = domainClient.findSearchableDomains(None, Some(lockedCustomerDomain.domainCname), domainsToSearch, true, user, None)
+
+      domainSet.domains should contain theSameElementsAs(expectedDomains)
+    }
+
+    "return only unlocked domains if auth is given but it ain't for any locked domain" in {
+      val user = prepUserAuth("editor")
+      val (domainSet, _) = domainClient.findSearchableDomains(None, Some(unlockedCustomerDomain.domainCname), domainsToSearch, true, user, None)
+
+      domainSet.domains should contain theSameElementsAs(unlockedDomains)
+    }
+  }
+
+  "findSearchableDomains" should {
     "return the context, extended host and domains even if they are all the same thing: opendata-demo.socrata.com" in {
       val domain = domains(1)
       val (domainSet, _) = domainClient.findSearchableDomains(
@@ -107,91 +289,6 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
       domainSet.searchContext.get should be(domain)
       domainSet.extendedHost.get should be(domain)
       domainSet.domains should be(Set(domain))
-    }
-
-    "return all the unlocked customer domains if not given cnames, context or extendhost" in {
-      val unlockedDomains = Set(domains(0), domains(2), domains(3), domains(4))
-      val (domainSet, _) = domainClient.findSearchableDomains(None, None, None, true, None, None)
-      domainSet.domains should be(unlockedDomains)
-    }
-
-    "return context and extendhost if given in addition to all the unlocked customer domains if not given cnames" in {
-      val unlockedDomains = Set(domains(0), domains(2), domains(3), domains(4))
-      val expectedContext = domains(1) // not a customer domain, but unlocked
-      val expectedHost = domains(5) // also not a customer domain, but unlocked
-
-      val (domainSet, _) = domainClient.findSearchableDomains(
-        Some(expectedContext.domainCname), Some(expectedHost.domainCname), None, true, None, None)
-
-      domainSet.domains should be(unlockedDomains)
-      domainSet.searchContext.get should be(expectedContext)
-      domainSet.extendedHost.get should be(expectedHost)
-    }
-
-    "return context and extendhost if given in addition to all the customer domains (locked or unlocked) if not given cnames but user is authed" in {
-      val unlockedDomainsForAuthedUsers = Set(domains(0), domains(2), domains(3), domains(4), domains(7), domains(8))
-      val expectedContext = domains(7) // is a customer domain, but locked
-      val expectedHost = domains(5)  // is not a customer domain, but unlocked
-      val userBody =
-        j"""{
-          "id" : "boo-bear",
-          "roleName" : "editor"
-        }"""
-      val user = User(userBody)
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-
-      val (domainSet, _) = domainClient.findSearchableDomains(
-        Some(expectedContext.domainCname), Some(expectedHost.domainCname), None, true, user, None)
-
-      domainSet.domains should be(unlockedDomainsForAuthedUsers)
-      domainSet.searchContext.get should be(expectedContext)
-      domainSet.extendedHost.get should be(expectedHost)
-    }
-
-    "return all the unlocked domains among the given cnames if they exist" in {
-      val expectedDomains = Set(domains(3), domains(4))
-      val wantedDomains = Some(expectedDomains.map(d => d.domainCname))
-      val (domainSet, _) = domainClient.findSearchableDomains(None, None, wantedDomains, true, None, None)
-      domainSet.domains should be(expectedDomains)
-    }
-
-    "return all the requested domains (locked or unlocked) if a good cookie is passed in" in {
-      val context = domains(8)
-      val wantedDomains = Set(domains(0), domains(6), domains(8))
-      val wantedCnames = wantedDomains.map(_.domainCname)
-
-      val userBody =
-        j"""{
-          "id" : "boo-bear",
-          "roleName" : "editor"
-        }"""
-      val user = User(userBody)
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-
-      val (domainSet, _) = domainClient.findSearchableDomains(Some(context.domainCname), None,
-        Some(wantedCnames), excludeLockedDomains = true, user, None)
-      domainSet.searchContext.get should be(context)
-      domainSet.domains should be(wantedDomains)
     }
 
     "throw DomainNotFound exception when searchContext is missing" in {
@@ -223,160 +320,61 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   "removeLockedDomainsFromUnauthorizedUsers" should {
     "return None for a locked context if the user has no cookie" in {
       val withoutDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(searchContext = Some(lockedDomain)), None, None)
+        DomainSet(searchContext = Some(lockedNonCustomerDomain)), None, None)
       withoutDomains should be(DomainSet())
 
       val withDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set(domains(1)), Some(lockedDomain)), None, None)
+        DomainSet(Set(domains(1)), Some(lockedNonCustomerDomain)), None, None)
       withDomains should be(DomainSet(domains = Set(domains(1))))
     }
 
     "return None for a locked context if the user has no role" in {
-      val user = User("lazy-bear", None, roleName = None, rights = None, flags = None)
+      val user = User("lazy-bear", Some(unlockedCustomerDomain), roleName = None, rights = None, flags = None)
 
       val withoutDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(searchContext = Some(doublyLockedDomain)), Some(user), None)
+        DomainSet(searchContext = Some(lockedCustomerDomain)), Some(user), None)
       withoutDomains should be(DomainSet())
 
       val withDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set(domains(1)), Some(doublyLockedDomain)), Some(user), None)
+        DomainSet(Set(domains(1)), Some(lockedCustomerDomain)), Some(user), None)
       withDomains should be(DomainSet(domains = Set(domains(1))))
     }
 
     "return the locked down context if the user is logged in and has a role" in {
-      val userBody =
-        j"""{
-          "id" : "boo-bear",
-          "roleName" : "headBear",
-          "rights" : [ "steal_honey", "scare_tourists"],
-          "flags" : [ "admin" ]
-        }"""
-      val user = User(userBody)
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-          .withHeader(HeaderXSocrataHostKey, lockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-
+      val user = prepUserAuth("publisher")
       val res = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set(lockedDomain), Some(lockedDomain)), user, None)
-      res should be(DomainSet(Set(lockedDomain), Some(lockedDomain)))
+        DomainSet(Set(lockedNonCustomerDomain), Some(lockedNonCustomerDomain), Some(lockedNonCustomerDomain)), user, None)
+      res should be(DomainSet(Set(lockedNonCustomerDomain), Some(lockedNonCustomerDomain), Some(lockedNonCustomerDomain)))
     }
 
     "remove locked domains if the user has no cookie" in {
-      val relevantDomains = Set(unlockedDomain0, lockedDomain)
+      val relevantDomains = Set(unlockedCustomerDomain, lockedNonCustomerDomain)
       val withoutContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(domains = relevantDomains), None, None)
-      withoutContext should be(DomainSet(domains = Set(unlockedDomain0)))
+      withoutContext should be(DomainSet(domains = Set(unlockedCustomerDomain)))
 
       val withContext = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(relevantDomains, Some(unlockedDomain0)), None, None)
-      withContext should be(DomainSet(Set(unlockedDomain0), Some(unlockedDomain0)))
+        DomainSet(relevantDomains, Some(unlockedCustomerDomain), Some(unlockedCustomerDomain)), None, None)
+      withContext should be(DomainSet(Set(unlockedCustomerDomain), Some(unlockedCustomerDomain), Some(unlockedCustomerDomain)))
     }
 
     "remove locked domains if the user has a bad cookie" in {
-      val relevantDomains = Set(unlockedDomain0, doublyLockedDomain)
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users.json")
-          .withHeader(HeaderXSocrataHostKey, unlockedDomain0.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(401)
-      )
-
-      val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, Some(unlockedDomain0)), None, None)
-      res should be(DomainSet(Set(unlockedDomain0), Some(unlockedDomain0)))
+      val relevantDomains = Set(unlockedCustomerDomain, lockedCustomerDomain)
+      val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, Some(unlockedCustomerDomain)), None, None)
+      res should be(DomainSet(Set(unlockedCustomerDomain), Some(unlockedCustomerDomain)))
     }
 
     "remove locked domains if the user has a good cookie, but no role on the locked domain (where domain is the context)" in {
-      val relevantDomains = Set(unlockedDomain2, apiLockedDomain)
-
-      val userBody =
-        j"""{
-          "id" : "lazy-bear",
-          "screenName" : "lazy bear",
-          "email" : "lazy.bear@forest.com"
-        }"""
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users.json")
-          .withHeader(HeaderXSocrataHostKey, apiLockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/lazy-bear")
-          .withHeader(HeaderXSocrataHostKey, lockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-
-      val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, Some(apiLockedDomain)), None, None)
-      res should be(DomainSet(domains = Set(unlockedDomain2)))
+      val relevantDomains = Set(unlockedCustomerDomain2, apiLockedDomain)
+      val user = prepUserAuth("")
+      val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, Some(apiLockedDomain), Some(apiLockedDomain)), user, None)
+      res should be(DomainSet(domains = Set(unlockedCustomerDomain2), extendedHost = Some(apiLockedDomain)))
     }
 
     "remove locked domains if the user has a good cookie, but no role on the locked domain (where domain is not the context)" in {
-      val relevantDomains = Set(lockedDomain, doublyLockedDomain, unlockedDomain1)
-
-      val authedUserBody =
-        j"""{
-          "id" : "boo-bear",
-          "roleName" : "headBear",
-          "rights" : [ "steal_honey", "scare_tourists"],
-          "flags" : [ "admin" ]
-        }"""
-      val authedUser = User(authedUserBody)
-
-      val unauthedUserBody =
-        j"""{
-          "id" : "boo-bear"
-        }"""
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-          .withHeader(HeaderXSocrataHostKey, lockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(authedUserBody))
-      )
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-          .withHeader(HeaderXSocrataHostKey, doublyLockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(unauthedUserBody))
-      )
-
-      val res = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(relevantDomains, Some(lockedDomain)), authedUser, None)
-      res should be(DomainSet(Set(lockedDomain, unlockedDomain1), Some(lockedDomain)))
+      val relevantDomains = Set(unlockedCustomerDomain, lockedCustomerDomain)
+      val user = prepUserAuth("")
+      val res = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(relevantDomains, None, Some(unlockedCustomerDomain)), user, None)
+      res should be(DomainSet(domains = Set(unlockedCustomerDomain), extendedHost = Some(unlockedCustomerDomain)))
     }
 
     "return all the things if nothing is locked down" in {
@@ -384,60 +382,20 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
       noContextNoDomains should be(DomainSet())
 
       val noDomains = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(searchContext = Some(unlockedDomain0)), None, None)
-      noDomains should be(DomainSet(searchContext = Some(unlockedDomain0)))
+        DomainSet(searchContext = Some(unlockedCustomerDomain)), None, None)
+      noDomains should be(DomainSet(searchContext = Some(unlockedCustomerDomain)))
 
-      val noContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(domains = Set(unlockedDomain1)), None, None)
-      noContext should be(DomainSet(domains = Set(unlockedDomain1)))
+      val noContext = domainClient.removeLockedDomainsForbiddenToUser(DomainSet(domains = Set(unlockedNonCustomerDomain)), None, None)
+      noContext should be(DomainSet(domains = Set(unlockedNonCustomerDomain)))
 
       val bothUnsharedContext = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set(unlockedDomain2), Some(unlockedDomain0)), None, None)
-      bothUnsharedContext should be(DomainSet(Set(unlockedDomain2), Some(unlockedDomain0)))
+        DomainSet(Set(unlockedCustomerDomain2), Some(unlockedCustomerDomain)), None, None)
+      bothUnsharedContext should be(DomainSet(Set(unlockedCustomerDomain2), Some(unlockedCustomerDomain)))
 
       val bothSharedContext = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(Set(unlockedDomain1, unlockedDomain2), Some(unlockedDomain1)), None, None)
-      bothSharedContext should be(DomainSet(Set(unlockedDomain1, unlockedDomain2), Some(unlockedDomain1)))
+        DomainSet(Set(unlockedNonCustomerDomain, unlockedCustomerDomain2), Some(unlockedNonCustomerDomain)), None, None)
+      bothSharedContext should be(DomainSet(Set(unlockedNonCustomerDomain, unlockedCustomerDomain2), Some(unlockedNonCustomerDomain)))
 
-    }
-
-    "return all the things if the user is logged in and has roles on all the domains" in {
-      val relevantDomains = Set(lockedDomain, doublyLockedDomain)
-
-      val userBody =
-        j"""{
-          "id" : "boo-bear",
-          "roleName" : "headBear",
-          "rights" : [ "steal_honey", "scare_tourists"],
-          "flags" : [ "admin" ]
-        }"""
-      val user = User(userBody)
-
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-          .withHeader(HeaderXSocrataHostKey, lockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-      mockServer.when(
-        request()
-          .withMethod("GET")
-          .withPath("/users/boo-bear")
-          .withHeader(HeaderXSocrataHostKey, doublyLockedDomain.domainCname)
-      ).respond(
-        response()
-          .withStatusCode(200)
-          .withHeader("Content-Type", "application/json; charset=utf-8")
-          .withBody(CompactJsonWriter.toString(userBody))
-      )
-
-      val res = domainClient.removeLockedDomainsForbiddenToUser(
-        DomainSet(relevantDomains, Some(apiLockedDomain)), user, None)
-      res should be(DomainSet(relevantDomains, Some(apiLockedDomain)))
     }
   }
 }

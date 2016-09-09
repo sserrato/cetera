@@ -74,7 +74,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   //       But if a search context was given this effectively pretends no context was given.
   def removeLockedDomainsForbiddenToUser(
       domainSet: DomainSet,
-      loggedInUser: Option[User],
+      user: Option[User],
       requestid: Option[String])
     : DomainSet = {
     val context = domainSet.searchContext
@@ -85,14 +85,12 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     if (!contextLocked && lockedDomains.isEmpty) {
       domainSet
     } else {
-      val viewableContext = context.filter(c => !contextLocked || loggedInUser.exists(_.canViewLockedDownCatalog))
+      val loggedInUser = user.map(u => u.copy(authenticatingDomain = extendedHost))
+      val userCanViewLockedContext = loggedInUser.exists(u => context.exists(c => u.canViewLockedDownCatalog(c)))
+      val viewableContext = context.filter(c => !contextLocked || userCanViewLockedContext)
       loggedInUser match {
         case Some(u) =>
-          val viewableLockedDomains =
-            lockedDomains.filter { d =>
-              val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
-              userId.exists(_.canViewLockedDownCatalog)
-            }
+          val viewableLockedDomains = lockedDomains.filter { d => u.canViewLockedDownCatalog(d) }
           DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext, extendedHost)
         case None => // user is not logged in and thus can see no locked data
           DomainSet(unlockedDomains, viewableContext, extendedHost)
@@ -104,7 +102,10 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
   // also looks up the search context and throws if it cannot be found
   // If lock-down is a concern, use the 'findSearchableDomains' method in lieu of this one.
-  def findDomainSet(searchContextCname: Option[String], extendedHost: Option[String], domainCnames: Option[Set[String]])
+  def findDomainSet(
+      searchContextCname: Option[String],
+      extendedHost: Option[String],
+      domainCnames: Option[Set[String]])
   : (DomainSet, Long) = {
     // We want to fetch all relevant domains (search context, extended host and relevant domains) in a single query
     // NOTE: the searchContext and/or extended host may be present as themselves, one another or in the relevant domains

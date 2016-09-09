@@ -65,10 +65,10 @@
 
  ],
  "update_freq": 0,
- "owner_id": "robin-hood",
+ "owner_id": "cook-mons",
  "owner" : {
-   "id": "robin-hood",
-   "screen_name": "Robin Hood"
+   "id": "cook-mons",
+   "screen_name": "Cookie monster"
  },
  "shared_to": [ "Little John" ],
  "attribution": null,

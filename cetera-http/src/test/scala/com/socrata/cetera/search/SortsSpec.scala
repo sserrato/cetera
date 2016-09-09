@@ -93,18 +93,7 @@ class SortsSpec extends WordSpec with ShouldMatchers with BeforeAndAfterAll {
     "order by score desc when given a simple query" in {
       val expected = Sorts.sortScoreDesc
 
-      val searchContext = Domain(
-        domainId = 1,
-        domainCname = "peterschneider.net",
-        siteTitle = Some("Temporary URI"),
-        organization = Some("SDP"),
-        isCustomerDomain = false,
-        moderationEnabled = false,
-        routingApprovalEnabled = true,
-        lockedDown = false,
-        apiLockedDown = false,
-        unmigratedNbeEnabled = false
-      )
+      val searchContext = Domain(domainId = 1, domainCname = "peterschneider.net", siteTitle = Some("Temporary URI"), organization = Some("SDP"), isCustomerDomain = false, moderationEnabled = false, routingApprovalEnabled = true, lockedDown = false, apiLockedDown = false)
 
       val searchParams = SearchParamSet(searchQuery = SimpleQuery("soup salad sandwich"))
       val actual = Sorts.chooseSort(Some(searchContext), searchParams)
