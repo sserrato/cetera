@@ -71,11 +71,11 @@ object SearchResults {
     AutomaticJsonEncodeBuilder[SearchResults[T]]
   }
 
-  def returnUnauthorized(setCookies: Seq[String], time: Long)
-  : (StatusResponse, SearchResults[SearchResult], InternalTimings, Seq[String]) =
+  def returnUnauthorized[T](setCookies: Seq[String], time: Long)
+  : (StatusResponse, SearchResults[T], InternalTimings, Seq[String]) =
     (
       Unauthorized,
-      SearchResults(Seq.empty[SearchResult], 0),
+      SearchResults(Seq.empty[T], 0),
       InternalTimings(Timings.elapsedInMillis(time), Seq(0)),
       setCookies
       )

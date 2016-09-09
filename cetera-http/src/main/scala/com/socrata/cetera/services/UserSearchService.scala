@@ -1,6 +1,5 @@
 package com.socrata.cetera.services
 
-import javax.xml.ws.http.HTTPException
 import scala.util.control.NonFatal
 
 import com.socrata.http.server._
@@ -14,6 +13,7 @@ import com.socrata.cetera.auth.{AuthParams, User, VerificationClient}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses.jsonError
+import com.socrata.cetera.response.SearchResults._
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types.DomainUser
@@ -35,19 +35,18 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
       verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, {u: User => u.canViewUsers})
 
     if (authorizedUser.isEmpty) {
-      (
-        Unauthorized,
-        SearchResults(Seq.empty, 0),
-        InternalTimings(Timings.elapsedInMillis(now), Seq(0)),
-        setCookies
-      )
+      returnUnauthorized(setCookies, now)
     } else {
       val params = QueryParametersParser.prepUserParams(queryParameters)
       val searchParams = params.searchParamSet
       val pagingParams = params.pagingParamSet
-      val (domain, domainSearchTime) = searchParams.domain match {
+      val (domain, domSearchTime) = searchParams.domain match {
         case None => (None, 0L)
         case Some(d) => domainClient.find(d)
+      }
+      val (domainForRoles, domainSearchTime) = (domain, extendedHost) match {
+        case (None, Some(host)) => domainClient.find(host)
+        case (_, _) => (domain, domSearchTime)
       }
 
       if (searchParams.domain.isDefined && domain.isEmpty){
@@ -59,7 +58,8 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
         )
       } else {
         val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
-        val formattedResults = SearchResults(users.flatMap(u => DomainUser(domain, u)), totalCount)
+
+        val formattedResults = SearchResults(users.flatMap(u => DomainUser(domainForRoles, u)), totalCount)
         val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
         (
           OK,

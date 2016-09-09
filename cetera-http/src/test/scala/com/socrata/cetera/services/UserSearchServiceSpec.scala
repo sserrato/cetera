@@ -107,7 +107,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
+    val expectedUsers = users.map(u => DomainUser(context, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
@@ -132,7 +132,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
+    val expectedUsers = users.map(u => DomainUser(context, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
@@ -157,11 +157,11 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = users.map(u => DomainUser(None, u)).flatten
+    val expectedUsers = users.map(u => DomainUser(context, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
-  
+
   test("search with authentication but without authorization is rejected") {
     val userBody =
       j"""{
@@ -211,7 +211,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(None, users(2)).get
+    val expectedFirstUser = DomainUser(context, users(2)).get
     results.results.head should be(expectedFirstUser)
   }
 
@@ -235,7 +235,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(None, users(1)).get
+    val expectedFirstUser = DomainUser(context, users(1)).get
     results.results.head should be(expectedFirstUser)
   }
 
@@ -259,8 +259,34 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
 
     results.results.headOption should be('defined)
-    val expectedFirstUser = DomainUser(None, users(2)).get
+    val expectedFirstUser = DomainUser(context, users(2)).get
     results.results.head should be(expectedFirstUser)
 
+  }
+
+  test("search from a given context about a different domain should return roles from the domain") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderAuthorizationKey, basicAuth)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val params = Map(Params.filterDomain -> "opendata-demo.socrata.com").mapValues(Seq(_))
+    val (status, results, _, _) = service.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
+
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+    results.results.headOption should be('defined)
+
+    val expectedUsers = Set(users(3), users(4)).map(u => DomainUser(Some(domains(1)), u)).flatten
+    results.results should contain theSameElementsAs(expectedUsers)
   }
 }
