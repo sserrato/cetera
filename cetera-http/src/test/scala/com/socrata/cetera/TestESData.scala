@@ -442,7 +442,6 @@ trait TestESData {
         "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
         attribution = None, previewImageId = None,
         Some("zeta-009"), Some("data-0009")
-      )),
       ))
     ).foreach { case (domain, doc) =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
