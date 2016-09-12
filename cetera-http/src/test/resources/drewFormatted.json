@@ -59,7 +59,11 @@
     "is_public": true,
     "is_published":true,
     "visible_to_anonymous": true,
-    "score": 0.98
+    "score": 0.98,
+    "grants": [
+      {"user_id": "jane-doe", "type": "view"},
+      {"user_id": "jack-joe", "type": "gobble"}
+    ]
   },
   "permalink": "https://petercetera.net/d/94sr-dmsy",
   "link": "https://petercetera.net/Finance/drew/94sr-dmsy"

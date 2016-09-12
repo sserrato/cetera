@@ -135,5 +135,9 @@
   "customer_category": "Finance",
   "updated_at": "2016-06-01T10:00:23.000Z",
   "owner_id": "7kqh-9s5a",
-  "attribution": "Finance Department"
+  "attribution": "Finance Department",
+  "grants": [
+    {"user_id": "jane-doe", "type": "view"},
+    {"user_id": "jack-joe", "type": "gobble"}
+  ]
 }

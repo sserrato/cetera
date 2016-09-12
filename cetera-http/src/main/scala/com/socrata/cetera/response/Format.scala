@@ -7,7 +7,6 @@ import com.rojoma.json.v3.jpath.JPath
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera._
 import com.socrata.cetera.handlers.FormatParamSet
 import com.socrata.cetera.types._
 
@@ -94,6 +93,10 @@ object Format {
     }.getOrElse("") // if no domain was found, default to blank string
   }
 
+  def grants(j: JValue): Option[Seq[JValue]] = {
+    new JPath(j).down("grants").finish.headOption.flatMap(_.cast[JArray]).map(_.toSeq)
+  }
+
   private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
     decoded.fold(_ => None, {
       case JString(s) => Option(s)
@@ -177,6 +180,7 @@ object Format {
     val routingApproval = routingApproved(j, viewsDomain, domainSet)
     val moderationApproval = moderationApproved(j, viewsDomain, domainSet)
     val datalensApproval = datalensApproved(j)
+    val viewGrants = grants(j)
     val anonymousVis = public & published & routingApproval.getOrElse(true) &
       moderationApproval.getOrElse(true) & datalensApproval.getOrElse(true)
     Metadata(
@@ -186,7 +190,8 @@ object Format {
       isModerationApproved = moderationApproval,
       isRoutingApproved = routingApproval,
       isDatalensApproved = datalensApproval,
-      visibleToAnonymous = Some(anonymousVis))
+      visibleToAnonymous = Some(anonymousVis),
+      grants = viewGrants)
   }
 
   def documentSearchResult(
@@ -206,6 +211,7 @@ object Format {
       } else {
         Metadata(viewsDomain.domainCname)
       }
+
       val metadata = scorelessMetadata.copy(score = score.map(_.toBigDecimal))
 
       val linkMap = links(

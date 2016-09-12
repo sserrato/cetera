@@ -201,6 +201,13 @@
       },
       "copy_to": [ "fts_analyzed", "fts_raw" ]
     },
-    "preview_image_id": { "type": "string", "index": "no" }
+    "preview_image_id": { "type": "string", "index": "no" } ,
+    "grants": {
+      "type": "nested",
+      "properties": {
+        "user_id": { "type": "string", "index": "not_analyzed" },
+        "type": { "type": "string", "index": "not_analyzed" }
+      }
+    }
   }
 }
