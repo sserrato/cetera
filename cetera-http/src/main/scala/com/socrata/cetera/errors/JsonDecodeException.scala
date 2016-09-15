@@ -1,4 +1,4 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.errors
 
 import com.rojoma.json.v3.codec.DecodeError
 

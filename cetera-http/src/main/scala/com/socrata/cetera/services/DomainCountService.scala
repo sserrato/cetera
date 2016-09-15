@@ -14,13 +14,14 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, JsonDecodeException}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.response._
-import com.socrata.cetera.search.{BaseDomainClient, DomainNotFound}
+import com.socrata.cetera.search.BaseDomainClient
 import com.socrata.cetera.types.Count
-import com.socrata.cetera.util.{ElasticsearchError, JsonDecodeException, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class DomainCountService(domainClient: BaseDomainClient, verificationClient: VerificationClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[DomainCountService])
@@ -97,7 +98,7 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-      case DomainNotFound(e) =>
+      case e: DomainNotFoundError =>
         val msg = s"Domain not found: $e"
         logger.error(msg)
         NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)

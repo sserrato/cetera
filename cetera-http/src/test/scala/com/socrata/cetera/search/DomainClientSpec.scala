@@ -9,6 +9,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, ShouldMatchers, Wor
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.User
+import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.types.{Domain, DomainSet}
 
 // Please see https://github.com/socrata/cetera/blob/master/cetera-http/src/test/resources/domains.tsv
@@ -134,13 +135,13 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     }
 
     "throw DomainNotFound exception when searchContext is missing" in {
-      intercept[DomainNotFound] {
+      intercept[DomainNotFoundError] {
         domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), None, true, None, None)
       }
     }
 
     "throw DomainNotFound exception when searchContext is missing even if domains are found" in {
-      intercept[DomainNotFound] {
+      intercept[DomainNotFoundError] {
         domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), Some(Set("dylan.demo.socrata.com")), true, None, None)
       }
     }

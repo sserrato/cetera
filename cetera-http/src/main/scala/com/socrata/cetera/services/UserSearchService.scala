@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, User, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses.jsonError
@@ -17,7 +18,7 @@ import com.socrata.cetera.response.SearchResults._
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.types.DomainUser
-import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class UserSearchService(userClient: UserClient, verificationClient: VerificationClient, domainClient: DomainClient) {
   lazy val logger = LoggerFactory.getLogger(getClass)
@@ -35,7 +36,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
       verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, {u: User => u.canViewUsers})
 
     if (authorizedUser.isEmpty) {
-      returnUnauthorized(setCookies, now)
+      throw UnauthorizedError(authorizedUser, "search users")
     } else {
       val params = QueryParametersParser.prepUserParams(queryParameters)
       val searchParams = params.searchParamSet
@@ -50,12 +51,7 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
       }
 
       if (searchParams.domain.isDefined && domain.isEmpty){
-        (
-          NotFound,
-          SearchResults(Seq.empty, 0),
-          InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime)),
-          setCookies
-        )
+        throw DomainNotFoundError(searchParams.domain.get)
       } else {
         val (users, totalCount, userSearchTime) = userClient.search(searchParams, pagingParams, domain.map(_.domainId))
 
@@ -87,6 +83,12 @@ class UserSearchService(userClient: UserClient, verificationClient: Verification
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: DomainNotFoundError =>
+        logger.error(e.getMessage)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: UnauthorizedError =>
+        logger.error(e.getMessage)
+        Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case NonFatal(e) =>
         val msg = "Cetera search service error"
         val esError = ElasticsearchError(e)

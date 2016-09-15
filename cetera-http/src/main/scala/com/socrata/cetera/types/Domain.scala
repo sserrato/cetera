@@ -1,9 +1,9 @@
 package com.socrata.cetera.types
 
-import com.rojoma.json.v3.util.{JsonUtil, AutomaticJsonCodecBuilder, Strategy, JsonKeyStrategy}
+import com.rojoma.json.v3.util.{AutomaticJsonCodecBuilder, JsonKeyStrategy, JsonUtil, Strategy}
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.util.JsonDecodeException
+import com.socrata.cetera.errors.JsonDecodeException
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class Domain(domainId: Int,

@@ -1,4 +1,4 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.errors
 
 // The way this is used, we assume the error is coming from elasticsearch
 case class ElasticsearchError(originalMessage: String, stackTrace: Array[StackTraceElement]) extends Throwable {

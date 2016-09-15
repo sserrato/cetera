@@ -3,7 +3,7 @@ package com.socrata.cetera.types
 import com.rojoma.json.v3.util._
 import org.slf4j.LoggerFactory
 
-import com.socrata.cetera.util.JsonDecodeException
+import com.socrata.cetera.errors.JsonDecodeException
 
 @JsonKeyStrategy(Strategy.Underscore)
 case class SocrataId(datasetId: String, parentDatasetid: Option[String], domainId: Int)

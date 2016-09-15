@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{CoreClient, User}
+import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, DomainSet}
 import com.socrata.cetera.util.LogHelper
@@ -116,7 +117,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
     }
 
     // If a searchContext is specified and we can't find it, we have to bail
-    searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFound(c))
+    searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFoundError(c))
 
     (DomainSet(domains, searchContextDomain), timings)
   }
@@ -177,9 +178,4 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       .setSearchType(SearchType.COUNT)
       .setSize(0) // no docs, aggs only
   }
-}
-
-// Should throw when Search Context is not found
-case class DomainNotFound(cname: String) extends Throwable {
-  override def toString: String = s"Domain not found: $cname"
 }

@@ -14,6 +14,8 @@ import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.DomainNotFoundError
+import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.response.SearchResults
 import com.socrata.cetera.search._
 import com.socrata.cetera.types._
@@ -168,6 +170,17 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
     val expectedResults = List(Count("robin-hood", 5), Count("lil-john", 2),  Count("john-clan", 1))
     val (_, res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
+  }
+
+  test("throws a DomainNotFoundError when the search_context doesn't exist") {
+    val params = Map(
+      Params.context -> "bad-domain.com",
+      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com")
+      .mapValues(Seq(_))
+
+    intercept[DomainNotFoundError] {
+      val (_, res, _, _) = service.doAggregate(OwnerIdFieldType, params, AuthParams(), None, None)
+    }
   }
 }
 

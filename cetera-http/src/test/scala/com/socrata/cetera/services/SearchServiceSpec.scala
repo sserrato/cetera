@@ -26,6 +26,7 @@ import org.springframework.mock.web.{DelegatingServletInputStream, MockHttpServl
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.DomainNotFoundError
 import com.socrata.cetera.handlers.{FormatParamSet, Params}
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{Classification, Format, SearchResult}
@@ -271,6 +272,16 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     }{
       val entries = s.getLines.toList.head
       entries.contains(s"datasets-search-$q")
+    }
+  }
+
+  test("search with a non-existent search_context throws a DomainNotFoundError") {
+    val params = Map(
+      "domains" -> "opendata-demo.socrata.com",
+      "search_context" -> "bad-domain.com"
+    ).mapValues(Seq(_))
+    intercept[DomainNotFoundError] {
+      service.doSearch(params, Visibility.anonymous, AuthParams(), None, None)
     }
   }
 

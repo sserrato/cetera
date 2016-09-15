@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers._
 import com.socrata.cetera.handlers.ParamValidator
 import com.socrata.cetera.handlers.util._
@@ -17,9 +18,9 @@ import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response._
 import com.socrata.cetera.response.SearchResults._
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class SearchService(
     documentClient: BaseDocumentClient,
@@ -47,16 +48,13 @@ class SearchService(
     : (StatusResponse, SearchResults[SearchResult], InternalTimings, Seq[String]) = {
 
     val now = Timings.now()
-
     val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
-
-    val authedUserId = authorizedUser.map(_.id)
 
     // If authentication is required (varies by endpoint, see Visibility) then respond OK only when a valid user is
     // authorized, otherwise respond HTTP/401 Unauthorized.
     if (authorizedUser.isEmpty && visibility.authenticationRequired) {
-      returnUnauthorized(setCookies, now)
+      throw UnauthorizedError(authorizedUser, "search the internal catalog")
     } else {
       QueryParametersParser(queryParameters, extendedHost) match {
         case Left(errors) =>
@@ -64,9 +62,10 @@ class SearchService(
           throw new IllegalArgumentException(s"Invalid query parameters: $msg")
 
         case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)) =>
+          val authedUserId = authorizedUser.map(_.id)
           val paramValidator = ParamValidator(searchParams, authedUserId, visibility)
           if (!paramValidator.userParamsAuthorized) {
-            returnUnauthorized(setCookies, now)
+            throw UnauthorizedError(authorizedUser, "search another users shared files")
           } else {
             val (domains, domainSearchTime) = domainClient.findSearchableDomains(
               searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
@@ -105,12 +104,14 @@ class SearchService(
       Http.decorate(Json(formattedResults, pretty = true), status, setCookies)
     } catch {
       case e: IllegalArgumentException =>
-        logger.info(e.getMessage)
+        logger.error(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-      case DomainNotFound(e) =>
-        val msg = s"Domain not found: $e"
-        logger.error(msg)
-        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
+      case e: DomainNotFoundError =>
+        logger.error(e.getMessage)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: UnauthorizedError =>
+        logger.error(e.getMessage)
+        Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case NonFatal(e) =>
         val msg = "Cetera search service error"
         val esError = ElasticsearchError(e)

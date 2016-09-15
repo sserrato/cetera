@@ -18,6 +18,8 @@ import org.springframework.mock.web.MockHttpServletResponse
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, UnauthorizedError}
+import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.search._
 import com.socrata.cetera.types.{FacetCount, ValueCount}
 
@@ -163,7 +165,40 @@ class FacetServiceSpec
     facets.foreach(f => f.count should be(f.values.map(_.count).sum))
   }
 
-  test("return an empty seq of facets on a locked domain if user is not authed properly") {
+  test("throws a DomainNotFoundError when the cname doesn't exist") {
+    val context = domains(0)
+    val userBody = j"""{ "id" : "boo-bear", "roleName" : "editor" }"""
+
+    mockServer.when(
+      request()
+        .withMethod("GET")
+        .withPath("/users.json")
+        .withHeader(HeaderXSocrataHostKey, context.domainCname),
+      Times.exactly(1)
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(userBody))
+    )
+    mockServer.when(
+      request()
+        .withMethod("GET")
+        .withPath("/users/boo-bear"),
+      Times.exactly(1)
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(userBody))
+    )
+
+    intercept[DomainNotFoundError] {
+      service.doAggregate("bs-domain.com", AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
+    }
+  }
+
+  test("throw an unauthorizedError if user is not authed properly") {
     val context = domains(8)
     val userBody = j"""{ "id" : "boo-bear"}"""   // poor boo-bear has no role.
 
@@ -191,8 +226,9 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (_, facets, timings, _) = service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
-    facets should be(empty)
+    intercept[UnauthorizedError] {
+      service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
+    }
   }
 }
 

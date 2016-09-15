@@ -1,4 +1,4 @@
-package com.socrata.cetera.util
+package com.socrata.cetera.errors
 
 import org.scalatest.{FunSuiteLike, Matchers}
 

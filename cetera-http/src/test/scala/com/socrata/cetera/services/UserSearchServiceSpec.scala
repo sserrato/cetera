@@ -12,6 +12,7 @@ import com.socrata.cetera.{TestCoreClient, TestESClient, TestESData, TestHttpCli
 import com.socrata.cetera.search.{DomainClient, UserClient}
 import com.socrata.cetera.{HeaderAuthorizationKey, HeaderCookieKey, HeaderXSocrataHostKey}
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, UnauthorizedError}
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.types.DomainUser
 
@@ -59,31 +60,78 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     super.afterAll()
   }
 
-  test("search without authentication is rejected") {
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(), None, None)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
+  test("search without authentication throws an unauthorizedError") {
+    intercept[UnauthorizedError] {
+      service.doSearch(Map.empty, AuthParams(), None, None)
+    }
   }
 
-  test("search with cookie, but no socrata host is rejected") {
-    val cookie = "Traditional = WASD"
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), None, None)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
+  test("search with cookie, but no socrata host throws an unauthorizedError") {
+    intercept[UnauthorizedError] {
+      service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), None, None)
+    }
   }
 
-  test("search with basic auth, but no socrata host is rejected") {
+  test("search with basic auth, but no socrata host throws an unauthorizedError") {
     val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), None, None)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
+    intercept[UnauthorizedError] {
+      service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), None, None)
+    }
   }
 
-  test("search with oauth, but no socrata host is rejected") {
+  test("search with oauth, but no socrata host throws an unauthorizedError") {
     val oAuth = "OAuth cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), None, None)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
+    intercept[UnauthorizedError] {
+      service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), None, None)
+    }
+  }
+
+  test("search with authentication but without authorization throws an unauthorizedError") {
+    val userBody =
+      j"""{
+        "id" : "boo-bear",
+        "roleName" : "headBear",
+        "rights" : [ "steal_honey", "scare_tourists"]
+        }"""
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderCookieKey, cookie)
+
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(userBody))
+    )
+
+    intercept[UnauthorizedError] {
+      service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
+    }
+  }
+
+  test("search for a domain that doesn't exist throws a DomainNotFoundError") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderCookieKey, cookie)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    intercept[DomainNotFoundError] {
+      val params = Map(Params.filterDomain -> "bad-domain.com").mapValues(Seq(_))
+      service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+    }
   }
 
   test("search with cookie authentication returns any and all users, with required attributes") {
@@ -159,36 +207,6 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
 
     val expectedUsers = users.map(u => DomainUser(context, u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
-  }
-
-
-  test("search with authentication but without authorization is rejected") {
-    val userBody =
-      j"""{
-        "id" : "boo-bear",
-        "roleName" : "headBear",
-        "rights" : [ "steal_honey", "scare_tourists"]
-        }"""
-    val expectedRequest = request()
-      .withMethod("GET")
-      .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
-      .withHeader(HeaderCookieKey, cookie)
-
-    mockServer.when(
-      expectedRequest
-    ).respond(
-      response()
-        .withStatusCode(200)
-        .withHeader("Content-Type", "application/json; charset=utf-8")
-        .withBody(CompactJsonWriter.toString(userBody))
-    )
-
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
-
-    mockServer.verify(expectedRequest)
-    status should be(Unauthorized)
-    results.results.headOption should be('empty)
   }
 
   test("query search with an email should produce most relevant result first") {

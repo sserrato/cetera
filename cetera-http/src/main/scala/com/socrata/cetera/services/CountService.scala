@@ -14,13 +14,14 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError}
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.handlers.{QueryParametersParser, ValidatedQueryParameters}
 import com.socrata.cetera.response.JsonResponses.jsonError
 import com.socrata.cetera.response.{Http, InternalTimings, SearchResults, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class CountService(
     documentClient: BaseDocumentClient,
@@ -117,10 +118,9 @@ class CountService(
       case e: IllegalArgumentException =>
         logger.info(e.getMessage)
         BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-      case DomainNotFound(e) =>
-        val msg = s"Domain not found: $e"
-        logger.error(msg)
-        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
+      case e: DomainNotFoundError =>
+        logger.error(e.getMessage)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
       case NonFatal(e) =>
         val esError = ElasticsearchError(e)
         logger.error(s"Database error: ${esError.getMessage}")

@@ -12,6 +12,7 @@ import org.mockserver.model.HttpResponse._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuiteLike, Matchers}
 
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.UnauthorizedError
 import com.socrata.cetera.handlers.Params
 import com.socrata.cetera.handlers.util.MultiQueryParams
 import com.socrata.cetera.metrics.BalboaClient
@@ -121,31 +122,28 @@ class SearchServiceSpecWithPrivateData
       fxf -> visibility
     }.toMap
 
-  test("searching with full visibility requires auth") {
-    validateRequest(
-      None, None, None, None, showVisibility = false, Visibility.full,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
+  test("searching with full visibility without auth throws an UnauthorizedError") {
+    intercept[UnauthorizedError] {
+      val params = requestParams(None, None, None, showVisibility = false)
+      service.doSearch(params, Visibility.full, AuthParams(cookie=None), None, None)
+    }
   }
 
-  test("searching with asset selector visibility requires auth") {
-    validateRequest(
-      None, None, None, None, showVisibility = false, Visibility.assetSelector,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
+  test("searching with asset selector visibility without auth throws an UnauthorizedError") {
+    intercept[UnauthorizedError] {
+      val params = requestParams(None, None, None, showVisibility = false)
+      service.doSearch(params, Visibility.assetSelector, AuthParams(cookie=None), None, None)
+    }
   }
 
-  test("searching with personal catalog visibility requires auth") {
-    validateRequest(
-      None, None, None, None, showVisibility = false, Visibility.personalCatalog,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
+  test("searching with personal catalog visibility without auth throws an UnauthorizedError") {
+    intercept[UnauthorizedError] {
+      val params = requestParams(None, None, None, showVisibility = false)
+      service.doSearch(params, Visibility.personalCatalog, AuthParams(cookie=None), None, None)
+    }
   }
 
-  test("searching with full visibility shows public & private bits") {
+  test("searching with full visibility with auth shows public & private bits") {
     val cookie = "C = Cookie"
     val host = "annabelle.island.net"
     val authedUserBody =
@@ -164,7 +162,7 @@ class SearchServiceSpecWithPrivateData
     )
   }
 
-  test("searching with asset selector visibility shows public & private bits") {
+  test("searching with asset selector visibility with auth shows public & private bits") {
     val cookie = "C = Cookie"
     val host = "annabelle.island.net"
     val authedUserBody =
@@ -183,7 +181,7 @@ class SearchServiceSpecWithPrivateData
     )
   }
 
-  test("searching with asset selector visibility shows public & private & shared bits") {
+  test("searching with asset selector visibility with auth shows public & private & shared bits") {
     val cookie = "C = Cookie"
     val host = "annabelle.island.net"
     val authedUserBody =
@@ -350,7 +348,7 @@ class SearchServiceSpecWithPrivateData
     )
   }
 
-  test("searching for assets shared to anyone except logged in user returns unauthorized") {
+  test("searching for assets shared to anyone except logged in user throws an unauthorizedError") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -361,14 +359,13 @@ class SearchServiceSpecWithPrivateData
         }"""
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), None, Some("Different Person"), showVisibility = false, Visibility.personalCatalog,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
+    intercept[UnauthorizedError] {
+      val params = requestParams(Some(host), None, Some("Different Person"), showVisibility = false)
+      service.doSearch(params, Visibility.personalCatalog, AuthParams(cookie=Some(cookie)), Some(host), None)
+    }
   }
 
-  test("searching for assets owned by anyone except logged in user via personal catalog returns unauthorized") {
+  test("searching for assets owned by anyone except logged in user via personal catalog throws an unauthorizedError") {
     val cookie = "C = Cookie"
     val host = "petercetera.net"
     val authedUserBody =
@@ -379,11 +376,10 @@ class SearchServiceSpecWithPrivateData
         }"""
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
-    validateRequest(
-      Some(cookie), Some(host), Some("Different Person"), None, showVisibility = false, Visibility.personalCatalog,
-      _ should be(Unauthorized),
-      _.results.headOption should be('empty)
-    )
+    intercept[UnauthorizedError] {
+      val params = requestParams(Some(host), Some("Different Person"), None, showVisibility = false)
+      service.doSearch(params, Visibility.personalCatalog, AuthParams(cookie=Some(cookie)), Some(host), None)
+    }
   }
 
   test("searching for assets by sending for_user and shared_to params returns no results") {

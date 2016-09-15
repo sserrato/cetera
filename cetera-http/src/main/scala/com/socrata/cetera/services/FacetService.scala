@@ -14,53 +14,20 @@ import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{AuthParams, VerificationClient}
+import com.socrata.cetera.errors.{DomainNotFoundError, ElasticsearchError, UnauthorizedError}
 import com.socrata.cetera.handlers.QueryParametersParser
 import com.socrata.cetera.handlers.util._
 import com.socrata.cetera.response.JsonResponses._
 import com.socrata.cetera.response.{Http, InternalTimings, Timings}
-import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, DomainNotFound, Visibility}
+import com.socrata.cetera.search.{BaseDocumentClient, BaseDomainClient, Visibility}
 import com.socrata.cetera.types._
-import com.socrata.cetera.util.{ElasticsearchError, LogHelper}
+import com.socrata.cetera.util.LogHelper
 
 class FacetService(
     documentClient: BaseDocumentClient,
     domainClient: BaseDomainClient,
     verificationClient: VerificationClient) {
   lazy val logger = LoggerFactory.getLogger(classOf[FacetService])
-
-  // $COVERAGE-OFF$ jetty wiring
-  case class Service(cname: String) extends SimpleResource {
-    override def get: HttpService = aggregate(cname)
-  }
-
-  def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
-    val authParams = AuthParams.fromHttpRequest(req)
-    val extendedHost = req.header(HeaderXSocrataHostKey)
-    val requestId = req.header(HeaderXSocrataRequestIdKey)
-
-    QueryParametersParser(req.multiQueryParams, extendedHost) match {
-      case Left(errors) =>
-        val msg = errors.map(_.message).mkString(", ")
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
-      case Right(params) =>
-        try {
-          val (status, facets, timings, setCookies) = doAggregate(cname, authParams, extendedHost, requestId)
-          logger.info(LogHelper.formatRequest(req, timings))
-          Http.decorate(Json(facets, pretty = true), status, setCookies)
-        } catch {
-          case DomainNotFound(e) =>
-            val msg = s"Domain not found: $e"
-            logger.error(msg)
-            NotFound ~> HeaderAclAllowOriginAll ~> jsonError(msg)
-          case NonFatal(e) =>
-            val esError = ElasticsearchError(e)
-            logger.error(s"Database error: ${esError.getMessage}")
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
-        }
-    }
-  }
-
-  // $COVERAGE-ON$
 
   def doAggregate( // scalastyle:ignore method.length
       cname: String,
@@ -70,7 +37,6 @@ class FacetService(
     : (StatusResponse, Seq[FacetCount], InternalTimings, Seq[String]) = {
 
     val startMs = Timings.now()
-
     val (authorizedUser, setCookies) =
       verificationClient.fetchUserAuthorization(extendedHost, authParams, requestId, _ => true)
 
@@ -79,6 +45,8 @@ class FacetService(
     )
 
     domainSet.searchContext match {
+      case None => // domain exists but user isn't authorized to see it
+        throw UnauthorizedError(authorizedUser, s"search for facets on $cname")
       case Some(d) => // domain exists and is viewable by user
         val request = documentClient.buildFacetRequest(domainSet, authorizedUser, Visibility.anonymous)
         logger.info(LogHelper.formatEsRequest(request))
@@ -110,11 +78,41 @@ class FacetService(
         val facets: Seq[FacetCount] = Seq.concat(datatypesFacets, categoriesFacets, tagsFacets, metadataFacets)
         val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime, res.getTookInMillis))
         (OK, facets, timings, setCookies)
-
-      case None => // domain exists but user isn't authorized to see it
-        val facets = Seq.empty[FacetCount]
-        val timings = InternalTimings(Timings.elapsedInMillis(startMs), Seq(domainSearchTime))
-        (OK, facets, timings, setCookies)
     }
   }
+
+  def aggregate(cname: String)(req: HttpRequest): HttpResponse = {
+    val authParams = AuthParams.fromHttpRequest(req)
+    val extendedHost = req.header(HeaderXSocrataHostKey)
+    val requestId = req.header(HeaderXSocrataRequestIdKey)
+
+    QueryParametersParser(req.multiQueryParams, extendedHost) match {
+      case Left(errors) =>
+        val msg = errors.map(_.message).mkString(", ")
+        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
+      case Right(params) =>
+        try {
+          val (status, facets, timings, setCookies) = doAggregate(cname, authParams, extendedHost, requestId)
+          logger.info(LogHelper.formatRequest(req, timings))
+          Http.decorate(Json(facets, pretty = true), status, setCookies)
+        } catch {
+          case e: DomainNotFoundError =>
+            logger.error(e.getMessage)
+            NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+          case e: UnauthorizedError =>
+            logger.error(e.getMessage)
+            Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+          case NonFatal(e) =>
+            val esError = ElasticsearchError(e)
+            logger.error(s"Database error: ${esError.getMessage}")
+            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
+        }
+    }
+  }
+
+  // $COVERAGE-OFF$ jetty wiring
+  case class Service(cname: String) extends SimpleResource {
+    override def get: HttpService = aggregate(cname)
+  }
+  // $COVERAGE-ON$
 }

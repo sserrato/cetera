@@ -9,6 +9,7 @@ import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
+import com.socrata.cetera.errors.JsonDecodeException
 import com.socrata.cetera.search.ElasticSearchClient
 
 object ElasticsearchBootstrap {
