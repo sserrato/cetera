@@ -148,6 +148,14 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Bef
     totalCount should be(2)
   }
 
+  test("search by querying strings with ES-reserved characters") {
+    val reservedChars = List("+", "-", "&&", "&", "||", "|", "!", "(", ")", "{", "}", "[", "]", "^", "\"", "~", "*", "?", ":", "\\", "/")
+    // nothing should blow up
+    reservedChars.map { c =>
+      userClient.search(UserSearchParamSet(query = Some(s"anu$c")), PagingParamSet(), None)
+    }
+  }
+
   test("search by all the things") {
     val params = UserSearchParamSet(
       emails = Some(Set("good.luck.bear@care.alot")),

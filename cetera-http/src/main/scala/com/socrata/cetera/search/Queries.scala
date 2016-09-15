@@ -3,6 +3,7 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, matchQuery, nestedQuery}
 import org.elasticsearch.index.query._
+import org.apache.lucene.queryparser.flexible.standard.QueryParserUtil
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDomainType
@@ -222,8 +223,9 @@ object UserQueries {
     query match {
       case None => QueryBuilders.matchAllQuery()
       case Some(q) =>
+        val sanitizedQ = QueryParserUtil.escape(q)
         QueryBuilders
-          .queryStringQuery(q)
+          .queryStringQuery(sanitizedQ)
           .field(UserScreenName.fieldName)
           .field(UserScreenName.rawFieldName)
           .field(UserEmail.fieldName)
