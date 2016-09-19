@@ -1,13 +1,13 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchType}
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.{FilterBuilders, QueryBuilders}
 import org.slf4j.LoggerFactory
 
 import com.socrata.cetera._
 import com.socrata.cetera.auth.{CoreClient, User}
 import com.socrata.cetera.errors.DomainNotFoundError
-import com.socrata.cetera.search.DomainFilters.{idsFilter, isCustomerDomainFilter}
+import com.socrata.cetera.search.DomainFilters.{cnamesFilter, idsFilter, isCustomerDomainFilter}
 import com.socrata.cetera.types.{Domain, DomainCnameFieldType, DomainSet}
 import com.socrata.cetera.util.LogHelper
 
@@ -16,6 +16,7 @@ trait BaseDomainClient {
 
   def findSearchableDomains(
       searchContextCname: Option[String],
+      extendedHost: Option[String],
       domainCnames: Option[Set[String]],
       excludeLockedDomains: Boolean,
       user: Option[User],
@@ -77,6 +78,7 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       requestid: Option[String])
     : DomainSet = {
     val context = domainSet.searchContext
+    val extendedHost = domainSet.extendedHost
     val contextLocked = context.exists(_.isLocked)
     val (lockedDomains, unlockedDomains) = domainSet.domains.partition(_.isLocked)
 
@@ -91,9 +93,9 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
               val (userId, _) = coreClient.fetchUserById(d.domainCname, u.id, requestid)
               userId.exists(_.canViewLockedDownCatalog)
             }
-          DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext)
+          DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext, extendedHost)
         case None => // user is not logged in and thus can see no locked data
-          DomainSet(unlockedDomains, viewableContext)
+          DomainSet(unlockedDomains, viewableContext, extendedHost)
       }
     }
   }
@@ -102,34 +104,36 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
   // also looks up the search context and throws if it cannot be found
   // If lock-down is a concern, use the 'findSearchableDomains' method in lieu of this one.
-  def findDomainSet(searchContextCname: Option[String], domainCnames: Option[Set[String]])
+  def findDomainSet(searchContextCname: Option[String], extendedHost: Option[String], domainCnames: Option[Set[String]])
   : (DomainSet, Long) = {
-    // We want to fetch all relevant domains (search context and relevant domains) in a single query
-    // NOTE: the searchContext may be present as both the context and in the relevant domains
+    // We want to fetch all relevant domains (search context, extended host and relevant domains) in a single query
+    // NOTE: the searchContext and/or extended host may be present as themselves, one another or in the relevant domains
     val (foundDomains, timings) = domainCnames match {
-      case Some(cnames) => find(cnames ++ searchContextCname)
-      case None => customerDomainSearch
+      case Some(cnames) => find(cnames ++ searchContextCname ++ extendedHost)
+      case None => customerDomainSearch(Set(searchContextCname, extendedHost).flatten)
     }
     val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
+    val extendedHostDomain = extendedHost.flatMap(cname => foundDomains.find(_.domainCname == cname))
     val domains = domainCnames match {
       case Some(cnames) => foundDomains.filter(d => cnames.contains(d.domainCname))
-      case None => foundDomains
+      case None => foundDomains.filter(d => d.isCustomerDomain)
     }
 
     // If a searchContext is specified and we can't find it, we have to bail
     searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFoundError(c))
 
-    (DomainSet(domains, searchContextDomain), timings)
+    (DomainSet(domains, searchContextDomain, extendedHostDomain), timings)
   }
 
   def findSearchableDomains(
       searchContextCname: Option[String],
+      extendedHost: Option[String],
       domainCnames: Option[Set[String]],
       excludeLockedDomains: Boolean,
       user: Option[User],
       requestId: Option[String])
     : (DomainSet, Long) = {
-    val (domainSet, timings) = findDomainSet(searchContextCname, domainCnames)
+    val (domainSet, timings) = findDomainSet(searchContextCname, extendedHost, domainCnames)
     if (excludeLockedDomains) {
       val restrictedDomainSet =
         removeLockedDomainsForbiddenToUser(domainSet, user, requestId)
@@ -144,11 +148,13 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   private val customerDomainSearchSize = 42000
 
   // when query doesn't define domain filter, we assume all customer domains.
-  private def customerDomainSearch: (Set[Domain], Long) = {
+  private def customerDomainSearch(additionalDomains: Set[String]): (Set[Domain], Long) = {
+    val domainFilter = cnamesFilter(additionalDomains)
+    val filter = FilterBuilders.boolFilter().should(isCustomerDomainFilter).should(domainFilter)
     val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
       .setQuery(QueryBuilders.filteredQuery(
         QueryBuilders.matchAllQuery(),
-        isCustomerDomainFilter)
+        filter)
       )
       .setSize(customerDomainSearchSize)
     logger.info(LogHelper.formatEsRequest(search))

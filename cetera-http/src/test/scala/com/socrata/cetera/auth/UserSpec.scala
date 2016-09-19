@@ -3,12 +3,12 @@ package com.socrata.cetera.auth
 import org.scalatest.{WordSpec, ShouldMatchers}
 
 class UserSpec extends WordSpec with ShouldMatchers {
-  val superAdmin = User("", None, None, Some(List("admin")))
-  val customerAdmin = User("", Some("administrator"), None, None)
-  val customerEditor = User("", Some("editor"), None, None)
-  val customerPublisher = User("", Some("publisher"), None, None)
-  val customerViewer = User("", Some("viewer"), None, None)
-  val anonymous = User("", None, None, None)
+  val superAdmin = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
+  val customerAdmin = User("", None, roleName = Some("administrator"), rights = None, flags = None)
+  val customerEditor = User("", None, roleName = Some("editor"), rights = None, flags = None)
+  val customerPublisher = User("", None, roleName = Some("publisher"), rights = None, flags = None)
+  val customerViewer = User("", None, roleName = Some("viewer"), rights = None, flags = None)
+  val anonymous = User("", None, roleName = None, rights = None, flags = None)
 
   "The canViewLockedDownCatalog method" should {
     "return true if the user is a super admin" in {

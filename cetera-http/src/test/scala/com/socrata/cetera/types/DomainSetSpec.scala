@@ -67,7 +67,7 @@ class DomainSetSpec extends WordSpec with ShouldMatchers with TestESDomains {
   "the domainIdBoosts method" should {
     "convert domainBoosts if the domains in question are within the DomainSet" in {
       val boosts = Map[String, Float]("annabelle.island.net" -> 0.42f, "dylan.demo.socrata.com" -> 0.58f)
-      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), boosts)
+      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), domainBoosts = boosts)
       val actualBoosts = domainSet.domainIdBoosts
       val expectedBoosts = Map(3 -> 0.42f, 4 -> 0.58f)
       actualBoosts should be(expectedBoosts)
@@ -75,7 +75,7 @@ class DomainSetSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
     "drop out cnames if the domains in question are not within the DomainSet" in {
       val boosts = Map[String, Float]("annabelle.island.net" -> 0.33f, "blue.org" -> 0.67f)
-      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), boosts)
+      val domainSet = DomainSet(Set(domains(3), domains(4)), Some(domains(4)), domainBoosts = boosts)
       val actualBoosts = domainSet.domainIdBoosts
       val expectedBoosts = Map(3 -> 0.33f)
       actualBoosts should be(expectedBoosts)

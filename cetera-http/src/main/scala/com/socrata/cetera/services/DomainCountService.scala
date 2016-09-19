@@ -61,10 +61,12 @@ class DomainCountService(domainClient: BaseDomainClient, verificationClient: Ver
 
       case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
-          searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
+          searchParams.searchContext, extendedHost, searchParams.domains,
+          excludeLockedDomains = true, authorizedUser, requestId
         )
+        val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
 
-        val search = domainClient.buildCountRequest(domainSet, authorizedUser)
+        val search = domainClient.buildCountRequest(domainSet, authedUser)
         logger.info(LogHelper.formatEsRequest(search))
 
         val res = search.execute.actionGet

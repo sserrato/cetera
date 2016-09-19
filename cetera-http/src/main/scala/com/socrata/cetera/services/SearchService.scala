@@ -68,14 +68,16 @@ class SearchService(
             throw UnauthorizedError(authorizedUser, "search another users shared files")
           } else {
             val (domains, domainSearchTime) = domainClient.findSearchableDomains(
-              searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
+              searchParams.searchContext, extendedHost, searchParams.domains,
+              excludeLockedDomains = true, authorizedUser, requestId
             )
             val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
+            val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
 
             val req = documentClient.buildSearchRequest(
               domainSet,
               searchParams, scoringParams, pagingParams,
-              authorizedUser, visibility
+              authedUser, visibility
             )
             logger.info(LogHelper.formatEsRequest(req))
             val res = req.execute.actionGet

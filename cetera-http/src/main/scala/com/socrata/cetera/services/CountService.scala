@@ -73,11 +73,13 @@ class CountService(
 
       case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
         val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
-          searchParams.searchContext, searchParams.domains, excludeLockedDomains = true, authorizedUser, requestId
+          searchParams.searchContext, extendedHost, searchParams.domains,
+          excludeLockedDomains = true, authorizedUser, requestId
         )
+        val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
 
         val search =
-          documentClient.buildCountRequest(field, domainSet, searchParams, authorizedUser, Visibility.anonymous)
+          documentClient.buildCountRequest(field, domainSet, searchParams, authedUser, Visibility.anonymous)
         logger.info(LogHelper.formatEsRequest(search))
 
         val res = search.execute.actionGet

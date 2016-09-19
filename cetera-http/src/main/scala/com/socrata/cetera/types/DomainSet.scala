@@ -6,17 +6,18 @@ package com.socrata.cetera.types
 case class DomainSet(
     domains: Set[Domain] = Set.empty,
     searchContext: Option[Domain] = None,
+    extendedHost: Option[Domain] = None,
     domainBoosts: Map[String, Float] = Map.empty) {
 
   def addDomainBoosts(boosts: Map[String, Float]): DomainSet = copy(domainBoosts = boosts)
 
   def idMap: Map[Int, Domain] = {
-    val allDomains = domains ++ searchContext
+    val allDomains = domains ++ searchContext ++ extendedHost
     allDomains.map(d => d.domainId -> d).toMap
   }
 
   def idCnameMap: Map[Int, String] = {
-    val allDomains = domains ++ searchContext
+    val allDomains = domains ++ searchContext ++ extendedHost
     allDomains.map(d => d.domainId -> d.domainCname).toMap
   }
 

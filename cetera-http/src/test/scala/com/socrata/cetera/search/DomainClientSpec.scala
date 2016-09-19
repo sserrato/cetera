@@ -81,27 +81,87 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   "findRelevantDomains" should {
     "return the context if it exists among customer domains: petercetera.net" in {
       val expectedContext = domains(0)
-      val (domainSet, _) = domainClient.findSearchableDomains(Some("petercetera.net"), None, true, None, None)
+      val (domainSet, _) = domainClient.findSearchableDomains(Some("petercetera.net"), None, None, true, None, None)
       domainSet.searchContext.get should be(expectedContext)
     }
 
     "return the domain if it exists among the given cnames : opendata-demo.socrata.com" in {
       val expectedContext = domains(1)
       val (domainSet, _) = domainClient.findSearchableDomains(
-        Some("opendata-demo.socrata.com"), Some(Set("opendata-demo.socrata.com")), true, None, None)
+        Some("opendata-demo.socrata.com"), None, Some(Set("opendata-demo.socrata.com")), true, None, None)
       domainSet.searchContext.get should be(expectedContext)
     }
 
-    "return all the unlocked customer domains if not given cnames" in {
+    "return the extended host if it exists among the given cnames : opendata-demo.socrata.com" in {
+      val expectedHost = domains(1)
+      val (domainSet, _) = domainClient.findSearchableDomains(None,
+        Some("opendata-demo.socrata.com"), Some(Set("opendata-demo.socrata.com")), true, None, None)
+      domainSet.extendedHost.get should be(expectedHost)
+    }
+
+    "return the context, extended host and domains even if they are all the same thing: opendata-demo.socrata.com" in {
+      val domain = domains(1)
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(domain.domainCname), Some(domain.domainCname), Some(Set(domain.domainCname)), true, None, None)
+
+      domainSet.searchContext.get should be(domain)
+      domainSet.extendedHost.get should be(domain)
+      domainSet.domains should be(Set(domain))
+    }
+
+    "return all the unlocked customer domains if not given cnames, context or extendhost" in {
       val unlockedDomains = Set(domains(0), domains(2), domains(3), domains(4))
-      val (domainSet, _) = domainClient.findSearchableDomains(None, None, true, None, None)
+      val (domainSet, _) = domainClient.findSearchableDomains(None, None, None, true, None, None)
       domainSet.domains should be(unlockedDomains)
+    }
+
+    "return context and extendhost if given in addition to all the unlocked customer domains if not given cnames" in {
+      val unlockedDomains = Set(domains(0), domains(2), domains(3), domains(4))
+      val expectedContext = domains(1) // not a customer domain, but unlocked
+      val expectedHost = domains(5) // also not a customer domain, but unlocked
+
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(expectedContext.domainCname), Some(expectedHost.domainCname), None, true, None, None)
+
+      domainSet.domains should be(unlockedDomains)
+      domainSet.searchContext.get should be(expectedContext)
+      domainSet.extendedHost.get should be(expectedHost)
+    }
+
+    "return context and extendhost if given in addition to all the customer domains (locked or unlocked) if not given cnames but user is authed" in {
+      val unlockedDomainsForAuthedUsers = Set(domains(0), domains(2), domains(3), domains(4), domains(7), domains(8))
+      val expectedContext = domains(7) // is a customer domain, but locked
+      val expectedHost = domains(5)  // is not a customer domain, but unlocked
+      val userBody =
+        j"""{
+          "id" : "boo-bear",
+          "roleName" : "editor"
+        }"""
+      val user = User(userBody)
+
+      mockServer.when(
+        request()
+          .withMethod("GET")
+          .withPath("/users/boo-bear")
+      ).respond(
+        response()
+          .withStatusCode(200)
+          .withHeader("Content-Type", "application/json; charset=utf-8")
+          .withBody(CompactJsonWriter.toString(userBody))
+      )
+
+      val (domainSet, _) = domainClient.findSearchableDomains(
+        Some(expectedContext.domainCname), Some(expectedHost.domainCname), None, true, user, None)
+
+      domainSet.domains should be(unlockedDomainsForAuthedUsers)
+      domainSet.searchContext.get should be(expectedContext)
+      domainSet.extendedHost.get should be(expectedHost)
     }
 
     "return all the unlocked domains among the given cnames if they exist" in {
       val expectedDomains = Set(domains(3), domains(4))
       val wantedDomains = Some(expectedDomains.map(d => d.domainCname))
-      val (domainSet, _) = domainClient.findSearchableDomains(None, wantedDomains, true, None, None)
+      val (domainSet, _) = domainClient.findSearchableDomains(None, None, wantedDomains, true, None, None)
       domainSet.domains should be(expectedDomains)
     }
 
@@ -128,7 +188,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
           .withBody(CompactJsonWriter.toString(userBody))
       )
 
-      val (domainSet, _) = domainClient.findSearchableDomains(Some(context.domainCname),
+      val (domainSet, _) = domainClient.findSearchableDomains(Some(context.domainCname), None,
         Some(wantedCnames), excludeLockedDomains = true, user, None)
       domainSet.searchContext.get should be(context)
       domainSet.domains should be(wantedDomains)
@@ -136,25 +196,26 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
 
     "throw DomainNotFound exception when searchContext is missing" in {
       intercept[DomainNotFoundError] {
-        domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), None, true, None, None)
+        domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), None, None, true, None, None)
       }
     }
 
     "throw DomainNotFound exception when searchContext is missing even if domains are found" in {
       intercept[DomainNotFoundError] {
-        domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), Some(Set("dylan.demo.socrata.com")), true, None, None)
+        domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), None,
+          Some(Set("dylan.demo.socrata.com")), true, None, None)
       }
     }
 
     "not throw DomainNotFound exception when searchContext is present" in {
       noException should be thrownBy {
-        domainClient.findSearchableDomains(Some("dylan.demo.socrata.com"), None, true, None, None)
+        domainClient.findSearchableDomains(Some("dylan.demo.socrata.com"), None, None, true, None, None)
       }
     }
 
     "not throw DomainNotFound exception when domains are missing" in {
       noException should be thrownBy {
-        domainClient.findSearchableDomains(None, Some(Set("iamnotarealdomain.wat")), true, None, None)
+        domainClient.findSearchableDomains(None, None, Some(Set("iamnotarealdomain.wat")), true, None, None)
       }
     }
   }
@@ -171,7 +232,7 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     }
 
     "return None for a locked context if the user has no role" in {
-      val user = User("lazy-bear", None, None, None)
+      val user = User("lazy-bear", None, roleName = None, rights = None, flags = None)
 
       val withoutDomains = domainClient.removeLockedDomainsForbiddenToUser(
         DomainSet(searchContext = Some(doublyLockedDomain)), Some(user), None)

@@ -63,7 +63,7 @@ class SearchServiceJettySpec extends FunSuiteLike with Matchers with MockFactory
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    mockDomainClient.expects('findSearchableDomains)(Some(hostCname), None, true, authedUser, Some("1"))
+    mockDomainClient.expects('findSearchableDomains)(Some(hostCname), Some(hostCname), None, true, authedUser, Some("1"))
       .returns((DomainSet(), 123L))
 
     mockDocumentClient.expects('buildSearchRequest)(

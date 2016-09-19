@@ -4,8 +4,11 @@ import com.rojoma.json.v3.ast.JValue
 import com.rojoma.json.v3.codec.JsonDecode
 import com.rojoma.json.v3.util.AutomaticJsonCodecBuilder
 
+import com.socrata.cetera.types.Domain
+
 case class User(
     id: String,
+    authenticatingDomain: Option[Domain],
     roleName: Option[String],
     rights: Option[Seq[String]],
     flags: Option[Seq[String]]) {
