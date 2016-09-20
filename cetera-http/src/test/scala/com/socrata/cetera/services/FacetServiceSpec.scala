@@ -55,65 +55,82 @@ class FacetServiceSpec
     httpClient.close()
   }
 
-  test("retrieve all visible domain facets for domains that are unlocked") {
-    val (datatypes, categories, tags, facets) = domainsWithData.map { cname =>
-      val (_, facets, timings, _) = service.doAggregate(cname, AuthParams(), None, None)
-      timings.searchMillis.headOption should be('defined)
+  private def parseValues(f: Option[FacetCount]): Seq[ValueCount] = {
+    f.collect { case fc: FacetCount if (fc.count > 0) => fc.values}.getOrElse(Seq.empty)
+  }
 
-      val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
-      val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
-      val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
-      (datatypes, categories, tags, facets)
-    }.foldLeft((Seq.empty[ValueCount], Seq.empty[ValueCount], Seq.empty[ValueCount], Seq.empty[FacetCount])) {
-      (b, x) => (b._1 ++ x._1, b._2 ++ x._2, b._3 ++ x._3, b._4 ++ x._4)
+  case class FacetRes(
+      tags: Seq[ValueCount],
+      categories: Seq[ValueCount],
+      datatypes: Seq[ValueCount],
+      metadata: Seq[ValueCount])
+
+  test("retrieve all visible domain facets for domains that are unlocked") {
+    val domainResults = List(
+      service.doAggregate(domains(0).domainCname, AuthParams(), None, None),
+      service.doAggregate(domains(1).domainCname, AuthParams(), None, None),
+      service.doAggregate(domains(2).domainCname, AuthParams(), None, None),
+      service.doAggregate(domains(3).domainCname, AuthParams(), None, None),
+      service.doAggregate(domains(4).domainCname, AuthParams(), None, None),
+      service.doAggregate(domains(5).domainCname, AuthParams(), None, None))
+
+    //val (datatypes, categories, tags, facets) =
+    val domainFacets = domainResults.map{ r =>
+      val facets = r._2
+      val tags = parseValues(facets.find(_.facet == "tags"))
+      val categories = parseValues(facets.find(_.facet == "categories"))
+      val datatypes = parseValues(facets.find(_.facet == "datatypes"))
+      val metadata = facets.filter(f => !List("datatypes", "categories", "tags").contains(f.facet)).map(f => parseValues(Some(f))).flatten
+      FacetRes(tags, categories, datatypes, metadata)
     }
 
-    val expectedDatatypes = List(
-      ValueCount("calendar", 1),
-      ValueCount("dataset", 2),
-      ValueCount("file", 1),
-      ValueCount("href", 1),
-      ValueCount("chart", 1),
-      ValueCount("story", 1),
-      ValueCount("dataset", 2))
-    datatypes should contain theSameElementsAs expectedDatatypes
+    // domain 0 has 2 datasets (zeta-0001 and zeta-0007), a calendar (fxf-0), a file (fxf-4) and a href (fxf-8) that are anonymously viewable
+    domainFacets(0).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 2), ValueCount("calendar",1),
+      ValueCount("file",1), ValueCount("href",1)))
+    // domain 0 has 3 views with the "alpha to omega" category and 2 with "Fun"
+    domainFacets(0).categories should contain theSameElementsAs(List(ValueCount("Alpha to Omega",3), ValueCount("Fun",2)))
+    // domain 0 has 3 views with the "1-one" tag and 1 with "2-two"
+    domainFacets(0).tags should contain theSameElementsAs(List(ValueCount("1-one",3), ValueCount("2-two",1)))
+    // domain 0 has 1 view with the "8" metadata value
+    domainFacets(0).metadata should contain theSameElementsAs(List(ValueCount("8",3), ValueCount("1",3), ValueCount("3",3)))
 
-    val expectedCategories = List(
-      ValueCount("Alpha to Omega", 3),
-      ValueCount("Fun", 2),
-      ValueCount("Beta", 1),
-      ValueCount("Gamma", 1),
-      ValueCount("Fun", 2))
-    categories.find(_.value == "") shouldNot be('defined)
-    categories should contain theSameElementsAs expectedCategories
+    // domain 1 has 1 chart (fxf-1) that is anonymously viewable
+    domainFacets(1).datatypes should contain theSameElementsAs(List(ValueCount("chart", 1)))
+    // it has the "Beta" category
+    domainFacets(1).categories should contain theSameElementsAs(List(ValueCount("Beta",1)))
+    // and two tags: "1-one" and "2-two"
+    domainFacets(1).tags should contain theSameElementsAs(List(ValueCount("1-one",1), ValueCount("2-two",1)))
+    // and the "2" custom metadata value
+    domainFacets(1).metadata should contain theSameElementsAs(List(ValueCount("2",1)))
 
-    val expectedTags = List(
-      ValueCount("1-one", 3),
-      ValueCount("2-two", 1),
-      ValueCount("3-three", 1))
-    tags.find(_.value == "") shouldNot be('defined)
-    tags should contain theSameElementsAs expectedTags
+    // domain 2 has 1 story (fxf-10) that is anonymously viewable
+    domainFacets(2).datatypes should contain theSameElementsAs(List(ValueCount("story", 1)))
+    // it has the "Gamma" category
+    domainFacets(2).categories should contain theSameElementsAs(List(ValueCount("Gamma",1)))
+    // and two tags: "1-one" and "2-two"
+    domainFacets(2).tags should contain theSameElementsAs(List(ValueCount("1-one",1), ValueCount("2-two",1)))
+    // and the "3" custom metadata value
+    domainFacets(2).metadata should contain theSameElementsAs(List(ValueCount("3",1)))
 
-    val expectedFacets = List(
-      FacetCount("datatypes", 5, ArrayBuffer(ValueCount("dataset", 2), ValueCount("calendar", 1), ValueCount("file", 1), ValueCount("href", 1))),
-      FacetCount("categories", 5, ArrayBuffer(ValueCount("Alpha to Omega", 3), ValueCount("Fun", 2))),
-      FacetCount("tags", 3, ArrayBuffer(ValueCount("1-one", 3))),
-      FacetCount("five", 3, ArrayBuffer(ValueCount("8", 3))),
-      FacetCount("one", 3, ArrayBuffer(ValueCount("1", 3))),
-      FacetCount("two", 3, ArrayBuffer(ValueCount("3", 3))),
-      FacetCount("datatypes", 1, ArrayBuffer(ValueCount("chart", 1))),
-      FacetCount("categories", 1, ArrayBuffer(ValueCount("Beta", 1))),
-      FacetCount("tags", 1, ArrayBuffer(ValueCount("2-two", 1))),
-      FacetCount("one", 1, ArrayBuffer(ValueCount("2", 1))),
-      FacetCount("datatypes", 1, ArrayBuffer(ValueCount("story", 1))),
-      FacetCount("categories", 1, ArrayBuffer(ValueCount("Gamma", 1))),
-      FacetCount("tags", 1, ArrayBuffer(ValueCount("3-three", 1))),
-      FacetCount("two", 1, ArrayBuffer(ValueCount("3", 1))),
-      FacetCount("datatypes", 2, ArrayBuffer(ValueCount("dataset", 2))),
-      FacetCount("categories", 2, ArrayBuffer(ValueCount("Fun", 2))),
-      FacetCount("tags", 0, ArrayBuffer()))
-    facets should contain theSameElementsAs expectedFacets
-    facets.foreach(f => f.count should be(f.values.map(_.count).sum))
+    // domain 3 has 2 datasets (zeta-2 and zeta-5) that are anonymously viewable
+    domainFacets(3).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 2)))
+    // these both have the "Fun" category
+    domainFacets(3).categories should contain theSameElementsAs(List(ValueCount("Fun",2)))
+    // and neither have tags or metadata
+    domainFacets(3).tags should be('empty)
+    domainFacets(3).metadata should be('empty)
+
+    // domain 4 has nothing on it
+    domainFacets(4).datatypes should be('empty)
+    domainFacets(4).categories should be('empty)
+    domainFacets(4).tags should be('empty)
+    domainFacets(4).metadata should be('empty)
+
+    // domain 5 has nothing on it
+    domainFacets(5).datatypes should be('empty)
+    domainFacets(5).categories should be('empty)
+    domainFacets(5).tags should be('empty)
+    domainFacets(5).metadata should be('empty)
   }
 
   test("retrieve all visible domain facets on a locked domain if user is authed properly") {
@@ -147,7 +164,7 @@ class FacetServiceSpec
     val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
     val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
 
-    val expectedDatatypes = List(ValueCount("chart", 1))
+    val expectedDatatypes = List(ValueCount("datalens", 1))
     datatypes should contain theSameElementsAs expectedDatatypes
 
     val expectedCategories = List(ValueCount("Fun", 1))
@@ -157,7 +174,7 @@ class FacetServiceSpec
     tags should contain theSameElementsAs expectedTags
 
     val expectedFacets = List(
-      FacetCount("datatypes", 1, ArrayBuffer(ValueCount("chart", 1))),
+      FacetCount("datatypes", 1, ArrayBuffer(ValueCount("datalens", 1))),
       FacetCount("categories", 1, ArrayBuffer(ValueCount("Fun", 1))),
       FacetCount("tags", 2, ArrayBuffer(ValueCount("fake", 1), ValueCount("king", 1))))
 

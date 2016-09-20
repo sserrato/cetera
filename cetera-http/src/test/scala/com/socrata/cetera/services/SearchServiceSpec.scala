@@ -334,44 +334,11 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   }
 
   test("search response without a searchContext should have the correct set of documents") {
-    // TODO: as we add more and more domain filters, the approach to
-    // creating data in TestESData will need to change so the test
-    // data is more comprehensive and running these sorts of tests
-    // is easier
-    /*
-      Test Data domains -> documents
-      id  cname                     cust  mod   r&a
-      0   petercetera.net           t     f     f (not moderated, 4 default views)
-        documents
-        fxf     def mod r&a       visible
-        fxf-0   f   f   0         t
-        fxf-4   f   n   2         t
-        fxf-8   t   n   3         t
-        zeta-1  f   t   0         t       (mod=t anomaly)
-        zeta-3  t   t   0,1,2,3   f       (isPublic=false)
-        zeta-4  f   n   0,1,2,3   f       (unapproved datalens_chart/map should not be visible)
-        zeta-6  t   t   0,1,2,3   f       (isPublished=false)
-        zeta-7  t   t   0,1,2,3   t
-      1   opendata-demo.socrata.com f     t     f (not customer domain)
-        fxf     def mod r&a visible
-        fxf-1   f   t   2   f / t
-        fxf-5   f   f   3   f / f
-        fxf-9   f   n   0   f / f
-      2   blue.org                  t     f     t (not moderated, 0 default views)
-        fxf     def mod r&a visible
-        fxf-2   f   n   3   f
-        fxf-6   f   t   0   f
-        fxf-10  f   f   2   t
-      3   annabelle.island.net      t     t     t
-        fxf     def mod r&a visible
-        fxf-3   t   n   0   f
-        fxf-7   f   n   2   f
-        zeta-2  f   t   2,3 t
-        zeta-5  t   n   3   t
-        zeta-9  f   t   3   f             (isPublic=false)
-      8   double.locked.demo.com    t     t     t
-        zeta-8  t   t   8   t
-     */
+    // only domains 0, 2, 3 and 4 are unlocked, customer domains
+    // domain 0 has fxf-0, fxf-4, fxf-8, zeta-0001 and zeta-0007 that are anonymously viewable
+    // domain 2 has fxf-10 that is anonymously viewable
+    // domain 3 has zeta-0002 and zeta-0005 that are anonymously viewable
+    // domain 4 has no data at all
     val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007")
     // this shows that:
     //   * rejected and pending views don't show up regardless of domain setting

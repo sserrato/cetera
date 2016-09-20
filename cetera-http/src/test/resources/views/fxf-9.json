@@ -1,0 +1,78 @@
+{
+  "created_at" : "2016-09-19T10:37:20.933-07:00",
+  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "socrata_id": {
+   "dataset_id": "fxf-9",
+   "parent_dataset_id": ["fxf-0"],
+   "domain_id": 1,
+   "nbe_id": "abcd-efgh",
+   "obe_id": "hgfe-dcba"
+ },
+ "resource": {
+   "description": "Second the best",
+   "nbe_fxf": "fxf-9",
+   "parent_fxf": "fxf-0",
+   "updated_at": "2016-09-19T10:37:20.857-07:00",
+   "created_at": "2016-09-19T10:37:20.933-07:00",
+   "type": "pulse",
+   "id": "fxf-9",
+   "columns": [
+
+   ],
+   "name": "Two",
+   "attribution": null
+ },
+ "animl_annotations": {
+   "categories": [
+     { "name":  "Personal", "score": 1.0 }
+   ],
+   "tags": [
+     { "name":  "Happy", "score": 0.65 } ,
+{ "name":  "Accident", "score": 0.35 }
+   ]
+ },
+ "datatype": "pulse",
+ "viewtype": "",
+ "popularity": 0.42,
+ "indexed_metadata": {
+   "name": "Two",
+   "description": "Second the best",
+   "columns_field_name": [
+
+   ],
+   "columns_description": [
+
+   ],
+   "columns_name": [
+
+   ]
+ },
+ "customer_metadata_flattened":  [{  "key": "one", "value": "2"  }],
+ "is_public": true,
+ "is_published": true,
+ "is_default_view": false,
+ "is_moderation_approved": null,
+ "approving_domain_ids": [
+   0
+ ],
+ "is_approved_by_parent_domain": false,
+ "page_views": {
+   "page_views_total": 10,
+   "page_views_last_month": 10,
+   "page_views_last_week": 10
+ },
+ "customer_category": "Beta",
+ "customer_tags": [
+   "1-one","2-two","3-three","4-four"
+ ],
+ "update_freq": 2,
+ "owner_id": "lil-john",
+ "owner" : {
+   "id": "lil-john",
+   "screen_name": "Little John"
+ },
+ "shared_to": [  ],
+ "attribution": null,
+ "preview_image_id": null,
+  "grants": []
+}

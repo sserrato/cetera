@@ -1,0 +1,77 @@
+{
+  "created_at" : "2016-09-19T10:37:20.933-07:00",
+  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "socrata_id": {
+   "dataset_id": "zeta-0009",
+   "parent_dataset_id": [],
+   "domain_id": 3,
+   "nbe_id": "zeta-009",
+   "obe_id": "data-0009"
+ },
+ "resource": {
+   "description": "private chart",
+   "nbe_fxf": "zeta-0009",
+   "parent_fxf": null,
+   "updated_at": "2016-09-19T10:37:21.153-07:00",
+   "created_at": "2016-09-19T10:37:21.153-07:00",
+   "type": "chart",
+   "id": "zeta-0009",
+   "columns": [
+
+   ],
+   "name": "",
+   "attribution": null
+ },
+ "animl_annotations": {
+   "categories": [
+
+   ],
+   "tags": [
+
+   ]
+ },
+ "datatype": "chart",
+ "viewtype": "",
+ "popularity": 0.0,
+ "indexed_metadata": {
+   "name": "",
+   "description": "",
+   "columns_field_name": [
+
+   ],
+   "columns_description": [
+
+   ],
+   "columns_name": [
+
+   ]
+ },
+ "customer_metadata_flattened": [],
+ "is_public": false,
+ "is_published": true,
+ "is_default_view": false,
+ "is_moderation_approved": true,
+ "approving_domain_ids": [
+   3
+ ],
+ "is_approved_by_parent_domain": true,
+ "page_views": {
+   "page_views_total": 42,
+   "page_views_last_month": 42,
+   "page_views_last_week": 42
+ },
+ "customer_category": "Fun",
+ "customer_tags": [
+   "fake","king"
+ ],
+ "update_freq": 0,
+ "owner_id": "prince-john",
+ "owner" : {
+   "id": "prince-john",
+   "screen_name": "Prince John"
+ },
+ "shared_to": [  ],
+ "attribution": null,
+ "preview_image_id": null,
+ "grants": []
+}

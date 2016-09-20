@@ -3,276 +3,32 @@ package com.socrata.cetera
 import scala.io.Source
 
 import com.rojoma.json.v3.util.JsonUtil
-import org.elasticsearch.common.joda.time.DateTime
 
 import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ElasticsearchBootstrap
 
+
 trait TestESData extends TestESDomains with TestESUsers {
   val client: ElasticSearchClient
   val testSuiteName: String = getClass.getSimpleName.toLowerCase
 
-  private val esDocTemplate: String =
-    """{
-      | "socrata_id": {
-      |   "dataset_id": %s,
-      |   "parent_dataset_id": %s,
-      |   "domain_id": %s,
-      |   "nbe_id": %s,
-      |   "obe_id": %s
-      | },
-      | "resource": {
-      |   "description": %s,
-      |   "nbe_fxf": %s,
-      |   "parent_fxf": %s,
-      |   "updatedAt": %s,
-      |   "createdAt": %s,
-      |   "type": %s,
-      |   "id": %s,
-      |   "columns": {
-      |     %s
-      |   },
-      |   "name": %s,
-      |   "attribution": %s
-      | },
-      | "animl_annotations": {
-      |   "categories": [
-      |     %s
-      |   ],
-      |   "tags": [
-      |     %s
-      |   ]
-      | },
-      | "datatype": %s,
-      | "viewtype": %s,
-      | "popularity": %s,
-      | "indexed_metadata": {
-      |   "name": %s,
-      |   "description": %s,
-      |   "columns_field_name": [
-      |     %s
-      |   ],
-      |   "columns_description": [
-      |     %s
-      |   ],
-      |   "columns_name": [
-      |     %s
-      |   ]
-      | },
-      | "customer_metadata_flattened": [
-      |   %s
-      | ],
-      | "is_public": %s,
-      | "is_published": %s,
-      | "is_default_view": %s,
-      | "is_moderation_approved": %s,
-      | "approving_domain_ids": [
-      |   %s
-      | ],
-      | "is_approved_by_parent_domain": %s,
-      | "page_views": {
-      |   "page_views_total": %s
-      | },
-      | "customer_category": %s,
-      | "customer_tags": [
-      |   %s
-      | ],
-      | "update_freq": %s,
-      | "owner_id": %s,
-      | "owner" : {
-      |   "id": %s,
-      |   "screen_name": %s
-      | },
-      | "shared_to": [ %s ],
-      | "attribution": %s,
-      | "preview_image_id": %s
-      |}
-    """.stripMargin
+  val docs = {
+    // there is no difference in these two types of docs except for the means by which
+    // we used to construct them in commit 1442a6b08.
+    val series1DocFiles = (0 to 10).map(i => s"/views/fxf-$i.json")
+    val series2DocFiles = (1 to 9).map(i => s"/views/zeta-000$i.json")
 
-  private def quoteQualify(s: String): String = "\"%s\"".format(s)
-  private def quoteQualify(s: Option[String]): String = s.map("\"%s\"".format(_)).getOrElse("null")
-  private def quoteQualify(ss: Seq[String]): String = ss.map(quoteQualify).mkString(",\n")
-  private def quoteQualifyScore(sm: Map[String,Float]): String = sm.map { kvp =>
-    """{ "name":  "%s", "score": %s } """.format(kvp._1, kvp._2.toString)
-  }.mkString(",\n")
-  private def quoteQualifyMap(sm: Map[String,String]): String = sm.map { kvp =>
-    """{ "key": "%s", "value": "%s" }""".format(kvp._1, kvp._2)
-  }.mkString(",\n")
-
-  private def buildEsDoc(socrataIdDatasetId: String,
-                         parentDatasetId: Option[String],
-                         domainId: Int,
-                         resourceDescription: String,
-                         resourceNbeFxf: String,
-                         resourceUpdatedAt: String,
-                         resourceCreatedAt: String,
-                         resourceId: String,
-                         resourceColumns: Seq[String],
-                         resourceName: String,
-                         resourceAttribution: Option[String],
-                         animlAnnotationsCategories: Map[String,Float],
-                         animlAnnotationsTags: Map[String,Float],
-                         datatype: String,
-                         viewtype: String,
-                         popularity: Float,
-                         indexedMetadataName: String,
-                         indexedMetadataDescription: String,
-                         indexedMetadataColumnsFieldNames: Seq[String],
-                         indexedMetadataColumnsDescriptions: Seq[String],
-                         indexedMetadataColumnsNames: Seq[String],
-                         customerMetadataFlattened: Map[String,String],
-                         isPublic: Boolean,
-                         isPublished: Boolean,
-                         isDefaultView: Boolean,
-                         isModerationApproved: Option[Boolean],
-                         approvingDomainIds: Seq[Int],
-                         isApprovedByParentDomain: Boolean,
-                         pageViewsTotal: String,
-                         customerCategory: String,
-                         customerTags: Seq[String],
-                         updateFreq: Long,
-                         ownerId: String,
-                         ownerScreenName: String,
-                         sharedTo: Seq[String],
-                         attribution: Option[String],
-                         previewImageId: Option[String],
-                         socrataIdNbeId: Option[String],
-                         socrataIdObeId: Option[String]): String = {
-    val doc = esDocTemplate.format(
-      quoteQualify(socrataIdDatasetId),
-      quoteQualify(parentDatasetId),
-      domainId.toString,
-      quoteQualify(socrataIdNbeId),
-      quoteQualify(socrataIdObeId),
-      quoteQualify(resourceDescription),
-      quoteQualify(resourceNbeFxf),
-      quoteQualify(parentDatasetId),
-      quoteQualify(resourceUpdatedAt),
-      quoteQualify(resourceCreatedAt),
-      quoteQualify(datatype),
-      quoteQualify(resourceId),
-      quoteQualify(resourceColumns),
-      quoteQualify(resourceName),
-      quoteQualify(attribution),
-      quoteQualifyScore(animlAnnotationsCategories),
-      quoteQualifyScore(animlAnnotationsTags),
-      quoteQualify(datatype),
-      quoteQualify(viewtype),
-      popularity.toString,
-      quoteQualify(indexedMetadataName),
-      quoteQualify(indexedMetadataDescription),
-      quoteQualify(indexedMetadataColumnsFieldNames),
-      quoteQualify(indexedMetadataColumnsDescriptions),
-      quoteQualify(indexedMetadataColumnsNames),
-      quoteQualifyMap(customerMetadataFlattened),
-      isPublic.toString,
-      isPublished.toString,
-      isDefaultView.toString,
-      isModerationApproved.map(_.toString).getOrElse("null"),
-      approvingDomainIds.mkString(","),
-      isApprovedByParentDomain.toString,
-      pageViewsTotal,
-      quoteQualify(customerCategory),
-      quoteQualify(customerTags),
-      updateFreq.toString,
-      quoteQualify(ownerId),
-      quoteQualify(ownerId),
-      quoteQualify(ownerScreenName),
-      quoteQualify(sharedTo),
-      quoteQualify(attribution),
-      quoteQualify(previewImageId))
-
-    doc
+    val series1Docs = series1DocFiles.map { f =>
+      val source = Source.fromInputStream(getClass.getResourceAsStream(f)).getLines().mkString("\n")
+      Document(source).get
+    }
+    val series2Docs = series2DocFiles.map { f =>
+      val source = Source.fromInputStream(getClass.getResourceAsStream(f)).getLines().mkString("\n")
+      Document(source).get
+    }
+    series1Docs.toList ++ series2Docs.toList
   }
-
-  private def buildEsDocByIndex(i: Int): String = {
-    val domainId = i % domainsWithData.length
-    val domainApprovalIds = approvingDomainIds(i % approvingDomainIds.length)
-    buildEsDoc(
-      socrataIdDatasetIds(i % socrataIdDatasetIds.length),
-      parentDatasetIds(i % socrataIdDatasetIds.length),
-      domainId,
-      resourceDescriptions(i % resourceDescriptions.length),
-      resourceNbeFxfs(i % resourceNbeFxfs.length),
-      defaultResourceUpdatedAt,
-      defaultResourceCreatedAt,
-      resourceIds(i % resourceIds.length),
-      defaultResourceColumns,
-      resourceNames(i % resourceNames.length),
-      None,
-      defaultAaCategories,
-      defaultAaTags,
-      Datatypes.materialized(i % Datatypes.materialized.length).singular,
-      "",
-      popularities(i % popularities.length),
-      imNames(i % imNames.length),
-      imDescriptions(i % imDescriptions.length),
-      defaultImColumnsFieldNames,
-      defaultImColumnsDescriptions,
-      defaultImColumnNames,
-      domainMetadata(i % domainMetadata.length),
-      isPublics(i % isPublics.length),
-      isPublisheds(i % isPublisheds.length),
-      isDefaultViews(i % isDefaultViews.length),
-      isModerationApproveds(i % isModerationApproveds.length),
-      domainApprovalIds,
-      domainApprovalIds.contains(domainId),
-      pageViewsTotal(i % pageViewsTotal.length),
-      domainCategories(i % domainCategories.length),
-      domainTags(i % domainTags.length),
-      updateFreqs(i % updateFreqs.length),
-      ownerIds(i % ownerIds.length),
-      ownerScreenNames(i % ownerScreenNames.length),
-      sharedTos,
-      attributions(i % attributions.length),
-      None,
-      socrataIdNbeId(i % attributions.length),
-      socrataIdObeId(i % attributions.length))
-  }
-
-  val domainsWithData = domains.slice(0,4).map(d => d.domainCname)
-
-  val defaultResourceUpdatedAt = DateTime.now().toString
-  val defaultResourceCreatedAt = DateTime.now().toString
-  val defaultResourceColumns = Nil
-  val defaultAaCategories = Map("Personal" -> 1F)
-  val defaultAaTags = Map("Happy" -> 0.65F, "Accident" -> 0.35F)
-  val defaultImColumnsFieldNames = Nil
-  val defaultImColumnsDescriptions = Nil
-  val defaultImColumnNames = Nil
-
-  val numericIds = 0 to Datatypes.materialized.length
-  val socrataIdDatasetIds = numericIds.map(n => s"fxf-$n")
-  val parentDatasetIds = socrataIdDatasetIds.map(s => if (s != "fxf-0") Some("fxf-0") else None)
-  val resourceDescriptions = Seq(
-    "We're number one",
-    "Second the best",
-    "Bird is the third word",
-    "May the fourth be with you")
-  val resourceNbeFxfs = socrataIdDatasetIds
-  val resourceIds = socrataIdDatasetIds
-  val resourceNames = Seq("One", "Two", "Three", "Four")
-  val popularities = Seq(0.1F, 0.42F, 1F, 42F)
-  val imNames = resourceNames
-  val imDescriptions = resourceDescriptions
-  val domainMetadata = Seq(Map("one" -> "1", "two" -> "3", "five" -> "8"), Map("one" -> "2"), Map("two" -> "3"), Map.empty[String,String])
-  val isModerationApproveds = Seq(Some(false), Some(true), None, None, None)
-  val isPublics = Seq(true)
-  val isPublisheds = Seq(true)
-  val isDefaultViews = Seq(false, false, false, true, false)
-  val approvingDomains = Seq("petercetera.net", "blue.org", "annabelle.island.demo").map(Seq(_))
-  val approvingDomainIds = Seq(Seq(0), Seq(2), Seq(3))
-  val pageViewsTotal = Seq.range(1, Datatypes.materialized.length).map(_.toString)
-  val domainCategories = Seq("Alpha to Omega", "Beta", "Gamma", "")
-  val domainTags = Seq("1-one", "2-two", "3-three", "4-four").map(Seq(_))
-  val updateFreqs = Seq(1, 2, 3, 4)
-  val ownerIds = Seq("robin-hood", "lil-john")
-  val ownerScreenNames = Seq("Robin Hood", "Little John")
-  val sharedTos = Seq.empty
-  val attributions = Seq[Option[String]](None)
-  val socrataIdNbeId = Seq("abcd-efgh", "1234-5678", "adsf-adas", "zyxw-vuts").map(Some(_))
-  val socrataIdObeId = Seq("hgfe-dcba", "8765-4321", "sada-fsda", "stuv-wxyz").map(Some(_))
 
   def bootstrapData(): Unit = {
     ElasticsearchBootstrap.ensureIndex(client, "yyyyMMddHHmm", testSuiteName)
@@ -296,118 +52,10 @@ trait TestESData extends TestESDomains with TestESUsers {
     }
 
     // load data
-    Datatypes.materialized.zipWithIndex.foreach { case (datatype: Materialized, i: Int) =>
+    docs.foreach { d =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
-        .setParent((i % domainsWithData.length).toString)
-        .setSource(buildEsDocByIndex(i))
-        .setRefresh(true)
-        .execute.actionGet
-    }
-    // TODO: more refined test document creation
-    Seq(
-      (0, buildEsDoc(
-        "zeta-0001", None, 0,
-        "a stale moderation status", "zeta-0001", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0001", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = false, Some(true), Seq(0), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq.empty, None, None,
-        Some("zeta-0001"), Some("data-0001")
-      )),
-      (3, buildEsDoc(
-        "zeta-0002", None, 3,
-        "full routing & approval", "zeta-0002", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0002", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = false, Some(true), Seq(2,3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John", Seq.empty, None, None,
-        Some("zeta-0002"), Some("data-0002")
-      )),
-      (0, buildEsDoc(
-        "zeta-0003", None, 0,
-        "private dataset", "zeta-0003", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0003", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = false, isPublished = true, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Private", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None, None,
-        Some("zeta-0003"), Some("data-0003")
-      )),
-      (0, buildEsDoc(
-        "zeta-0004", None, 0,
-        "standalone visualization", "zeta-0004", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0004", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatalensCharts.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = false, isModerationApproved = None, Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Standalone", Seq.empty, 0L, "lil-john", "Little John", Seq.empty, None, None,
-        None, Some("zeta-0004")
-      )),
-      (3, buildEsDoc(
-        "zeta-0005", None, 3,
-        "another john owned document", "zeta-0005", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0005", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty, Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "john-clan", "John McClane", Seq.empty, None, None,
-        None, Some("zeta-0005")
-      )),
-      (0, buildEsDoc(
-        "zeta-0006", None, 0,
-        "unpublished dataset", "zeta-0006", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0006", Seq.empty, "", None, Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = false, isDefaultView = true, Some(true), Seq(0, 1, 2,3), isApprovedByParentDomain = true,
-        "42", "Unpublished", Seq.empty, 0L, "robin-hood", "Robin Hood", Seq("Little John"), None, None,
-        Some("zeta-0006"), Some("data-0006")
-       )),
-      (0, buildEsDoc(
-        "zeta-0007", None, 0,
-        "a dataset with attribution", "zeta-0007", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0007", Seq.empty, "", Some("The Merry Men"), Map.empty, Map.empty,
-        TypeDatasets.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(0, 1, 2, 3), isApprovedByParentDomain = true,
-        "42", "Fun", Seq.empty, 0L, "lil-john", "Little John", sharedTo = Seq("King Richard"),
-        attribution = Some("The Merry Men"), previewImageId = Some("123456789"),
-        Some("zeta-0007"), Some("data-0007")
-      )),
-      (8, buildEsDoc(
-        "zeta-0008", None, 8,
-        "a chart on the doubly-locked down domain", "zeta-0008", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0008", Seq.empty, "", None, Map.empty, Map.empty, TypeCharts.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = true, isPublished = true, isDefaultView = true, Some(true), Seq(8), isApprovedByParentDomain = true,
-        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
-        attribution = None, previewImageId = None,
-        Some("zeta-0008"), None
-      )),
-      (9, buildEsDoc(
-        "zeta-0009", None, 3,
-        "yet another asset", "zeta-0009", DateTime.now.toString, DateTime.now.toString,
-        "zeta-0009", Seq.empty, "", None, Map.empty, Map.empty, TypeCharts.singular, viewtype = "", 0F,
-        "", "", Seq.empty, Seq.empty, Seq.empty,
-        Map.empty,
-        isPublic = false, isPublished = true, isDefaultView = false, Some(true), Seq(3), isApprovedByParentDomain = true,
-        "42", "Fun", List("fake", "king"), 0L, "prince-john", "Prince John", Seq.empty,
-        attribution = None, previewImageId = None,
-        Some("zeta-009"), Some("data-0009")
-      ))
-    ).foreach { case (domain, doc) =>
-      client.client.prepareIndex(testSuiteName, esDocumentType)
-        .setParent(domain.toString)
-        .setSource(doc)
+        .setParent(d.socrataId.domainId.toString)
+        .setSource(JsonUtil.renderJson(d))
         .setRefresh(true)
         .execute.actionGet
     }

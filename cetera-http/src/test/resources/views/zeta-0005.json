@@ -1,0 +1,77 @@
+{
+  "created_at" : "2016-09-19T10:37:20.933-07:00",
+  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "socrata_id": {
+   "dataset_id": "zeta-0005",
+   "parent_dataset_id": [],
+   "domain_id": 3,
+   "nbe_id": null,
+   "obe_id": "zeta-0005"
+ },
+ "resource": {
+   "description": "another john owned document",
+   "nbe_fxf": "zeta-0005",
+   "parent_fxf": null,
+   "updated_at": "2016-09-19T10:37:21.145-07:00",
+   "created_at": "2016-09-19T10:37:21.145-07:00",
+   "type": "dataset",
+   "id": "zeta-0005",
+   "columns": [
+
+   ],
+   "name": "",
+   "attribution": null
+ },
+ "animl_annotations": {
+   "categories": [
+
+   ],
+   "tags": [
+
+   ]
+ },
+ "datatype": "dataset",
+ "viewtype": "",
+ "popularity": 0.0,
+ "indexed_metadata": {
+   "name": "",
+   "description": "",
+   "columns_field_name": [
+
+   ],
+   "columns_description": [
+
+   ],
+   "columns_name": [
+
+   ]
+ },
+ "customer_metadata_flattened": [],
+ "is_public": true,
+ "is_published": true,
+ "is_default_view": true,
+ "is_moderation_approved": true,
+ "approving_domain_ids": [
+   3
+ ],
+ "is_approved_by_parent_domain": true,
+ "page_views": {
+   "page_views_total": 42,
+   "page_views_last_month": 42,
+   "page_views_last_week": 42
+ },
+ "customer_category": "Fun",
+ "customer_tags": [
+
+ ],
+ "update_freq": 0,
+ "owner_id": "john-clan",
+ "owner" : {
+   "id": "john-clan",
+   "screen_name": "John McClane"
+ },
+ "shared_to": [  ],
+ "attribution": null,
+ "preview_image_id": null,
+  "grants": []
+}
