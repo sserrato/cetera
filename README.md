@@ -8,6 +8,11 @@ Basically a wrapper around elasticsearch to enable keyword search to return data
 
 By default, cetera runs on port 5704.
 
+## End-to-end setup
+
+For a guide on how to set up Cetera search from Elasticsearch to Frontend, see
+[this Google Doc](https://docs.google.com/document/d/1wsslEGnp15STX8UnUFZ_kLzxDHkpLWstvAa-9OS31Gk/edit#)
+
 ## API
 
 Check out [Cetera's Apiary spec](http://docs.cetera.apiary.io/#) for the latest API info.
