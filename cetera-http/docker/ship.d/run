@@ -8,10 +8,22 @@ export METRICS_DIR
 /bin/env_parse /etc/cetera.conf.j2
 
 HEAP_SIZE=${CETERA_HEAP_SIZE:-512m}
+GC_LOG_DIR=${MESOS_SANDBOX:-/tmp}
 
 CMD="/usr/bin/java \
   -Dconfig.file=${CETERA_CONFIG} \
+  -Xms${HEAP_SIZE} \
   -Xmx${HEAP_SIZE} \
+  -Xloggc:${GC_LOG_DIR}/cetera-gc.log \
+  -XX:+PrintGCDateStamps \
+  -XX:+PrintGCDetails \
+  -XX:+PrintGCCause \
+  -XX:+PrintTenuringDistribution \
+  -XX:+UseGCLogFileRotation \
+  -XX:NumberOfGCLogFiles=3 \
+  -XX:GCLogFileSize=50M \
+  -XX:+TraceClassLoading \
+  -XX:+TraceClassUnloading \
   -jar ${CETERA_ROOT}/${CETERA_ARTIFACT}
 "
 
