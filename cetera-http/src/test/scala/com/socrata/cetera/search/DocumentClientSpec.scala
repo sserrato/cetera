@@ -119,6 +119,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   val raApprovedFilter = j"""{"term": {"is_approved_by_parent_domain": true}}"""
   val moderationFilter = j"""{"bool": { "should": [$defaultViewFilter, $modApprovedFilter]}}"""
   val routingApprovalFilter = j"""{"bool": {"must": {"bool": {"should": $raApprovedFilter}}}}"""
+  val hideFromCatalogFilter = j"""{"not": {"filter": {"term": {"hide_from_catalog": true}}}}"""
 
   val defaultFilter = j"""{
     "bool": {
@@ -127,7 +128,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publicFilter},
         ${publishedFilter},
         ${moderationFilter},
-        ${routingApprovalFilter}]}
+        ${routingApprovalFilter},
+        ${hideFromCatalogFilter}]}
   }"""
 
   val defaultFilterPlusDomainIds = j"""{
@@ -137,7 +139,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publishedFilter},
         ${domainsFilter},
         ${moderationFilter},
-        ${routingApprovalFilter}]}
+        ${routingApprovalFilter},
+        ${hideFromCatalogFilter}]}
   }"""
 
   val datatypeDatasetsFilter = j"""{
@@ -215,7 +218,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
               ${publicFilter},
               ${publishedFilter},
               ${moderationFilter},
-              ${routingApprovalFilter}
+              ${routingApprovalFilter},
+              ${hideFromCatalogFilter}
             ]
           }
         },
@@ -308,7 +312,8 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
               {"bool" :{"must" :{"bool" :{"should" :[
                 $domain42Filter,
                 $raApprovedFilter
-              ]}}}}
+              ]}}}},
+              $hideFromCatalogFilter
             ]}},
             $domain42Filter
           ]}},
@@ -385,6 +390,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       actual should be (expected)
       request.toString.replaceAll("[\\s\\n]+", " ") should include(datatypeDatasetsFilter.toString())
+    }
+
+    "not have a filter for hide from catalog if show_hidden is passed" in {
+      val request = documentClient.buildSearchRequest(
+        DomainSet(), searchParams.copy(showHidden = true), ScoringParamSet(), pagingParams, None, Visibility.anonymous)
+
+      request.toString should not include ("hide_from_catalog")
     }
   }
 

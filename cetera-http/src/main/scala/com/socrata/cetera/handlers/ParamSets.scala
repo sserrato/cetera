@@ -13,7 +13,8 @@ case class SearchParamSet(
     user: Option[String] = None,
     sharedTo: Option[String] = None,
     attribution: Option[String] = None,
-    parentDatasetId: Option[String] = None)
+    parentDatasetId: Option[String] = None,
+    showHidden: Boolean = false)
 
 case class ScoringParamSet(
     fieldBoosts: Map[CeteraFieldType with Boostable, Float] = Map.empty,

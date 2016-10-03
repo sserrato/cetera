@@ -66,4 +66,3 @@ trait TestESData extends TestESDomains with TestESUsers {
       .execute.actionGet
   }
 }
-
