@@ -444,8 +444,7 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
                 {"bool" :{"should" :{"nested" :{"filter" :{"bool" :{"must" :[
                   {"terms" :{"customer_metadata_flattened.key.raw" :[ "key" ]}},
                   {"terms" :{"customer_metadata_flattened.value.raw" :[ "value" ]}}
-                ]}}, "path" : "customer_metadata_flattened"}}}},
-                { "not" : { "filter" : { "term" : { "hide_from_catalog" : true }}}}
+                ]}}, "path" : "customer_metadata_flattened"}}}}
               ]
           }
       }
@@ -484,7 +483,8 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
             {"bool" :{"must" :{"bool" :{"should" :[
               {"term" : {"is_approved_by_parent_domain" : true}},
               {"terms" : { "socrata_id.domain_id" : [ 0, 1 ] }}
-            ]}}}}
+            ]}}}},
+            {"not": {"filter": {"term": {"hide_from_catalog": true}}}}
           ]
         }
       }

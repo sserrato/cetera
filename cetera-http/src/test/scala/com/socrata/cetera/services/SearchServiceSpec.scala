@@ -368,6 +368,19 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
+  test("hidden documents should be hidden when auth isn't required") {
+    val hiddenDoc = docs(4)
+    val (_, res, _, _) = service.doSearch(Map(
+      Params.filterId -> hiddenDoc.socrataId.datasetId
+    ).mapValues(Seq(_)), false, AuthParams(), None, None)
+    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    // ensure the hidden doc didn't come back
+    actualFxfs should be('empty)
+    // ensure that's b/c it's hidden and not b/c it is private or unpublished
+    hiddenDoc.isPublic should be(true)
+    hiddenDoc.isPublished should be(true)
+  }
+
   test("not_moderated data federated to a moderated domain should not be in the response") {
     // the domain params will limit us to fxfs 0,4,8 and 1,5,9
     val params = Map(
@@ -431,7 +444,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val params = Map(
       "for_user" -> "robin-hood"
     ).mapValues(Seq(_))
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8", "fxf-10", "zeta-0001")
+    val expectedFxfs = Set("fxf-0", "fxf-8", "fxf-10", "zeta-0001")
     val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -456,7 +469,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       Params.filterParentDatasetId -> "fxf-0"
     ).mapValues(Seq(_))
 
-    val expectedFxfs = Set("fxf-4", "fxf-8", "fxf-10")
+    val expectedFxfs = Set("fxf-8", "fxf-10")
     val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -536,7 +549,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "q" -> "Alpha"
     ).mapValues(Seq(_))
 
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
+    val expectedFxfs = Set("fxf-0", "fxf-8")
     val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -551,7 +564,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
       "categories" -> "Alpha"
     ).mapValues(Seq(_))
 
-    val expectedFxfs = Set("fxf-0", "fxf-4", "fxf-8")
+    val expectedFxfs = Set("fxf-0", "fxf-8")
     val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
 
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -633,19 +646,19 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   }
 
   test("giving a datatype a boost of >1 should promote assets of that type to the top") {
-    val params = Map("boostFiles" -> Seq("10.0"))
+    val params = Map("boostStories" -> Seq("10.0"))
     val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val topResultType = resultTypes.headOption
-    topResultType should be (Some("file"))
+    topResultType should be (Some("story"))
   }
 
   test("giving a datatype a boost of <<1 should demote assets of that type to the bottom") {
-    val params = Map("boostFiles" -> Seq(".0000001"))
+    val params = Map("boostStories" -> Seq(".0000001"))
     val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val resultTypes = results.results.map(_.resource.dyn.`type`.!.asInstanceOf[JString].string)
     val lastResultType = resultTypes.last
-    lastResultType should be ("file")
+    lastResultType should be ("story")
   }
 
   test("preview_image_url should be included in the search result when available") {

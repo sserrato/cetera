@@ -184,11 +184,9 @@ object DocumentFilters {
     val parentIdFilter = searchParams.parentDatasetId.map(parentDatasetFilter(_))
     val idsFilter = searchParams.ids.map(idFilter(_))
     val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
-    val hiddenFilter = if (searchParams.showHidden) None else Some(hideFromCatalogFilter())
 
     val allFilters =
-      List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter,
-        idsFilter, metadataFilter, hiddenFilter).flatten
+      List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter, metadataFilter).flatten
     if (allFilters.isEmpty) {
       None
     } else {
@@ -196,8 +194,9 @@ object DocumentFilters {
     }
   }
 
-  // this filter limits results to those that would show at /browse, i.e. public/published/approved
-  def anonymousFilter(domainSet: DomainSet, isDomainAgg: Boolean = false): FilterBuilder = {
+  // this filter limits results to those that would show at /browse , i.e. public/published/approved/unhidden
+  def anonymousFilter(domainSet: DomainSet, isDomainAgg: Boolean = false)
+  : FilterBuilder = {
     val bePublic = publicFilter(isDomainAgg)
     val bePublished = publishedFilter(isDomainAgg)
     val beModApproved = moderationStatusFilter(
@@ -208,13 +207,15 @@ object DocumentFilters {
     )
     val beDatalensApproved = datalensStatusFilter(isDomainAgg)
     val beRAApproved = routingApprovalFilter(domainSet.searchContext, domainSet.raDisabledIds, isDomainAgg)
+    val beUnhidden = hideFromCatalogFilter(isDomainAgg)
 
     boolFilter()
-    .must(bePublic)
-    .must(bePublished)
-    .must(beModApproved)
-    .must(beDatalensApproved)
-    .must(beRAApproved)
+      .must(bePublic)
+      .must(bePublished)
+      .must(beModApproved)
+      .must(beDatalensApproved)
+      .must(beRAApproved)
+      .must(beUnhidden)
   }
 
   // this filter will limit results down to those owned or shared to a user
@@ -226,7 +227,8 @@ object DocumentFilters {
   }
 
   // this filter will limit results to only those the user is allowed to see
-  def visibilityFilter(user: Option[User], domainSet: DomainSet, requireAuth: Boolean): Option[FilterBuilder] = {
+  def visibilityFilter(user: Option[User], domainSet: DomainSet, requireAuth: Boolean)
+  : Option[FilterBuilder] = {
     (requireAuth, user) match {
       // if user is super admin, no vis filter needed
       case (true, Some(u)) if (u.isSuperAdmin) => None

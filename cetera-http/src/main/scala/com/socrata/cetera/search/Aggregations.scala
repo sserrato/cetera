@@ -82,7 +82,8 @@ object DomainAggregations {
   private val aggSize = 0 // agg count unlimited
 
   def domains(domainSet: DomainSet, user: Option[User]): AbstractAggregationBuilder = {
-    val visibilityFilter = boolFilter().must(DocumentFilters.anonymousFilter(domainSet, isDomainAgg = true))
+    val visibilityFilter = boolFilter()
+      .must(DocumentFilters.anonymousFilter(domainSet, isDomainAgg = true))
 
     AggregationBuilders
       .terms("domains") // "domains" is an agg of terms on field "domain_cname.raw"

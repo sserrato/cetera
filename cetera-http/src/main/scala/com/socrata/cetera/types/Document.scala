@@ -109,7 +109,9 @@ case class Document(
     sharedTo: Seq[String],
     attribution: Option[String],
     previewImageId: Option[String],
-    grants: Seq[ESGrant])
+    grants: Seq[ESGrant],
+    hideFromCatalog: Option[Boolean],
+    hideFromDataJson: Option[Boolean])
 
 object Document {
   implicit val jCodec = AutomaticJsonCodecBuilder[Document]

@@ -1,189 +1,189 @@
-fxf-0	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+fxf-0	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-1	domain 1: not customer domain, is moderated, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-1	domain 1: not customer domain, is moderated, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-2	domain 2: customer domain, not moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-2	domain 2: customer domain, not moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: Some(false)
 	isDatalensApproved: Some(false)
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-3	domain 3: customer domain, moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-3	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(false)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-4	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-4	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-5	domain 1: not customer domain, is moderated, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: true
+	hideFromDataJson: true
+fxf-5	domain 1: not customer domain, is moderated, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(false)
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-6	domain 2: customer domain, not moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-6	domain 2: customer domain, not moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: Some(false)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-7	domain 3: customer domain, moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-7	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(false)
 	isRoutingApproved: Some(false)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-8	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-8	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-9	domain 1: not customer domain, is moderated, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-9	domain 1: not customer domain, is moderated, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(false)
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-fxf-10	domain 2: customer domain, not moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+fxf-10	domain 2: customer domain, not moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: Some(true)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0001	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0001	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0002	domain 3: customer domain, moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0002	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(true)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0003	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0003	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(false)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0004	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0004	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: Some(false)
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0005	domain 3: customer domain, moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0005	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(true)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0006	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0006	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(false)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0007	domain 0: customer domain, no moderation, no R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0007	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0008	domain 8: customer domain, moderated, has R&A, is locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0008	domain 8: customer domain, moderated, has R&A, is locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(true)
 	isDatalensApproved: Some(true)
 	visibleToAnonymous: Some(true)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0009	domain 3: customer domain, moderated, has R&A, not locked-down, not hidden from catalog or data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0009	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(false)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(true)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: false
-    hideFromDataJson: false
-zeta-0010	domain 3: customer domain, moderated, has R&A, not locked-down, hidden from catalog and data.json
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0010	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(false)
 	isPublished: Some(true)
 	isModerationApproved: Some(true)
 	isRoutingApproved: Some(true)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
-    hideFromCatalog: true
-    hideFromDataJson: true
+	hideFromCatalog: true
+	hideFromDataJson: true

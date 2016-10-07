@@ -31,7 +31,7 @@ trait TestESData extends TestESDomains with TestESUsers {
   }
 
   val anonymouslyViewableDocIds =
-    List("fxf-0", "fxf-1", "fxf-4", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007")
+    List("fxf-0", "fxf-1", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007")
   val anonymouslyViewableDocs = docs.filter(d => anonymouslyViewableDocIds contains(d.socrataId.datasetId))
 
   def bootstrapData(): Unit = {
@@ -58,6 +58,7 @@ trait TestESData extends TestESDomains with TestESUsers {
     // load data
     docs.foreach { d =>
       client.client.prepareIndex(testSuiteName, esDocumentType)
+        .setId(d.socrataId.datasetId)
         .setParent(d.socrataId.domainId.toString)
         .setSource(JsonUtil.renderJson(d))
         .setRefresh(true)

@@ -248,9 +248,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       ).value
     )
 
-  def prepareShowHidden(queryParameters: MultiQueryParams): Boolean =
-    queryParameters.contains(Params.showHidden)
-
   //  user search param preparers
 
   def prepareEmail(queryParameters: MultiQueryParams): Option[Set[String]] =
@@ -307,8 +304,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
           prepareSharedTo(queryParameters),
           prepareAttribution(queryParameters),
           prepareParentDatasetId(queryParameters),
-          prepareId(queryParameters),
-          prepareShowHidden(queryParameters)
+          prepareId(queryParameters)
         )
         val scoringParams = ScoringParamSet(
           prepareFieldBoosts(queryParameters),
@@ -363,8 +359,6 @@ object Params {
   val filterAttribution = "attribution"
   val filterParentDatasetId = "derived_from"
   val filterSharedTo = "shared_to"
-
-  val showHidden = "show_hidden"
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
@@ -464,8 +458,7 @@ object Params {
     showVisibility,
     scanLength,
     scanOffset,
-    sortOrder,
-    showHidden
+    sortOrder
   ) ++ datatypeBoostParams.toSet
 
   // If your param is an array like tags[]=fun&tags[]=ice+cream, add it here

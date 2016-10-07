@@ -452,6 +452,19 @@ class SearchServiceSpecWithPrivateData
     val res = service.doSearch(params, false, AuthParams(Some(cookie)), Some(lockedDomain), None)._2.results
     val actualFxfs = res.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     val expectedFxfs = Seq("zeta-0008")
-    actualFxfs should contain theSameElementsAs(expectedFxfs)
+    actualFxfs should contain theSameElementsAs (expectedFxfs)
+  }
+
+  test("hidden documents should not be hidden to users who can see everything on their domain") {
+    val host = domains(0).domainCname
+    val hiddenDoc = docs(4)
+    val userBody = authedUserBodyFromRole("publisher")
+    prepareAuthenticatedUser(cookie, host, userBody)
+
+    val (_, res, _, _) = service.doSearch(Map(
+      Params.filterId -> hiddenDoc.socrataId.datasetId
+    ).mapValues(Seq(_)), true, AuthParams(cookie = Some(cookie)), Some(host), None)
+    val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs(0) should be(hiddenDoc.socrataId.datasetId)
   }
 }

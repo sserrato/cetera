@@ -132,7 +132,9 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         ${publishedFilter},
         ${moderationFilter},
         ${datalensApprovedFilter},
-        ${routingApprovalFilter}]}
+        ${routingApprovalFilter},
+        ${hideFromCatalogFilter}
+      ]}
   }"""
 
   val anonymousFilterWithDomainIds = j"""{
@@ -147,7 +149,7 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
   }"""
 
   val searchParamsFilter = j"""{
-    "bool" :{ "must" : [$datatypeDatasetsFilter, $hideFromCatalogFilter]}
+    "bool" :{ "must" : $datatypeDatasetsFilter}
   }"""
 
   val animlCategoriesQuery = j"""{
@@ -286,13 +288,13 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
         "aggregations" :{"domain_filter" :{
           "filter" :{"bool" :{"must" :[
             $domain42Filter,
-            {"bool": { must: $hideFromCatalogFilter }},
             {"bool": {"must": [
               $publicFilter,
               $publishedFilter,
               {"bool" :{"should" :[$defaultViewFilter, $modApprovedFilter, $domain42Filter]}},
               $datalensApprovedFilter,
-              {"bool" :{"must" :{"bool" :{"should" :[$raApprovedFilter, $domain42Filter]}}}}
+              {"bool" :{"must" :{"bool" :{"should" :[$raApprovedFilter, $domain42Filter]}}}},
+              $hideFromCatalogFilter
             ]}}
           ]}},
           "aggregations" :{
@@ -368,13 +370,6 @@ class DocumentClientSpec extends WordSpec with ShouldMatchers with BeforeAndAfte
 
       actual should be (expected)
       request.toString.replaceAll("[\\s\\n]+", " ") should include(searchParamsFilter.toString().replaceAll("[\\s\\n]+", " "))
-    }
-
-    "not have a filter for hide from catalog if show_hidden is passed" in {
-      val request = documentClient.buildSearchRequest(
-        DomainSet(), searchParams.copy(showHidden = true), ScoringParamSet(), pagingParams, None, false)
-
-      request.toString should not include ("hide_from_catalog")
     }
   }
 
