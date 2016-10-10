@@ -467,4 +467,56 @@ class SearchServiceSpecWithPrivateData
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs(0) should be(hiddenDoc.socrataId.datasetId)
   }
+
+  test("searching as a superadmin with public=true, should find all public views") {
+    val expectedFxfs = docs.filter(d => d.isPublic).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("public" -> Seq("true"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as a superadmin with public=false, should find all private views") {
+    val expectedFxfs = docs.filter(d => !d.isPublic).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("public" -> Seq("false"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as a superadmin with published=true, should find all published views") {
+    val expectedFxfs = docs.filter(d => d.isPublished).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("published" -> Seq("true"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as a superadmin with published=false, should find all unpublished views") {
+    val expectedFxfs = docs.filter(d => !d.isPublished).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("published" -> Seq("false"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
 }

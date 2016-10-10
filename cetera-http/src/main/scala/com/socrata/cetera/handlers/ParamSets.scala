@@ -14,7 +14,9 @@ case class SearchParamSet(
     sharedTo: Option[String] = None,
     attribution: Option[String] = None,
     parentDatasetId: Option[String] = None,
-    ids: Option[Set[String]] = None)
+    ids: Option[Set[String]] = None,
+    public: Option[Boolean] = None,
+    published: Option[Boolean] = None)
 
 case class ScoringParamSet(
     fieldBoosts: Map[CeteraFieldType with Boostable, Float] = Map.empty,

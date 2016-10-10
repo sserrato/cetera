@@ -159,16 +159,16 @@ object DocumentFilters {
     filter
   }
 
-  // this filter limits results to those that are public
-  def publicFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+  // this filter limits results to those that are public or private; public by default.
+  def publicFilter(public: Boolean = true, isDomainAgg: Boolean = false): FilterBuilder = {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
-    notFilter(termFilter(prefix + IsPublicFieldType.fieldName, false))
+    termFilter(prefix + IsPublicFieldType.fieldName, public)
   }
 
-  // this filter limits results to those that are published
-  def publishedFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+  // this filter limits results to those that are published or unpublished; published by default.
+  def publishedFilter(published: Boolean = true, isDomainAgg: Boolean = false): FilterBuilder = {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
-    notFilter(termFilter(prefix + IsPublishedFieldType.fieldName, false))
+    termFilter(prefix + IsPublishedFieldType.fieldName, published)
   }
 
   // this filter limits results down to those requested by various search params
@@ -185,8 +185,14 @@ object DocumentFilters {
     val idsFilter = searchParams.ids.map(idFilter(_))
     val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
 
-    val allFilters =
-      List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter, metadataFilter).flatten
+    // the params below are those that would also influence visibility. these can only serve to further
+    // limit the set of views returned from what the visibilityFilters allow.
+    val privacyFilter = searchParams.public.map(publicFilter(_))
+    val publicationFilter = searchParams.published.map(publishedFilter(_))
+
+    val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter,
+      metadataFilter, privacyFilter, publicationFilter).flatten
+
     if (allFilters.isEmpty) {
       None
     } else {
@@ -197,8 +203,8 @@ object DocumentFilters {
   // this filter limits results to those that would show at /browse , i.e. public/published/approved/unhidden
   def anonymousFilter(domainSet: DomainSet, isDomainAgg: Boolean = false)
   : FilterBuilder = {
-    val bePublic = publicFilter(isDomainAgg)
-    val bePublished = publishedFilter(isDomainAgg)
+    val bePublic = publicFilter(public = true, isDomainAgg)
+    val bePublished = publishedFilter(published = true, isDomainAgg)
     val beModApproved = moderationStatusFilter(
       domainSet.searchContext.exists(_.moderationEnabled),
       domainSet.moderationEnabledIds,

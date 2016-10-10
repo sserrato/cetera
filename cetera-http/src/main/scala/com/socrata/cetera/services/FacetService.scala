@@ -87,27 +87,21 @@ class FacetService(
     val extendedHost = req.header(HeaderXSocrataHostKey)
     val requestId = req.header(HeaderXSocrataRequestIdKey)
 
-    QueryParametersParser(req.multiQueryParams, extendedHost) match {
-      case Left(errors) =>
-        val msg = errors.map(_.message).mkString(", ")
-        BadRequest ~> HeaderAclAllowOriginAll ~> jsonError(s"Invalid query parameters: $msg")
-      case Right(params) =>
-        try {
-          val (status, facets, timings, setCookies) = doAggregate(cname, authParams, extendedHost, requestId)
-          logger.info(LogHelper.formatRequest(req, timings))
-          Http.decorate(Json(facets, pretty = true), status, setCookies)
-        } catch {
-          case e: DomainNotFoundError =>
-            logger.error(e.getMessage)
-            NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-          case e: UnauthorizedError =>
-            logger.error(e.getMessage)
-            Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
-          case NonFatal(e) =>
-            val esError = ElasticsearchError(e)
-            logger.error(s"Database error: ${esError.getMessage}")
-            InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
-        }
+    try {
+      val (status, facets, timings, setCookies) = doAggregate(cname, authParams, extendedHost, requestId)
+      logger.info(LogHelper.formatRequest(req, timings))
+      Http.decorate(Json(facets, pretty = true), status, setCookies)
+    } catch {
+      case e: DomainNotFoundError =>
+        logger.error(e.getMessage)
+        NotFound ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case e: UnauthorizedError =>
+        logger.error(e.getMessage)
+        Unauthorized ~> HeaderAclAllowOriginAll ~> jsonError(e.getMessage)
+      case NonFatal(e) =>
+        val esError = ElasticsearchError(e)
+        logger.error(s"Database error: ${esError.getMessage}")
+        InternalServerError ~> HeaderAclAllowOriginAll ~> jsonError("We're sorry. Something went wrong.")
     }
   }
 

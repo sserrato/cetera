@@ -683,6 +683,23 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should be('empty)
   }
+
+  test("adding on public=true and published=true params should not change the set of anonymously viewable results") {
+    val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
+    val redundantParams = Map("public" -> "true", "published" -> "true").mapValues(Seq(_))
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(redundantParams, false, AuthParams(), None, None)
+
+    val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs(expectedFxfs)
+  }
+
+  test("adding on public=false and published=false params should empty out the set of anonymously viewable results") {
+    val params = Map("public" -> "false", "published" -> "false").mapValues(Seq(_))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
+  }
 }
 
 class SearchServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockFactory {

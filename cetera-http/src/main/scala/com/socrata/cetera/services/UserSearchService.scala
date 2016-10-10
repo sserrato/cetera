@@ -32,38 +32,32 @@ class UserSearchService(userClient: UserClient, domainClient: DomainClient, core
 
     val now = Timings.now()
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
+    val params = QueryParametersParser.prepUserParams(queryParameters)
+    val searchParams = params.searchParamSet
+    val (domain, domSearchTime) = searchParams.domain match {
+      case None => (None, 0L)
+      case Some(d) => domainClient.find(d)
+    }
+    val (domainForRoles, domainSearchTime) = (domain, extendedHost) match {
+      case (None, Some(host)) => domainClient.find(host)
+      case (_, _) => (domain, domSearchTime)
+    }
 
-    if (authorizedUser.isEmpty) {
-      throw UnauthorizedError(authorizedUser, "search users")
+    if (searchParams.domain.isDefined && domain.isEmpty){
+      throw DomainNotFoundError(searchParams.domain.get)
     } else {
-      val params = QueryParametersParser.prepUserParams(queryParameters)
-      val searchParams = params.searchParamSet
-      val pagingParams = params.pagingParamSet
-      val (domain, domSearchTime) = searchParams.domain match {
-        case None => (None, 0L)
-        case Some(d) => domainClient.find(d)
-      }
-      val (domainForRoles, domainSearchTime) = (domain, extendedHost) match {
-        case (None, Some(host)) => domainClient.find(host)
-        case (_, _) => (domain, domSearchTime)
-      }
+      val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainForRoles))
+      val (users, totalCount, userSearchTime) =
+        userClient.search(searchParams, params.pagingParamSet, domain.map(_.domainId), authedUser)
 
-      if (searchParams.domain.isDefined && domain.isEmpty){
-        throw DomainNotFoundError(searchParams.domain.get)
-      } else {
-        val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainForRoles))
-        val (users, totalCount, userSearchTime) =
-          userClient.search(searchParams, pagingParams, domain.map(_.domainId), authedUser)
-
-        val formattedResults = SearchResults(users.flatMap(u => DomainUser(domainForRoles, u)), totalCount)
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
-        (
-          OK,
-          formattedResults.copy(timings = Some(timings)),
-          timings,
-          setCookies
-          )
-      }
+      val formattedResults = SearchResults(users.flatMap(u => DomainUser(domainForRoles, u)), totalCount)
+      val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, userSearchTime))
+      (
+        OK,
+        formattedResults.copy(timings = Some(timings)),
+        timings,
+        setCookies
+        )
     }
   }
 

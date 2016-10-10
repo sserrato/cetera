@@ -48,37 +48,28 @@ class SearchService(
 
     val now = Timings.now()
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
+    val ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams) =
+      QueryParametersParser(queryParameters, extendedHost)
 
-    if (requireAuth && authorizedUser.isEmpty ) {
-      throw UnauthorizedError(authorizedUser, "search the internal catalog")
-    } else {
-      QueryParametersParser(queryParameters, extendedHost) match {
-        case Left(errors) =>
-          val msg = errors.map(_.message).mkString(", ")
-          throw new IllegalArgumentException(s"Invalid query parameters: $msg")
+    val authedUserId = authorizedUser.map(_.id)
+    val (domains, domainSearchTime) = domainClient.findSearchableDomains(
+      searchParams.searchContext, extendedHost, searchParams.domains,
+      excludeLockedDomains = true, authorizedUser, requestId
+    )
+    val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
+    val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
+    val req = documentClient.buildSearchRequest(
+      domainSet,
+      searchParams, scoringParams, pagingParams,
+      authedUser, requireAuth
+    )
+    logger.info(LogHelper.formatEsRequest(req))
+    val res = req.execute.actionGet
+    val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
+    val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
+    logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 
-        case Right(ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams)) =>
-          val authedUserId = authorizedUser.map(_.id)
-          val (domains, domainSearchTime) = domainClient.findSearchableDomains(
-            searchParams.searchContext, extendedHost, searchParams.domains,
-            excludeLockedDomains = true, authorizedUser, requestId
-          )
-          val domainSet = domains.addDomainBoosts(scoringParams.domainBoosts)
-          val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
-          val req = documentClient.buildSearchRequest(
-            domainSet,
-            searchParams, scoringParams, pagingParams,
-            authedUser, requireAuth
-          )
-          logger.info(LogHelper.formatEsRequest(req))
-          val res = req.execute.actionGet
-          val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
-          val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-          logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
-
-          (OK, formattedResults.copy(timings = Some(timings)), timings, setCookies)
-        }
-    }
+    (OK, formattedResults.copy(timings = Some(timings)), timings, setCookies)
   }
 
   def search(requireAuth: Boolean)(req: HttpRequest): HttpResponse = {

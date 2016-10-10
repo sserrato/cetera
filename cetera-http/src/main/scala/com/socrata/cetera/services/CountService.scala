@@ -64,35 +64,27 @@ class CountService(
     val now = Timings.now()
 
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
+    val searchParams = QueryParametersParser(queryParameters, extendedHost).searchParamSet
+    val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
+      searchParams.searchContext, extendedHost, searchParams.domains,
+      excludeLockedDomains = true, authorizedUser, requestId
+    )
+    val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
 
-    QueryParametersParser(queryParameters, extendedHost) match {
-      case Left(errors) =>
-        val msg = errors.map(_.message).mkString(", ")
-        throw new IllegalArgumentException(s"Invalid query parameters: $msg")
+    val search = documentClient.buildCountRequest(field, domainSet, searchParams, authedUser, requireAuth = false)
+    logger.info(LogHelper.formatEsRequest(search))
 
-      case Right(ValidatedQueryParameters(searchParams, _, _, _)) =>
-        val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
-          searchParams.searchContext, extendedHost, searchParams.domains,
-          excludeLockedDomains = true, authorizedUser, requestId
-        )
-        val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domainSet.extendedHost))
-
-        val search =
-          documentClient.buildCountRequest(field, domainSet, searchParams, authedUser, requireAuth = false)
-        logger.info(LogHelper.formatEsRequest(search))
-
-        val res = search.execute.actionGet
-        val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
-        val json = JsonReader.fromString(res.toString)
-        val counts = extract(json) match {
-          case Right(extracted) => extracted
-          case Left(error) =>
-            logger.error(error.english)
-            throw new Exception("error!  ERROR!! DOES NOT COMPUTE")
-        }
-        val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
-        (OK, formattedResults, timings, setCookies)
+    val res = search.execute.actionGet
+    val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
+    val json = JsonReader.fromString(res.toString)
+    val counts = extract(json) match {
+      case Right(extracted) => extracted
+      case Left(error) =>
+        logger.error(error.english)
+        throw new Exception("error!  ERROR!! DOES NOT COMPUTE")
     }
+    val formattedResults: SearchResults[Count] = format(counts).copy(timings = Some(timings))
+    (OK, formattedResults, timings, setCookies)
   }
 
   // $COVERAGE-OFF$ jetty wiring

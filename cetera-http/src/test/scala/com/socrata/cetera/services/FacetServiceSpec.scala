@@ -266,7 +266,6 @@ class FacetServiceSpecWithBrokenES extends FunSuiteLike with Matchers with MockF
     servReq.expects('getHeader)(HeaderCookieKey).anyNumberOfTimes.returns("ricky=awesome")
     servReq.expects('getHeader)(HeaderXSocrataHostKey).anyNumberOfTimes.returns("opendata.test")
     servReq.expects('getHeader)(HeaderXSocrataRequestIdKey).anyNumberOfTimes.returns("1")
-    servReq.expects('getQueryString)().returns("only=datasets")
 
     val augReq = new AugmentedHttpServletRequest(servReq)
 

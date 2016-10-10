@@ -360,37 +360,47 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
   }
 
   "DocumentFilters: publicFilter" should {
-    "return the expected filter" in {
+    "return the expected filter when no params are passed" in {
+      val filter = DocumentFilters.publicFilter()
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_public" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'true' param passed" in {
+      val filter = DocumentFilters.publicFilter(true)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_public" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'false' param passed" in {
       val filter = DocumentFilters.publicFilter(false)
       val actual = JsonReader.fromString(filter.toString)
-      val expected =
-        j"""{
-        "not" : {
-          "filter" : {
-            "term" : {
-              "is_public" : false
-            }
-          }
-        }
-      }"""
+      val expected = j"""{"term" : {"is_public" : false} }"""
       actual should be(expected)
     }
   }
 
   "DocumentFilters: publishedFilter" should {
-    "return the expected filter" in {
+    "return the expected filter when no params are passed" in {
+      val filter = DocumentFilters.publishedFilter()
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_published" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'true' param passed" in {
+      val filter = DocumentFilters.publishedFilter(true)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_published" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'false' param passed" in {
       val filter = DocumentFilters.publishedFilter(false)
       val actual = JsonReader.fromString(filter.toString)
-      val expected =
-        j"""{
-        "not" : {
-          "filter" : {
-            "term" : {
-              "is_published" : false
-            }
-          }
-        }
-      }"""
+      val expected = j"""{"term" : {"is_published" : false} }"""
       actual should be(expected)
     }
   }
@@ -461,8 +471,8 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
       val expected = j"""{
         "bool" :{
           "must" :[
-            { "not" : { "filter" : { "term" : { "is_public" : false } } } },
-            { "not" : { "filter" : { "term" : { "is_published" : false } } } },
+            { "term" : { "is_public" : true } },
+            { "term" : { "is_published" : true } },
             {"bool" :{"should" :[
               {"bool" :{"must" :[
                 { "terms" : { "socrata_id.domain_id" : [ 1 ] } },
