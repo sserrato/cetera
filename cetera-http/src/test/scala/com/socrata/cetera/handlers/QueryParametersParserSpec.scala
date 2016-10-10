@@ -280,6 +280,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("show_visibility" -> Seq()), None).formatParamSet.showVisibility should be(true)
     QueryParametersParser(Map("public" -> Seq()), None).searchParamSet.public.get should be(true)
     QueryParametersParser(Map("published" -> Seq()), None).searchParamSet.published.get should be(true)
+    QueryParametersParser(Map("derived" -> Seq()), None).searchParamSet.derived.get should be(true)
   }
 
   test("explicitly true boolean param values should be true") {
@@ -287,6 +288,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("show_visibility" -> Seq("true")), None).formatParamSet.showVisibility should be(true)
     QueryParametersParser(Map("public" -> Seq("true")), None).searchParamSet.public.get should be(true)
     QueryParametersParser(Map("published" -> Seq("true")), None).searchParamSet.published.get should be(true)
+    QueryParametersParser(Map("derived" -> Seq("true")), None).searchParamSet.derived.get should be(true)
   }
 
   test("explicitly false boolean param values should be false") {
@@ -294,6 +296,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("show_visibility" -> Seq("false")), None).formatParamSet.showVisibility should be(false)
     QueryParametersParser(Map("public" -> Seq("false")), None).searchParamSet.public.get should be(false)
     QueryParametersParser(Map("published" -> Seq("false")), None).searchParamSet.published.get should be(false)
+    QueryParametersParser(Map("derived" -> Seq("false")), None).searchParamSet.derived.get should be(false)
   }
 
   test("empty non-boolean param values shouldn't be defined") {

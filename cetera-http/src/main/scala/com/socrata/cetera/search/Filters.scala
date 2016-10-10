@@ -41,8 +41,11 @@ object DocumentFilters {
     termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)
   }
 
-  def isApprovedByParentDomainFilter(aggPrefix: String = ""): FilterBuilder =
-    termFilter(aggPrefix + "is_approved_by_parent_domain", true)
+  def approvedByParentDomainFilter(aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + ApprovedByParentFieldType.fieldName, true)
+
+  def derivedFilter(derived: Boolean = true, aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, !derived)
 
   // TODO:  should we score metadata by making this a query?
   // and if you do, remember to make the key and value both phrase matches
@@ -141,7 +144,7 @@ object DocumentFilters {
     // each view must either be approved or be from a domain without R&A
     val beFromRADisabledDomain = domainIdFilter(raOffDomainIds, prefix)
     val beApprovedOrNotApplicable = boolFilter()
-      .should(isApprovedByParentDomainFilter(prefix))
+      .should(approvedByParentDomainFilter(prefix))
       .should(beFromRADisabledDomain)
 
     // if the search_context has R&A, views must also be approved on the search context
@@ -184,6 +187,7 @@ object DocumentFilters {
     val parentIdFilter = searchParams.parentDatasetId.map(parentDatasetFilter(_))
     val idsFilter = searchParams.ids.map(idFilter(_))
     val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
+    val derivationFilter = searchParams.derived.map(derivedFilter(_))
 
     // the params below are those that would also influence visibility. these can only serve to further
     // limit the set of views returned from what the visibilityFilters allow.
@@ -191,7 +195,7 @@ object DocumentFilters {
     val publicationFilter = searchParams.published.map(publishedFilter(_))
 
     val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter,
-      metadataFilter, privacyFilter, publicationFilter).flatten
+      metadataFilter, derivationFilter, privacyFilter, publicationFilter).flatten
 
     if (allFilters.isEmpty) {
       None

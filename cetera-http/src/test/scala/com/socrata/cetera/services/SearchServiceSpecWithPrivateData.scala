@@ -519,4 +519,30 @@ class SearchServiceSpecWithPrivateData
 
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
+
+  test("searching as a superadmin with derived=true, should find all derived views") {
+    val expectedFxfs = docs.filter(d => !d.isDefaultView).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("derived" -> Seq("true"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as a superadmin with derived=false, should find all default views") {
+    val expectedFxfs = docs.filter(d => d.isDefaultView).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("derived" -> Seq("false"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
 }

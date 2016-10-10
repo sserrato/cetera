@@ -150,6 +150,10 @@ case object ApprovingDomainIdsFieldType extends DocumentFieldType {
   val fieldName: String = "approving_domain_ids"
 }
 
+case object ApprovedByParentFieldType extends DocumentFieldType {
+  val fieldName: String = "is_approved_by_parent_domain"
+}
+
 case object SocrataIdDomainIdFieldType extends DocumentFieldType {
   val fieldName: String = "socrata_id.domain_id"
 }

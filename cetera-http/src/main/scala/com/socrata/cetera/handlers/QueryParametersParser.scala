@@ -194,6 +194,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def preparePublished(queryParameters: MultiQueryParams): Option[Boolean] =
     prepareBooleanParam(queryParameters, Params.filterPublished)
 
+  def prepareDerived(queryParameters: MultiQueryParams): Option[Boolean] =
+    prepareBooleanParam(queryParameters, Params.filterDerived)
+
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
     // TODO: EN-1401 - don't just take head, allow for mulitple selections
@@ -320,7 +323,8 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       prepareParentDatasetId(queryParameters),
       prepareId(queryParameters),
       preparePublic(queryParameters),
-      preparePublished(queryParameters)
+      preparePublished(queryParameters),
+      prepareDerived(queryParameters)
     )
     val scoringParams = ScoringParamSet(
       prepareFieldBoosts(queryParameters),
@@ -376,6 +380,7 @@ object Params {
   val filterSharedTo = "shared_to"
   val filterPublic = "public"
   val filterPublished = "published"
+  val filterDerived = "derived"
 
   val queryAdvanced = "q_internal"
   val querySimple = "q"
@@ -462,6 +467,7 @@ object Params {
     filterId,
     filterPublic,
     filterPublished,
+    filterDerived,
     locale,
     filterSharedTo,
     queryAdvanced,

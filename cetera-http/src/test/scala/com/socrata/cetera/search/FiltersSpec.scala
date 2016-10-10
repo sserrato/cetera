@@ -155,16 +155,39 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "DocumentFilters: isApprovedByParentDomainFilter" should {
     "return the expected filter when no prefix is given" in {
-      val approvalFilter = DocumentFilters.isApprovedByParentDomainFilter()
+      val approvalFilter = DocumentFilters.approvedByParentDomainFilter()
       val expected = j"""{ "term": { "is_approved_by_parent_domain": true } }"""
       val actual = JsonReader.fromString(approvalFilter.toString)
       actual should be(expected)
     }
 
     "return the expected filter when some prefix is given" in {
-      val approvalFilter = DocumentFilters.isApprovedByParentDomainFilter("child_")
+      val approvalFilter = DocumentFilters.approvedByParentDomainFilter("child_")
       val expected = j"""{ "term": { "child_is_approved_by_parent_domain": true } }"""
       val actual = JsonReader.fromString(approvalFilter.toString)
+      actual should be(expected)
+    }
+  }
+
+  "DocumentFilters: derivedFilter" should {
+    "return the expected filter when no params are passed" in {
+      val filter = DocumentFilters.derivedFilter()
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_default_view" : false} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'true' param passed" in {
+      val filter = DocumentFilters.derivedFilter(true)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_default_view" : false} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'false' param passed" in {
+      val filter = DocumentFilters.derivedFilter(false)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"is_default_view" : true} }"""
       actual should be(expected)
     }
   }
