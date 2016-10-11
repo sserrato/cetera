@@ -78,7 +78,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def restrictParamFilterDatatype(datatype: String): Either[DatatypeError, Option[Set[String]]] = datatype match {
     case s: String if s.nonEmpty =>
       Datatype(s) match {
-        case None => Left(DatatypeError(s"'${Params.filterDatatypes}' must be one of $allowedFilterTypes; got $s"))
+        case None => Left(DatatypeError(s"'${Params.only}' must be one of $allowedFilterTypes; got $s"))
         case Some(d) => Right(Some(d.names.toSet))
       }
     case _ => Right(None)
@@ -98,7 +98,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
-    queryParameters.typedFirst[SortOrderString](Params.sortOrder).map(validated(_).value)
+    queryParameters.typedFirst[SortOrderString](Params.order).map(validated(_).value)
 
   //////////////////
   // PARAM PREPARERS
@@ -135,31 +135,31 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   def prepareSearchQuery(queryParameters: MultiQueryParams): QueryType =
     pickQuery(
-      filterNonEmptyStringParams(queryParameters.get(Params.queryAdvanced).flatMap(_.headOption)),
-      filterNonEmptyStringParams(queryParameters.get(Params.querySimple).flatMap(_.headOption))
+      filterNonEmptyStringParams(queryParameters.get(Params.qInternal).flatMap(_.headOption)),
+      filterNonEmptyStringParams(queryParameters.get(Params.q).flatMap(_.headOption))
     )
 
   // Still uses old-style comma-separation
   def prepareDomains(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(queryParameters.first(Params.filterDomains).map(domain =>
+    filterNonEmptySetParams(queryParameters.first(Params.domains).map(domain =>
       domain.toLowerCase.split(filterDelimiter).toSet
     ))
 
   // if query string includes search context use that; otherwise default to the http header X-Socrata-Host
   def prepareSearchContext(queryParameters: MultiQueryParams, extendedHost: Option[String]): Option[String] = {
-    val contextSet = queryParameters.first(Params.context).map(_.toLowerCase)
+    val contextSet = queryParameters.first(Params.searchContext).map(_.toLowerCase)
     filterNonEmptyStringParams(Seq(contextSet, extendedHost).flatten.headOption)
   }
 
   def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterCategories))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.categories))
 
   def prepareTags(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterTags))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.tags))
 
   def prepareDatatypes(queryParameters: MultiQueryParams): Option[Set[String]] = {
-    val csvParams = queryParameters.get(Params.filterDatatypes).map(_.flatMap(_.split(filterDelimiter))).map(_.toSet)
-    val arrayParams = queryParameters.get(Params.arrayify(Params.filterDatatypes)).map(_.toSet)
+    val csvParams = queryParameters.get(Params.only).map(_.flatMap(_.split(filterDelimiter))).map(_.toSet)
+    val arrayParams = queryParameters.get(Params.arrayify(Params.only)).map(_.toSet)
     val mergedParams = mergeOptionalSets[String](Set(csvParams, arrayParams))
 
     mergedParams.flatMap { params =>
@@ -177,25 +177,28 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   }
 
   def prepareUsers(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.filterUser))
+    filterNonEmptyStringParams(queryParameters.first(Params.forUser))
 
   def prepareSharedTo(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.filterSharedTo))
+    filterNonEmptyStringParams(queryParameters.first(Params.sharedTo))
 
   def prepareAttribution(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.filterAttribution))
+    filterNonEmptyStringParams(queryParameters.first(Params.attribution))
 
   def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.filterParentDatasetId))
+    filterNonEmptyStringParams(queryParameters.first(Params.derivedFrom))
 
   def preparePublic(queryParameters: MultiQueryParams): Option[Boolean] =
-    prepareBooleanParam(queryParameters, Params.filterPublic)
+    prepareBooleanParam(queryParameters, Params.public)
 
   def preparePublished(queryParameters: MultiQueryParams): Option[Boolean] =
-    prepareBooleanParam(queryParameters, Params.filterPublished)
+    prepareBooleanParam(queryParameters, Params.published)
 
   def prepareDerived(queryParameters: MultiQueryParams): Option[Boolean] =
-    prepareBooleanParam(queryParameters, Params.filterDerived)
+    prepareBooleanParam(queryParameters, Params.derived)
+
+  def prepareHidden(queryParameters: MultiQueryParams): Option[Boolean] =
+    prepareBooleanParam(queryParameters, Params.explicitlyHidden)
 
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
@@ -241,7 +244,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   // Yes we compute searchQuery twice because this is a smell
   def prepareMinShouldMatch(queryParameters: MultiQueryParams): Option[String] = {
     val searchQuery = prepareSearchQuery(queryParameters)
-    queryParameters.first(Params.minMatch).flatMap { p =>
+    queryParameters.first(Params.minShouldMatch).flatMap { p =>
       MinShouldMatch.fromParam(searchQuery, p)
     }
   }
@@ -257,41 +260,41 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   def prepareOffset(queryParameters: MultiQueryParams): Int =
     validated(
-      queryParameters.typedFirstOrElse(Params.scanOffset, NonNegativeInt(PagingParamSet.defaultPageOffset))
+      queryParameters.typedFirstOrElse(Params.offset, NonNegativeInt(PagingParamSet.defaultPageOffset))
     ).value
 
   def prepareLimit(queryParameters: MultiQueryParams): Int =
     Math.min(
       limitLimit,
       validated(
-        queryParameters.typedFirstOrElse(Params.scanLength, NonNegativeInt(PagingParamSet.defaultPageLength))
+        queryParameters.typedFirstOrElse(Params.limit, NonNegativeInt(PagingParamSet.defaultPageLength))
       ).value
     )
 
   //  user search param preparers
 
   def prepareEmail(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterEmail))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.emails))
 
   def prepareScreenName(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterScreenName))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.screenNames))
 
   def prepareFlag(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterFlag))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.flags))
 
   def prepareRole(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterRole))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.roles))
 
   def prepareUserDomain(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.filterDomain))
+    filterNonEmptyStringParams(queryParameters.first(Params.domain))
 
   def prepareUserQuery(queryParameters: MultiQueryParams): Option[String] =
-    filterNonEmptyStringParams(queryParameters.first(Params.querySimple))
+    filterNonEmptyStringParams(queryParameters.first(Params.q))
 
   // shared param preparers
 
   def prepareId(queryParameters: MultiQueryParams): Option[Set[String]] =
-    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.filterId))
+    filterNonEmptySetParams(mergeArrayCommaParams(queryParameters, Params.ids))
 
 
   //////////////////
@@ -307,8 +310,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       extendedHost: Option[String])
     : ValidatedQueryParameters = {
 
-    // NOTE! We don't have to run most of these if just any of them fail validation
-    // Add params to the match to provide helpful error messages
     val searchParams = SearchParamSet(
       prepareSearchQuery(queryParameters),
       prepareDomains(queryParameters),
@@ -324,7 +325,8 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       prepareId(queryParameters),
       preparePublic(queryParameters),
       preparePublished(queryParameters),
-      prepareDerived(queryParameters)
+      prepareDerived(queryParameters),
+      prepareHidden(queryParameters)
     )
     val scoringParams = ScoringParamSet(
       prepareFieldBoosts(queryParameters),
@@ -369,29 +371,30 @@ object Params {
   def arrayify(param: String): String = s"${param}[]"
 
   // catalog params
-  val context = "search_context"
-  val filterDomains = "domains"
-  val filterCategories = "categories"
-  val filterTags = "tags"
-  val filterDatatypes = "only"
-  val filterUser = "for_user"
-  val filterAttribution = "attribution"
-  val filterParentDatasetId = "derived_from"
-  val filterSharedTo = "shared_to"
-  val filterPublic = "public"
-  val filterPublished = "published"
-  val filterDerived = "derived"
+  val searchContext = "search_context"
+  val domains = "domains"
+  val categories = "categories"
+  val tags = "tags"
+  val only = "only"
+  val forUser = "for_user"
+  val attribution = "attribution"
+  val derivedFrom = "derived_from"
+  val sharedTo = "shared_to"
+  val public = "public"
+  val published = "published"
+  val derived = "derived"
+  val explicitlyHidden = "explicitly_hidden"
 
-  val queryAdvanced = "q_internal"
-  val querySimple = "q"
+  val qInternal = "q_internal"
+  val q = "q"
 
   // user search params
-  val filterId = "ids"
-  val filterEmail = "emails"
-  val filterScreenName = "screen_names"
-  val filterFlag = "flags"
-  val filterRole = "roles"
-  val filterDomain = "domain"
+  val ids = "ids"
+  val emails = "emails"
+  val screenNames = "screen_names"
+  val flags = "flags"
+  val roles = "roles"
+  val domain = "domain"
 
   // We allow catalog datatypes to be boosted using the boost{typename}={factor}
   // (eg. boostDatasets=10.0) syntax. To avoid redundancy, we get the available
@@ -432,7 +435,7 @@ object Params {
   val boostDomains = boostParamPrefix + "Domains"
 
   val functionScore = "function_score"
-  val minMatch = "min_should_match"
+  val minShouldMatch = "min_should_match"
   val slop = "slop"
 
   // result formatting parameters
@@ -442,9 +445,9 @@ object Params {
   val showVisibility = "show_visibility"
 
   // sorting and pagination parameters
-  val scanLength = "limit"
-  val scanOffset = "offset"
-  val sortOrder = "order"
+  val limit = "limit"
+  val offset = "offset"
+  val order = "order"
 
 
   ///////////////////////
@@ -456,42 +459,43 @@ object Params {
 
   // If your param is a simple key/value pair, add it here
   private val catalogStringKeys = Set(
-    filterAttribution,
-    context,
-    filterDomains,
-    filterCategories,
-    filterTags,
-    filterDatatypes,
-    filterUser,
-    filterParentDatasetId,
-    filterId,
-    filterPublic,
-    filterPublished,
-    filterDerived,
+    attribution,
+    searchContext,
+    domains,
+    categories,
+    tags,
+    only,
+    forUser,
+    derivedFrom,
+    ids,
+    public,
+    published,
+    derived,
+    explicitlyHidden,
     locale,
-    filterSharedTo,
-    queryAdvanced,
-    querySimple,
+    sharedTo,
+    qInternal,
+    q,
     boostColumns,
     boostDescription,
     boostTitle,
     functionScore,
-    minMatch,
+    minShouldMatch,
     slop,
     showFeatureValues,
     showScore,
     showVisibility,
-    scanLength,
-    scanOffset,
-    sortOrder
+    limit,
+    offset,
+    order
   ) ++ datatypeBoostParams.toSet
 
 
   // If your param is an array like tags[]=fun&tags[]=ice+cream, add it here
   private val catalogArrayKeys = Set(
-    arrayify(filterCategories),
-    arrayify(filterDatatypes),
-    arrayify(filterTags)
+    arrayify(categories),
+    arrayify(only),
+    arrayify(tags)
   )
 
   // If your param is a hashmap like boostDomains[example.com]=1.23, add it here

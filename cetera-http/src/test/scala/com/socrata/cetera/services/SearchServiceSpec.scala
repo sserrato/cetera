@@ -334,7 +334,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("domainBoosts are respected") {
     val params = Map(
-      Params.filterDomains -> "petercetera.net,annabelle.island.net",
+      Params.domains -> "petercetera.net,annabelle.island.net",
       s"${Params.boostDomains}[annabelle.island.net]" -> "0.0",
       Params.showScore -> "true"
     )
@@ -349,9 +349,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("private documents should always be hidden") {
     val expectedFxfs = Set.empty
     val (_, res, _, _) = service.doSearch(Map(
-      Params.filterDomains -> "petercetera.net",
-      Params.context -> "petercetera.net",
-      Params.querySimple -> "private"
+      Params.domains -> "petercetera.net",
+      Params.searchContext -> "petercetera.net",
+      Params.q -> "private"
     ).mapValues(Seq(_)), false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -360,9 +360,9 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("unpublished documents should always be hidden") {
     val expectedFxfs = Set.empty
     val (_, res, _, _) = service.doSearch(Map(
-      Params.filterDomains -> "petercetera.net",
-      Params.context -> "petercetera.net",
-      Params.querySimple -> "unpublished"
+      Params.domains -> "petercetera.net",
+      Params.searchContext -> "petercetera.net",
+      Params.q -> "unpublished"
     ).mapValues(Seq(_)), false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should contain theSameElementsAs expectedFxfs
@@ -371,7 +371,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
   test("hidden documents should be hidden when auth isn't required") {
     val hiddenDoc = docs(4)
     val (_, res, _, _) = service.doSearch(Map(
-      Params.filterId -> hiddenDoc.socrataId.datasetId
+      Params.ids -> hiddenDoc.socrataId.datasetId
     ).mapValues(Seq(_)), false, AuthParams(), None, None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     // ensure the hidden doc didn't come back
@@ -466,7 +466,7 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("if a parent dataset is provided, response should only include views derived from that dataset") {
     val params = Map(
-      Params.filterParentDatasetId -> "fxf-0"
+      Params.derivedFrom -> "fxf-0"
     ).mapValues(Seq(_))
 
     val expectedFxfs = Set("fxf-8", "fxf-10")
@@ -684,9 +684,13 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should be('empty)
   }
 
-  test("adding on public=true and published=true params should not change the set of anonymously viewable results") {
+  test("adding on public=true and published=true and explicitlyHidden=false params should not change the set of anonymously viewable results") {
     val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
-    val redundantParams = Map("public" -> "true", "published" -> "true").mapValues(Seq(_))
+    val redundantParams = Map(
+      "public" -> "true",
+      "published" -> "true",
+      "explicitly_hidden" -> "false"
+    ).mapValues(Seq(_))
     val (_, resultsWithRedundantParams, _, _) = service.doSearch(redundantParams, false, AuthParams(), None, None)
 
     val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -694,8 +698,22 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should contain theSameElementsAs(expectedFxfs)
   }
 
-  test("adding on public=false and published=false params should empty out the set of anonymously viewable results") {
-    val params = Map("public" -> "false", "published" -> "false").mapValues(Seq(_))
+  test("adding on a public=false param should empty out the set of anonymously viewable results") {
+    val params = Map("public" -> "false").mapValues(Seq(_))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
+  }
+
+  test("adding on a published=false param should empty out the set of anonymously viewable results") {
+    val params = Map("published" -> "false").mapValues(Seq(_))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
+  }
+
+  test("adding on a explicitly_hidden=true param should empty out the set of anonymously viewable results") {
+    val params = Map("explicitly_hidden" -> "true").mapValues(Seq(_))
     val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should be('empty)

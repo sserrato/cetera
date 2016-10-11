@@ -39,8 +39,8 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 4))
     val (_, res, _, _) = service.doAggregate(Map(
-      Params.context -> "petercetera.net",
-      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
+      Params.searchContext -> "petercetera.net",
+      Params.domains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
@@ -52,8 +52,8 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 2))
     val (_, res, _, _) = service.doAggregate(Map(
-      Params.context -> "annabelle.island.net",
-      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
+      Params.searchContext -> "annabelle.island.net",
+      Params.domains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
@@ -72,8 +72,8 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("throws a DomainNotFoundError when the search_context doesn't exist") {
     val params = Map(
-      Params.context -> "bad-domain.com",
-      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com")
+      Params.searchContext -> "bad-domain.com",
+      Params.domains -> "petercetera.net,opendata-demo.socrata.com")
       .mapValues(Seq(_))
 
     intercept[DomainNotFoundError] {

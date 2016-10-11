@@ -172,8 +172,8 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
 
   test("throws a DomainNotFoundError when the search_context doesn't exist") {
     val params = Map(
-      Params.context -> "bad-domain.com",
-      Params.filterDomains -> "petercetera.net,opendata-demo.socrata.com")
+      Params.searchContext -> "bad-domain.com",
+      Params.domains -> "petercetera.net,opendata-demo.socrata.com")
       .mapValues(Seq(_))
 
     intercept[DomainNotFoundError] {

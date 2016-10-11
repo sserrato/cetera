@@ -96,12 +96,12 @@ class SearchServiceSpecWithPrivateData
       Some(Seq(Params.showVisibility -> showVisibility.toString)),
       host.map { cname =>
         Seq(
-          Params.context -> cname,
-          Params.filterDomains -> cname
+          Params.searchContext -> cname,
+          Params.domains -> cname
         )
       },
-      ownerUserId.map(u => Seq(Params.filterUser -> u)),
-      sharedToUserId.map(u => Seq(Params.filterSharedTo -> u))
+      ownerUserId.map(u => Seq(Params.forUser -> u)),
+      sharedToUserId.map(u => Seq(Params.sharedTo -> u))
     ).flatten.flatten.toMap.mapValues(Seq(_))
 
   private def validateRequest(
@@ -462,7 +462,7 @@ class SearchServiceSpecWithPrivateData
     prepareAuthenticatedUser(cookie, host, userBody)
 
     val (_, res, _, _) = service.doSearch(Map(
-      Params.filterId -> hiddenDoc.socrataId.datasetId
+      Params.ids -> hiddenDoc.socrataId.datasetId
     ).mapValues(Seq(_)), true, AuthParams(cookie = Some(cookie)), Some(host), None)
     val actualFxfs = res.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs(0) should be(hiddenDoc.socrataId.datasetId)
@@ -545,4 +545,31 @@ class SearchServiceSpecWithPrivateData
 
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
+
+  test("searching as a superadmin with explicity_hidden=true, should find all hidden views") {
+    val expectedFxfs = docs.filter(d => d.hideFromCatalog.getOrElse(false)).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("explicitly_hidden" -> Seq("true"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as a superadmin with explicity_hidden=false, should find all not-hidden views") {
+    val expectedFxfs = docs.filter(d => !d.hideFromCatalog.getOrElse(false)).map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    val params = allDomainsParams ++ Map("explicitly_hidden" -> Seq("false"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
 }

@@ -47,6 +47,9 @@ object DocumentFilters {
   def derivedFilter(derived: Boolean = true, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, !derived)
 
+  def explicitlyHiddenFilter(hidden: Boolean = true, aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + HideFromCatalogFieldType.fieldName, hidden)
+
   // TODO:  should we score metadata by making this a query?
   // and if you do, remember to make the key and value both phrase matches
   def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
@@ -193,9 +196,10 @@ object DocumentFilters {
     // limit the set of views returned from what the visibilityFilters allow.
     val privacyFilter = searchParams.public.map(publicFilter(_))
     val publicationFilter = searchParams.published.map(publishedFilter(_))
+    val hiddenFilter = searchParams.explicitlyHidden.map(explicitlyHiddenFilter(_))
 
     val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter,
-      metadataFilter, derivationFilter, privacyFilter, publicationFilter).flatten
+      metadataFilter, derivationFilter, hiddenFilter, privacyFilter, publicationFilter).flatten
 
     if (allFilters.isEmpty) {
       None

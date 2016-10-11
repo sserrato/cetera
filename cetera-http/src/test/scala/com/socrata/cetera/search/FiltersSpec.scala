@@ -192,6 +192,29 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
   }
 
+  "DocumentFilters: hiddenFilter" should {
+    "return the expected filter when no params are passed" in {
+      val filter = DocumentFilters.explicitlyHiddenFilter()
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"hide_from_catalog" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'true' param passed" in {
+      val filter = DocumentFilters.explicitlyHiddenFilter(true)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"hide_from_catalog" : true} }"""
+      actual should be(expected)
+    }
+
+    "return the expected filter when a 'false' param passed" in {
+      val filter = DocumentFilters.explicitlyHiddenFilter(false)
+      val actual = JsonReader.fromString(filter.toString)
+      val expected = j"""{"term" : {"hide_from_catalog" : false} }"""
+      actual should be(expected)
+    }
+  }
+
   "DocumentFilters: domainMetadataFilter" should {
     "return the expected filter when no metadata is given" in {
       val filter = DocumentFilters.domainMetadataFilter(None)

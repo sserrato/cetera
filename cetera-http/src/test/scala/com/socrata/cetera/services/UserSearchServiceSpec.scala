@@ -127,7 +127,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     intercept[DomainNotFoundError] {
-      val params = Map(Params.filterDomain -> "bad-domain.com").mapValues(Seq(_))
+      val params = Map(Params.domain -> "bad-domain.com").mapValues(Seq(_))
       service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     }
   }
@@ -221,7 +221,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.querySimple -> "dark.star@deathcity.com").mapValues(Seq(_))
+    val params = Map(Params.q -> "dark.star@deathcity.com").mapValues(Seq(_))
     val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -245,7 +245,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.querySimple -> "death-the-kid").mapValues(Seq(_))
+    val params = Map(Params.q -> "death-the-kid").mapValues(Seq(_))
     val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -269,7 +269,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.querySimple -> "dark.star@deathcity.com", Params.filterRole -> "assasin").mapValues(Seq(_))
+    val params = Map(Params.q -> "dark.star@deathcity.com", Params.roles -> "assasin").mapValues(Seq(_))
     val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -295,7 +295,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.filterDomain -> "opendata-demo.socrata.com").mapValues(Seq(_))
+    val params = Map(Params.domain -> "opendata-demo.socrata.com").mapValues(Seq(_))
     val (status, results, _, _) = service.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
 
     mockServer.verify(expectedRequest)

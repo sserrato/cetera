@@ -17,7 +17,8 @@ case class SearchParamSet(
     ids: Option[Set[String]] = None,
     public: Option[Boolean] = None,
     published: Option[Boolean] = None,
-    derived: Option[Boolean] = None)
+    derived: Option[Boolean] = None,
+    explicitlyHidden: Option[Boolean] = None)
 
 case class ScoringParamSet(
     fieldBoosts: Map[CeteraFieldType with Boostable, Float] = Map.empty,

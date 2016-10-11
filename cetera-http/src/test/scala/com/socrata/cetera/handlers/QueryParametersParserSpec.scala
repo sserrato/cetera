@@ -281,6 +281,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("public" -> Seq()), None).searchParamSet.public.get should be(true)
     QueryParametersParser(Map("published" -> Seq()), None).searchParamSet.published.get should be(true)
     QueryParametersParser(Map("derived" -> Seq()), None).searchParamSet.derived.get should be(true)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq()), None).searchParamSet.explicitlyHidden.get should be(true)
   }
 
   test("explicitly true boolean param values should be true") {
@@ -289,6 +290,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("public" -> Seq("true")), None).searchParamSet.public.get should be(true)
     QueryParametersParser(Map("published" -> Seq("true")), None).searchParamSet.published.get should be(true)
     QueryParametersParser(Map("derived" -> Seq("true")), None).searchParamSet.derived.get should be(true)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq("true")), None).searchParamSet.explicitlyHidden.get should be(true)
   }
 
   test("explicitly false boolean param values should be false") {
@@ -297,6 +299,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("public" -> Seq("false")), None).searchParamSet.public.get should be(false)
     QueryParametersParser(Map("published" -> Seq("false")), None).searchParamSet.published.get should be(false)
     QueryParametersParser(Map("derived" -> Seq("false")), None).searchParamSet.derived.get should be(false)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq("false")), None).searchParamSet.explicitlyHidden.get should be(false)
   }
 
   test("empty non-boolean param values shouldn't be defined") {
@@ -356,7 +359,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("domain boost params are not interpreted as custom metadata fields") {
     val params = Map(
-      Params.context -> Seq("example.com"),
+      Params.searchContext -> Seq("example.com"),
       Params.boostDomains + "[example.com]" -> Seq("1.23")
     )
 
@@ -366,7 +369,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   // just documenting current if not-quite-ideal behavior
   test("boostDomains without [] is not supported and gets interpreted as metadata") {
     val params = Map(
-      Params.context -> Seq("example.com"),
+      Params.searchContext -> Seq("example.com"),
       Params.boostDomains + "example.com" -> Seq("1.23"),
       Params.boostDomains -> Seq("1.23")
     )
