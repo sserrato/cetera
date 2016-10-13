@@ -1,7 +1,7 @@
 package com.socrata.cetera.search
 
 import org.elasticsearch.index.query.FilterBuilders._
-import org.elasticsearch.index.query.{FilterBuilder, FilterBuilders}
+import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder, FilterBuilders, MatchAllFilterBuilder}
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.errors.UnauthorizedError
@@ -83,89 +83,137 @@ object DocumentFilters {
       case _ => None // no filter to build from the empty set
     }
 
-  // this filter limits results to those that are either:
-  //   * from a moderated domain and default or approved
-  //   * from an unmoderated domain and default if the search context is moderated
-  //   * from an unmoderated domain if the search context is not moderated
-  def moderationStatusFilter(
-      searchContextIsModerated: Boolean,
-      moderatedDomainIds: Set[Int],
-      unmoderatedDomainIds: Set[Int],
-      isDomainAgg: Boolean = false)
-  : FilterBuilder = {
-    val aggPrefix = if (isDomainAgg) esDocumentType + "." else ""
-    val beDefault = termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, true)
-    val beAccepted = termFilter(aggPrefix + IsModerationApprovedFieldType.fieldName, true)
-    val beFromUnmoderatedDomain = domainIdFilter(unmoderatedDomainIds, aggPrefix)
+  // this filter, if the context is moderated, will limit results to
+  // views from moderated domains + default views from unmoderated sites
+  def vmSearchContextFilter(domainSet: DomainSet): Option[FilterBuilder] =
+    domainSet.searchContext.collect { case c: Domain if c.moderationEnabled =>
+      val beDefault = termFilter(IsDefaultViewFieldType.fieldName, true)
+      val beFromModeratedDomain = domainIdFilter(domainSet.moderationEnabledIds)
+      boolFilter().should(beDefault).should(beFromModeratedDomain)
+    }
 
-    val beDefaultOrApproved = boolFilter()
-      .should(beDefault)
-      .should(beAccepted)
+  // this filter, if the context has RA enabled, will limit results to only those
+  // having been through or are presently in the context's RA queue
+  def raSearchContextFilter(domainSet: DomainSet): Option[FilterBuilder] =
+    domainSet.searchContext.collect { case c: Domain if c.routingApprovalEnabled =>
+      val beApprovedByContext = termsFilter(ApprovingDomainIdsFieldType.fieldName, c.domainId)
+      // TODO: define these and add them in when we know about RA rejected/pending
+      // val beRejectedByContext = ???
+      // val bePendingWithinContextsQueue = ???
+      boolFilter().should(beApprovedByContext) // .should(beRejectedByContext).should(bePendingWithinContextsQueue)
+    }
 
-    if (!searchContextIsModerated) {
-      // if the context is not moderated, visible views are any from unmoderated domains or
-      // default/approved views from moderated domains
-      beDefaultOrApproved.should(beFromUnmoderatedDomain)
-    } else if (unmoderatedDomainIds.isEmpty) {
-      // if the context is moderated and every domain in question is moderated, visible views are default/approved
-      beDefaultOrApproved
-    } else {
-      // if the context is moderated, visible views are default views from unmoderated domains and
-      // default/approved views from moderated domains
-      val filter = boolFilter()
-      val beFromModeratedDomain = domainIdFilter(moderatedDomainIds, aggPrefix)
-      filter.should(
-        boolFilter()
-          .must(beFromModeratedDomain)
-          .must(beDefaultOrApproved)
-      )
-      filter.should(
-        boolFilter()
-          .must(beFromUnmoderatedDomain)
-          .must(beDefault)
-      )
-      filter
+  // this filter limits results based on the processes in place on the search context
+  //  - if view moderation is enabled, all derived views from unmoderated federated domains are removed
+  //  - if R&A is enabled, all views whose self or parent has not been through the context's RA queue are removed
+  def searchContextFilter(domainSet: DomainSet, isDomainAgg: Boolean = false): Option[FilterBuilder] = {
+    val vmFilter = vmSearchContextFilter(domainSet)
+    val raFilter = raSearchContextFilter(domainSet)
+    List(vmFilter, raFilter).flatten match {
+      case Nil => None
+      case filters: Seq[FilterBuilder] => Some(filters.foldLeft(boolFilter()) { (b, f) => b.must(f) })
     }
   }
 
-  // this filter limits results to those that are not unapproved datalens.
-  def datalensStatusFilter(isDomainAgg: Boolean = false): FilterBuilder = {
+  // this filter limits results down to views that are both
+  //  - from the set of requested domains
+  //  - should be included according to the search context and our funky federation rules
+  def domainSetFilter(domainSet: DomainSet): FilterBuilder = {
+    val domainsFilter = domainIdFilter(domainSet.domains.map(_.domainId))
+    val contextFilter = searchContextFilter(domainSet)
+    val filters = List(domainsFilter) ++ contextFilter
+    filters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
+  }
+
+  // this filter limits results to those with the given status
+  def moderationStatusFilter(status: ApprovalStatus, domainSet: DomainSet, isDomainAgg: Boolean = false)
+  : FilterBuilder = {
     val aggPrefix = if (isDomainAgg) esDocumentType + "." else ""
-    val beADatalens = datatypeFilter(
-      Set(TypeDatalenses.singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular),
-      aggPrefix
-    )
-    val beUnaccepted = notFilter(termFilter(aggPrefix + IsModerationApprovedFieldType.fieldName, true))
-    notFilter(boolFilter().must(beADatalens).must(beUnaccepted))
+
+    status match {
+      case ApprovalStatus.approved =>
+        // to be approved a view must either be
+        //   * a default/approved view from a moderated domain
+        //   * any view from an unmoderated domain (as they are approved by default)
+        // NOTE: funkiness with federation is handled by the searchContext filter.
+        val beDefault = termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, true)
+        val beApproved = termFilter(aggPrefix + ModerationStatusFieldType.fieldName, ApprovalStatus.approved.status)
+        val beFromUnmoderatedDomain = domainIdFilter(domainSet.moderationDisabledIds, aggPrefix)
+        boolFilter().should(beDefault).should(beApproved).should(beFromUnmoderatedDomain)
+      case _ =>
+        // to be rejected/pending, a view must be from a moderated domain with the given status
+        val beFromModeratedDomain = domainIdFilter(domainSet.moderationEnabledIds, aggPrefix)
+        val haveGivenStatus = termFilter(aggPrefix + ModerationStatusFieldType.fieldName, status.status)
+        boolFilter().must(beFromModeratedDomain).must(haveGivenStatus)
+    }
+  }
+
+  def datalensStatusFilter(status: ApprovalStatus, isDomainAgg: Boolean = false): FilterBuilder = {
+    val aggPrefix = if (isDomainAgg) esDocumentType + "." else ""
+    val beADatalens = datatypeFilter(TypeDatalenses.allVarieties, aggPrefix)
+    status match {
+      case ApprovalStatus.approved =>
+        // limit results to those that are not unapproved datalens
+        val beUnapproved =
+          notFilter(termFilter(aggPrefix + ModerationStatusFieldType.fieldName, ApprovalStatus.approved.status))
+        notFilter(boolFilter().must(beADatalens).must(beUnapproved))
+      case _ =>
+        // limit results to those with the given status
+        val haveGivenStatus = termFilter(aggPrefix + ModerationStatusFieldType.fieldName, status.status)
+        boolFilter().must(beADatalens).must(haveGivenStatus)
+    }
   }
 
   // this filter limits results to those that are R&A approved (or from RA disabled domains when RA is not relevant)
-  def routingApprovalFilter(
-      searchContext: Option[Domain],
-      raOffDomainIds: Set[Int],
-      isDomainAgg: Boolean = false)
-  : FilterBuilder = {
+  def routingApprovalFilter(domainSet: DomainSet, isDomainAgg: Boolean = false): FilterBuilder = {
     val prefix = if (isDomainAgg) esDocumentType + "." else ""
 
     // each view must either be approved or be from a domain without R&A
-    val beFromRADisabledDomain = domainIdFilter(raOffDomainIds, prefix)
+    val beFromRADisabledDomain = domainIdFilter(domainSet.raDisabledIds, prefix)
     val beApprovedOrNotApplicable = boolFilter()
       .should(approvedByParentDomainFilter(prefix))
       .should(beFromRADisabledDomain)
 
     // if the search_context has R&A, views must also be approved on the search context
-    val beApprovedBySearchContext = searchContext.flatMap { d =>
-      if (d.routingApprovalEnabled && !isDomainAgg) {
-        Some(termsFilter(ApprovingDomainIdsFieldType.fieldName, d.domainId))
-      } else {
-        None
-      }
+    val beApprovedBySearchContext = domainSet.searchContext.collect {
+      case d: Domain if d.routingApprovalEnabled && !isDomainAgg =>
+        termsFilter(ApprovingDomainIdsFieldType.fieldName, d.domainId)
     }
 
     // the final filter insists both conditions above be true
     val filter = boolFilter().must(beApprovedOrNotApplicable)
     beApprovedBySearchContext.foreach(filter.must)
     filter
+  }
+
+  // this filter limits results to those with the given R&A status
+  def raStatusFilter(status: ApprovalStatus, domainSet: DomainSet, isDomainAgg: Boolean = false): FilterBuilder = {
+    status match {
+      case ApprovalStatus.approved => routingApprovalFilter(domainSet, isDomainAgg)
+      // TODO: finish when have all the RA info
+      case _ => domainIdFilter(Set.empty) // this is just a hack to not match anything yet
+    }
+  }
+
+  // this filter limits results to those with a given approval status
+  // approved views must pass all 3 processes (viewModertion, R&A and Datalens approval)
+  // rejected/pending views need be rejected/pending by 1 or more processes
+  def approvalStatusFilter(
+      status: ApprovalStatus,
+      domainSet: DomainSet,
+      isDomainAgg: Boolean = false)
+  : FilterBuilder = {
+    val haveGivenVMStatus = moderationStatusFilter(status, domainSet, isDomainAgg)
+    val haveGivenDLStatus = datalensStatusFilter(status, isDomainAgg)
+    val haveGivenRAStatus = raStatusFilter(status, domainSet, isDomainAgg)
+    status match {
+      case ApprovalStatus.approved =>
+        // if we are looking for approvals, a view must be approved according to all 3 processes
+        boolFilter().must(haveGivenVMStatus).must(haveGivenDLStatus).must(haveGivenRAStatus)
+      case _ =>
+        // otherwise, a view can fail due to any of the 3 processes
+        boolFilter().should(haveGivenVMStatus).should(haveGivenDLStatus).should(haveGivenRAStatus)
+    }
   }
 
   // this filter limits results to those that are public or private; public by default.
@@ -181,7 +229,8 @@ object DocumentFilters {
   }
 
   // this filter limits results down to those requested by various search params
-  def searchParamsFilter(searchParams: SearchParamSet, user: Option[User]): Option[FilterBuilder] = {
+  def searchParamsFilter(searchParams: SearchParamSet, user: Option[User], domainSet: DomainSet)
+  : Option[FilterBuilder] = {
     val typeFilter = searchParams.datatypes.map(datatypeFilter(_))
     val ownerFilter = searchParams.user.map(userFilter(_))
     val sharingFilter = (user, searchParams.sharedTo) match {
@@ -201,14 +250,12 @@ object DocumentFilters {
     val privacyFilter = searchParams.public.map(publicFilter(_))
     val publicationFilter = searchParams.published.map(publishedFilter(_))
     val hiddenFilter = searchParams.explicitlyHidden.map(explicitlyHiddenFilter(_))
+    val approvalFilter = searchParams.approvalStatus.map(approvalStatusFilter(_, domainSet))
 
-    val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter,
-      idsFilter, metadataFilter, derivationFilter, hiddenFilter, privacyFilter, publicationFilter).flatten
-
-    if (allFilters.isEmpty) {
-      None
-    } else {
-      Some(allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) })
+    List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter, idsFilter, metadataFilter,
+      derivationFilter, privacyFilter, publicationFilter, hiddenFilter, approvalFilter).flatten match {
+      case Nil => None
+      case filters: Seq[FilterBuilder] => Some(filters.foldLeft(boolFilter()) { (b, f) => b.must(f) })
     }
   }
 
@@ -217,22 +264,13 @@ object DocumentFilters {
   : FilterBuilder = {
     val bePublic = publicFilter(public = true, isDomainAgg)
     val bePublished = publishedFilter(published = true, isDomainAgg)
-    val beModApproved = moderationStatusFilter(
-      domainSet.searchContext.exists(_.moderationEnabled),
-      domainSet.moderationEnabledIds,
-      domainSet.moderationDisabledIds,
-      isDomainAgg
-    )
-    val beDatalensApproved = datalensStatusFilter(isDomainAgg)
-    val beRAApproved = routingApprovalFilter(domainSet.searchContext, domainSet.raDisabledIds, isDomainAgg)
+    val beApproved = approvalStatusFilter(ApprovalStatus.approved, domainSet, isDomainAgg)
     val beUnhidden = hideFromCatalogFilter(isDomainAgg)
 
     boolFilter()
       .must(bePublic)
       .must(bePublished)
-      .must(beModApproved)
-      .must(beDatalensApproved)
-      .must(beRAApproved)
+      .must(beApproved)
       .must(beUnhidden)
   }
 
@@ -280,86 +318,11 @@ object DocumentFilters {
       user: Option[User],
       requireAuth: Boolean)
   : FilterBuilder = {
-    val domainFilter = Some(domainIdFilter(domainSet.domains.map(_.domainId)))
-    val searchFilter = searchParamsFilter(searchParams, user)
+    val domainFilter = Some(domainSetFilter(domainSet))
+    val searchFilter = searchParamsFilter(searchParams, user, domainSet)
     val visFilters = visibilityFilter(user, domainSet, requireAuth)
 
     val allFilters = List(domainFilter, searchFilter, visFilters).flatten
     allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
-  }
-}
-
-object DomainFilters {
-  def idsFilter(domainIds: Set[Int]): FilterBuilder = termsFilter("domain_id", domainIds.toSeq: _*)
-  def cnamesFilter(domainCnames: Set[String]): FilterBuilder =
-    termsFilter(DomainCnameFieldType.rawFieldName, domainCnames.toSeq: _*)
-
-  // two nos make a yes: this filters out items with is_customer_domain=false, while permitting true or null.
-  def isNotCustomerDomainFilter: FilterBuilder = termFilter(IsCustomerDomainFieldType.fieldName, false)
-  def isCustomerDomainFilter: FilterBuilder = notFilter(isNotCustomerDomainFilter)
-}
-
-object UserFilters {
-
-  def idFilter(ids: Option[Set[String]]): Option[FilterBuilder] =
-    ids.map(i => termsFilter(UserId.fieldName, i.toSeq: _*))
-
-  def emailFilter(emails: Option[Set[String]]): Option[FilterBuilder] =
-    emails.map(e => termsFilter(UserEmail.rawFieldName, e.toSeq: _*))
-
-  def screenNameFilter(screenNames: Option[Set[String]]): Option[FilterBuilder] =
-    screenNames.map(s => termsFilter(UserScreenName.rawFieldName, s.toSeq: _*))
-
-  def flagFilter(flags: Option[Set[String]]): Option[FilterBuilder] =
-    flags.map(r => termsFilter(UserFlag.fieldName, r.toSeq: _*))
-
-  def roleFilter(roles: Option[Set[String]]): Option[FilterBuilder] =
-    roles.map(r => termsFilter(UserRole.fieldName, r.toSeq: _*))
-
-  def domainFilter(domainId: Option[Int]): Option[FilterBuilder] =
-    domainId.map(d => termFilter(UserDomainId.fieldName, d))
-
-  def nestedRolesFilter(roles: Option[Set[String]], domainId: Option[Int]): Option[FilterBuilder] = {
-    val filters = Seq(domainFilter(domainId), roleFilter(roles)).flatten
-    if (filters.isEmpty) {
-      None
-    } else {
-      val path = "roles"
-      val query = filters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
-      Some(nestedFilter(path, query))
-    }
-  }
-
-  def visibilityFilter(user: Option[User], domainId: Option[Int]): Option[FilterBuilder] = {
-    (user, domainId) match {
-      // if user is super admin, no vis filter needed
-      case (Some(u), _) if (u.isSuperAdmin) => None
-      // if the user can view users and isn't enquiring about a domian, they can view all users
-      case (Some(u), None) if (u.canViewUsers) => None
-      // if the user can view users and is enquiring about a domian, it must be their domain
-      case (Some(u), Some(id)) if (u.canViewUsers && u.authenticatingDomain.exists(_.domainId == id)) => None
-      // if the user isn't a superadmin or can't view users or is nosing for users on other domains, we throw
-      case (_, _) => throw UnauthorizedError(user, "search users")
-    }
-  }
-
-  def compositeFilter(
-      searchParams: UserSearchParamSet,
-      domainId: Option[Int],
-      authorizedUser: Option[User])
-    : FilterBuilder = {
-    val filters = Seq(
-      idFilter(searchParams.ids),
-      emailFilter(searchParams.emails),
-      screenNameFilter(searchParams.screenNames),
-      flagFilter(searchParams.flags),
-      nestedRolesFilter(searchParams.roles, domainId),
-      visibilityFilter(authorizedUser, domainId)
-    ).flatten
-    if (filters.isEmpty) {
-      FilterBuilders.matchAllFilter()
-    } else {
-      filters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
-    }
   }
 }

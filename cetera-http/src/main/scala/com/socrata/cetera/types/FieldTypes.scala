@@ -146,8 +146,13 @@ case object IsDefaultViewFieldType extends DocumentFieldType {
   val fieldName: String = "is_default_view"
 }
 
+// TODO: deprecate. we're using the one below this.
 case object IsModerationApprovedFieldType extends DocumentFieldType {
   val fieldName: String = "is_moderation_approved"
+}
+
+case object ModerationStatusFieldType extends DocumentFieldType {
+  val fieldName: String = "moderation_status"
 }
 
 case object ApprovingDomainIdsFieldType extends DocumentFieldType {

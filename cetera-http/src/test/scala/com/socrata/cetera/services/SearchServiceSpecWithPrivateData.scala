@@ -18,7 +18,7 @@ import com.socrata.cetera.handlers.util.MultiQueryParams
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{SearchResult, SearchResults}
 import com.socrata.cetera.search.{DocumentClient, DomainClient}
-import com.socrata.cetera.types.Document
+import com.socrata.cetera.types.{ApprovalStatus, Document}
 import com.socrata.cetera.{response => _, _}
 
 class SearchServiceSpecWithPrivateData
@@ -86,6 +86,13 @@ class SearchServiceSpecWithPrivateData
       .respond(expectedResponse)
   }
 
+  private def getAllPossibleResults(): Seq[SearchResult] = {
+    val host = domains(0).domainCname
+    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
+    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    service.doSearch(allDomainsParams, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)._2.results
+  }
+
   private def requestParams(
       host: Option[String],
       ownerUserId: Option[String],
@@ -117,8 +124,11 @@ class SearchServiceSpecWithPrivateData
     resultsValidator(responseResults)
   }
 
+  private def fxfs(searchResult: SearchResult): String =
+    searchResult.resource.dyn.id.!.asInstanceOf[JString].string
+
   private def fxfs(searchResults: SearchResults[SearchResult]): Seq[String] =
-    searchResults.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    searchResults.results.map(fxfs)
 
   private def fxfsVisibility(searchResults: SearchResults[SearchResult]): Map[String, Boolean] =
     searchResults.results.map { hit =>
@@ -126,6 +136,15 @@ class SearchServiceSpecWithPrivateData
       val visibility = hit.metadata.visibleToAnonymous.getOrElse(fail())
       fxf -> visibility
     }.toMap
+
+  private def isApproved(res: SearchResult): Boolean = {
+    val raApproved = res.metadata.isRoutingApproved.map(identity(_)).getOrElse(true) // None implies not relevant (so approved by default)
+    val vmApproved = res.metadata.isModerationApproved.map(identity(_)).getOrElse(true)
+    val dlApproved = res.metadata.isDatalensApproved.map(identity(_)).getOrElse(true)
+    raApproved && vmApproved && dlApproved
+  }
+
+  val superAdminBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
 
   private def authedUserBodyFromRole(role: String) = {
     j"""{
@@ -135,19 +154,74 @@ class SearchServiceSpecWithPrivateData
         }"""
   }
 
+  test("a basic search without auth on a basic domain (no VM, no RA) should return the expected results") {
+    val basicDomain = domains(0).domainCname
+    val domain0Docs = docs.filter(d => d.socrataId.domainId == 0)
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val expectedFxfs = domain0Docs.filter(d =>
+      d.isPublic && d.isPublished && !d.hideFromCatalog.getOrElse(false) && approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+
+    val params = Map("search_context" -> basicDomain, "domains" -> basicDomain).mapValues(Seq(_))
+    val actualFxfs = fxfs(service.doSearch(params, requireAuth = false, AuthParams(), None, None)._2)
+    expectedFxfs shouldNot be('empty)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("a basic search without auth on a moderated domain (but no RA) should return the expected results") {
+    val moderatedDomain = domains(1).domainCname
+    val domain1Docs = docs.filter(d => d.socrataId.domainId == 1)
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val expectedFxfs = domain1Docs.filter(d =>
+      d.isPublic && d.isPublished && !d.hideFromCatalog.getOrElse(false) && approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+
+    val params = Map("search_context" -> moderatedDomain, "domains" -> moderatedDomain).mapValues(Seq(_))
+    val actualFxfs = fxfs(service.doSearch(params, requireAuth = false, AuthParams(), None, None)._2)
+    expectedFxfs shouldNot be('empty)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("a basic search without auth on an RA-enabled domain (but no VM) should return the expected results") {
+    val raEnabledDomain = domains(2).domainCname
+    val domain2Docs = docs.filter(d => d.socrataId.domainId == 2)
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val expectedFxfs = domain2Docs.filter(d =>
+      d.isPublic && d.isPublished && !d.hideFromCatalog.getOrElse(false) && approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+
+    val params = Map("search_context" -> raEnabledDomain, "domains" -> raEnabledDomain).mapValues(Seq(_))
+    val actualFxfs = fxfs(service.doSearch(params, requireAuth = false, AuthParams(), None, None)._2)
+    expectedFxfs shouldNot be('empty)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("a basic search without auth on an RA & VM-enabled domain should return the expected results") {
+    val raAndVmEnabledDomain = domains(3).domainCname
+    val domain3Docs = docs.filter(d => d.socrataId.domainId == 3)
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val expectedFxfs = domain3Docs.filter(d =>
+      d.isPublic && d.isPublished && !d.hideFromCatalog.getOrElse(false) && approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+
+    val params = Map("search_context" -> raAndVmEnabledDomain, "domains" -> raAndVmEnabledDomain).mapValues(Seq(_))
+    val actualFxfs = fxfs(service.doSearch(params, requireAuth = false, AuthParams(), None, None)._2)
+    expectedFxfs shouldNot be('empty)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
   test("searching when auth is required with a super admin shows everything from every domain") {
     val expectedFxfs = docs.map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val res = service.doSearch(allDomainsParams, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
 
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching when auth is required with an administrator/publisher/designer/viewer shows " +
+  test("searching across all domains when auth is required with an administrator/publisher/designer/viewer shows " +
     "a) everything from their domain, " +
     "b) anonymously visible views from unlocked domains " +
     "c) views they own/share") {
@@ -181,7 +255,7 @@ class SearchServiceSpecWithPrivateData
     fxfs(viewerRes._2) should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching when auth is required with an editor shows " +
+  test("searching across all domains when auth is required with an editor shows " +
     "a) anonymously visible views from their domain " +
     "b) anonymously visible views from unlocked domains " +
     "c) views they own/share") {
@@ -197,7 +271,7 @@ class SearchServiceSpecWithPrivateData
     fxfs(editorRes._2) should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching when auth is required with a roleless, but logged-in users shows " +
+  test("searching across all domains when auth is required with a roleless, but logged-in users shows " +
     "a) anonymously visible views " +
     "b) views they own/share") {
     val authenticatingDomain = domains(0)
@@ -243,7 +317,7 @@ class SearchServiceSpecWithPrivateData
     }
   }
 
-  test("searching when auth is not required returns anonymously viewable views on unlocked domains") {
+  test("searching across all domains when auth is not required returns anonymously viewable views on unlocked domains") {
     val res = service.doSearch(allDomainsParams, requireAuth = false, AuthParams(), None, None)
     fxfs(res._2) should contain theSameElementsAs anonymouslyViewableDocIds
   }
@@ -257,11 +331,12 @@ class SearchServiceSpecWithPrivateData
         "rights" : [ "walk_though_forest", "laugh_back_and_forth", "reminisce" ]
         }"""
     val expectedFxfs = Map(
-      "fxf-3" -> false,
-      "fxf-7" -> false,
+      //"fxf-3" -> false,  // will be missing until we get all the RA info. this is not approved by domain 3, but should be in its queue
+      //"fxf-7" -> false,  // will be missing until we get all the RA info. this is not approved by domain 3, but should be in its queue
       "zeta-0002" -> true,
       "zeta-0005" -> true,
-      "zeta-0009" -> false
+      "zeta-0009" -> false,
+      "zeta-0010" -> false
     )
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
@@ -287,7 +362,9 @@ class SearchServiceSpecWithPrivateData
       "zeta-0001" -> true,
       "zeta-0004" -> false,
       "zeta-0006" -> false,
-      "zeta-0007" -> true
+      "zeta-0007" -> true,
+      "zeta-0011" -> false,
+      "zeta-0012" -> true
     )
 
     prepareAuthenticatedUser(cookie, host, authedUserBody)
@@ -468,12 +545,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs(0) should be(hiddenDoc.socrataId.datasetId)
   }
 
-  test("searching as a superadmin with public=true, should find all public views") {
+  test("searching across all domains as a superadmin with public=true, should find all public views") {
     val expectedFxfs = docs.filter(d => d.isPublic).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("public" -> Seq("true"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -481,12 +557,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with public=false, should find all private views") {
+  test("searching across all domains as a superadmin with public=false, should find all private views") {
     val expectedFxfs = docs.filter(d => !d.isPublic).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("public" -> Seq("false"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -494,12 +569,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with published=true, should find all published views") {
+  test("searching across all domains as a superadmin with published=true, should find all published views") {
     val expectedFxfs = docs.filter(d => d.isPublished).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("published" -> Seq("true"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -507,12 +581,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with published=false, should find all unpublished views") {
+  test("searching across all domains as a superadmin with published=false, should find all unpublished views") {
     val expectedFxfs = docs.filter(d => !d.isPublished).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("published" -> Seq("false"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -520,12 +593,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with derived=true, should find all derived views") {
+  test("searching across all domains as a superadmin with derived=true, should find all derived views") {
     val expectedFxfs = docs.filter(d => !d.isDefaultView).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("derived" -> Seq("true"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -533,12 +605,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with derived=false, should find all default views") {
+  test("searching across all domains as a superadmin with derived=false, should find all default views") {
     val expectedFxfs = docs.filter(d => d.isDefaultView).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("derived" -> Seq("false"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -546,12 +617,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with explicity_hidden=true, should find all hidden views") {
+  test("searching across all domains as a superadmin with explicity_hidden=true, should find all hidden views") {
     val expectedFxfs = docs.filter(d => d.hideFromCatalog.getOrElse(false)).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("explicitly_hidden" -> Seq("true"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -559,12 +629,11 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
-  test("searching as a superadmin with explicity_hidden=false, should find all not-hidden views") {
+  test("searching across all domains as a superadmin with explicity_hidden=false, should find all not-hidden views") {
     val expectedFxfs = docs.filter(d => !d.hideFromCatalog.getOrElse(false)).map(_.socrataId.datasetId)
 
     val host = "annabelle.island.net"
-    val authedUserBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
-    prepareAuthenticatedUser(cookie, host, authedUserBody)
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
     val params = allDomainsParams ++ Map("explicitly_hidden" -> Seq("false"))
     val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
     val actualFxfs = fxfs(res._2)
@@ -572,4 +641,300 @@ class SearchServiceSpecWithPrivateData
     actualFxfs should contain theSameElementsAs expectedFxfs
   }
 
+  test("searching across all domains as a superadmin with approval_status=approved and no context should find all approved results") {
+    val allPossibleResults = getAllPossibleResults()
+    val expectedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+
+    val host = "annabelle.island.net"
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("approved"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=approved and an unmoderated context should find all approved results") {
+    val allPossibleResults = getAllPossibleResults()
+    val expectedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+
+    val host = domains(0).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("approved"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=approved and a moderated context should find only approved default views from unmoderated domains and approved views from moderated domains") {
+    // this scenario is a little funny. the moderated search context says 'throw out all derived views from unmoderated domains'
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val unmoderatedDomainIds = domains.filter(!_.moderationEnabled).map(_.domainId)
+    val derivedViewsFromUnmoderatedDomains = docs.filter(d => !d.isDefaultView && unmoderatedDomainIds.contains(d.socrataId.domainId)).map(_.socrataId.datasetId)
+    val expectedFxfs = approvedFxfs.toSet -- derivedViewsFromUnmoderatedDomains.toSet
+
+    val host = domains(1).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("approved"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=pending and no context should find all pending results") {
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val canbeModeratedDocs = docs.filter(d => d.datatype.startsWith("datalens") || moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = canbeModeratedDocs.filter(_.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("pending"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=pending and an unmoderated context should find all pending results") {
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val canbeModeratedDocs = docs.filter(d => d.datatype.startsWith("datalens") || moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = canbeModeratedDocs.filter(_.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+
+    val host = domains(0).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("pending"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=pending and a moderated context should find all pending results from moderated domains") {
+    // Note that pending DL from unmoderated domains should not show here, b/c the moderated search context removes all
+    // derived views from unmoderated domains
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val fromModeratedDomainDocs = docs.filter(d => moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = fromModeratedDomainDocs.filter(_.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+
+    val host = domains(1).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("pending"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=rejected and no context should find all rejected results") {
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val canbeModeratedDocs = docs.filter(d => d.datatype.startsWith("datalens") || moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = canbeModeratedDocs.filter(_.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+
+    val host = "annabelle.island.net"
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("rejected"))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=rejected and an unmoderated context should find all rejected results") {
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val canbeModeratedDocs = docs.filter(d => d.datatype.startsWith("datalens") || moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = canbeModeratedDocs.filter(_.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+
+    val host = domains(0).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("rejected"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching across all domains as a superadmin with approval_status=rejected and a moderated context should find all rejected results") {
+    // Note that rejected DL from unmoderated domains should not show here, b/c the moderated search context removes all
+    // derived views from unmoderated domains
+    val moderatedDomainIds = domains.filter(_.moderationEnabled).map(_.domainId)
+    val fromModeratedDomainDocs = docs.filter(d => moderatedDomainIds.contains(d.socrataId.domainId))
+    val expectedFxfs = fromModeratedDomainDocs.filter(_.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+
+    val host = domains(1).domainCname
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("approval_status" -> Seq("rejected"), "search_context" -> Seq(host))
+    val res = service.doSearch(params, requireAuth = true, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching as an admin on a moderated domain (as both search_context & domain), should find the correct set of views for the given approval_status") {
+    val moderatedDomain = domains(1).domainCname
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val domain1Docs = docs.filter(d => d.socrataId.domainId == 1)
+    // approved views are views that pass all 3 types of approval
+    val expectedApprovedFxfs = domain1Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+    // rejected views are simply any views that are rejected
+    val expectedRejectedFxfs = domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+    // pending views are simply any views that are pending
+    val expectedPendingFxfs = domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+
+    expectedApprovedFxfs shouldNot be('empty)
+    expectedRejectedFxfs shouldNot be('empty)
+    expectedPendingFxfs shouldNot be('empty)
+
+    val userBody = authedUserBodyFromRole("administrator")
+    prepareAuthenticatedUser(cookie, moderatedDomain, userBody)
+
+    val params = Map("search_context" -> moderatedDomain, "domains" -> moderatedDomain).mapValues(Seq(_))
+    val actualApprovedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("approved")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(moderatedDomain), None)._2)
+    val actualRejectedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("rejected")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(moderatedDomain), None)._2)
+    val actualPendingFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("pending")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(moderatedDomain), None)._2)
+
+    actualApprovedFxfs should contain theSameElementsAs expectedApprovedFxfs
+    actualRejectedFxfs should contain theSameElementsAs expectedRejectedFxfs
+    actualPendingFxfs should contain theSameElementsAs expectedPendingFxfs
+  }
+
+  test("searching as an admin on an unmoderated domain (as both search_context & domain), should find the correct set of views for the given approval_status") {
+    // domain 0 has approved/pending/rejected datalenses
+    val unmoderatedDomain = domains(0).domainCname
+    val allPossibleResults = getAllPossibleResults()
+    val domain0Docs = docs.filter(d => d.socrataId.domainId == 0)
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+    val datalenses = domain0Docs.filter(d => d.datatype.startsWith("datalens"))
+
+    // approved views are views that pass all 3 types of approval (though in this case, only two are relevant)
+    val expectedApprovedFxfs = domain0Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+    // rejected views can only be rejected datalens, since there is no mechanism to reject anything else (TODO: change when introduce RA)
+    val expectedRejectedFxfs = datalenses.filter(d => d.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+    // pending views can only be pending datalens, since there is no means for anything else to be pending (TODO: change when introduce RA)
+    val expectedPendingFxfs = datalenses.filter(d => d.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+
+    expectedApprovedFxfs shouldNot be('empty)
+    expectedRejectedFxfs shouldNot be('empty)
+    expectedPendingFxfs shouldNot be('empty)
+
+    val userBody = authedUserBodyFromRole("administrator")
+    prepareAuthenticatedUser(cookie, unmoderatedDomain, userBody)
+
+    val params = Map("search_context" -> unmoderatedDomain, "domains" -> unmoderatedDomain).mapValues(Seq(_))
+    val actualApprovedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("approved")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualRejectedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("rejected")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualPendingFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("pending")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+
+    actualApprovedFxfs should contain theSameElementsAs expectedApprovedFxfs
+    actualRejectedFxfs should contain theSameElementsAs expectedRejectedFxfs
+    actualPendingFxfs should contain theSameElementsAs expectedPendingFxfs
+  }
+
+  test("searching as an admin on an unmoderated domain that federates with a moderated domain, should find the correct set of views for the given approval_status") {
+    // domain 0 is an unmoderated domain with approved/pending/rejected datalenses
+    // domain 1 is a moderated domain
+    val unmoderatedDomain = domains(0).domainCname
+    val moderatedDomain = domains(1).domainCname
+    val domain0Docs = docs.filter(d => d.socrataId.domainId == 0)
+    val domain1Docs = docs.filter(d => d.socrataId.domainId == 1)
+    val domain0Datalenses = domain0Docs.filter(d => d.datatype.startsWith("datalens"))
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+
+    // on both 0 and 1, approved views are those that pass all 3 types of approval
+    val approvedOn0 = domain0Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+    val approvedOn1 = domain1Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+    val expectedApprovedFxfs = approvedOn0 ++ approvedOn1
+
+    // on 0, b/c it's unmoderated, the only rejected views can be datalenses (TODO: change when RA is include)
+    val rejectedOn0 = domain0Datalenses.filter(d => d.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+    // on 1, nothing should come back rejected, b/c an admin on domain 0 doesn't have the rights to see rejected views on domain 1
+    val rejectedOn1 = List.empty
+    // confirm there are rejected views on domain 1 that could have come back:
+    domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "rejected") shouldNot be('empty)
+    val expectedRejectedFxfs = rejectedOn0 ++ rejectedOn1
+
+    // on 0, b/c it's unmoderated, the only pending views can be datalenses (TODO: change when RA is include)
+    val pendingOn0 = domain0Datalenses.filter(d => d.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+    // on 1, nothing should come back pending, b/c an admin on domain 0 doesn't have the rights to see pendings views on domain 1
+    val pendingOn1 = List.empty
+    // confirm there are pending views on domain 1 that could have come back:
+    domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "pending") shouldNot be('empty)
+    val expectedPendingFxfs = pendingOn0 ++ pendingOn1
+
+    expectedApprovedFxfs shouldNot be('empty)
+    expectedRejectedFxfs shouldNot be('empty)
+    expectedPendingFxfs shouldNot be('empty)
+
+    val userBody = authedUserBodyFromRole("administrator")
+    prepareAuthenticatedUser(cookie, unmoderatedDomain, userBody)
+
+    val params = Map("search_context" -> Seq(unmoderatedDomain), "domains" -> Seq(s"$moderatedDomain,$unmoderatedDomain"))
+    val actualApprovedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("approved")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualRejectedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("rejected")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualPendingFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("pending")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+
+    actualApprovedFxfs should contain theSameElementsAs expectedApprovedFxfs
+    actualRejectedFxfs should contain theSameElementsAs expectedRejectedFxfs
+    actualPendingFxfs should contain theSameElementsAs expectedPendingFxfs
+  }
+
+  test("searching as an admin on a moderated domain that federates with an unmoderated domain, should find the correct set of views for the given approval_status") {
+    // domain 1 is a moderated domain with approved/pending/rejected views
+    // domain 0 is an unmoderated domain with approved/pending/rejected datalenses
+    val moderatedDomain = domains(1).domainCname
+    val unmoderatedDomain = domains(0).domainCname
+    val domain1Docs = docs.filter(d => d.socrataId.domainId == 1)
+    val domain0Docs = docs.filter(d => d.socrataId.domainId == 0)
+    val allPossibleResults = getAllPossibleResults()
+    val approvedFxfs = allPossibleResults.filter(isApproved).map(fxfs)
+
+    // on 1, approved views are those that pass all 3 types of approval
+    val approvedOn1 = domain1Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId)).map(_.socrataId.datasetId)
+    // on 0, b/c federating in unmoderated data to a moderated domain removes all derived views, only default views are approved
+    val approvedOn0 = domain0Docs.filter(d => approvedFxfs.contains(d.socrataId.datasetId) && d.isDefaultView).map(_.socrataId.datasetId)
+    val expectedApprovedFxfs = approvedOn1 ++ approvedOn0
+
+    // on 1, b/c it's moderated, rejected views are just that - rejected views (TODO: change when RA is include)
+    val rejectedOn1 = domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "rejected").map(_.socrataId.datasetId)
+    // on 0, nothing should come back rejected for 2 reasons:
+    //   1) b/c an admin on domain 1 doesn't have the rights to see rejected views on domain 0
+    //   2) b/c federating in unmoderated data to a moderated domain removes all derived views
+    val rejectedOn0 = List.empty
+    // confirm there are rejected views on domain 0 that could have come back:
+    domain0Docs.filter(d => d.moderationStatus.getOrElse("") == "rejected") shouldNot be('empty)
+    val expectedRejectedFxfs = rejectedOn1 ++ rejectedOn0
+
+    // on 1, b/c it's moderated, pending views are just that - pending views (TODO: change when RA is include)
+    val pendingOn1 = domain1Docs.filter(d => d.moderationStatus.getOrElse("") == "pending").map(_.socrataId.datasetId)
+    // on 0, nothing should come back pending for 2 reasons:
+    //   1) b/c an admin on domain 1 doesn't have the rights to see pending views on domain 0
+    //   2) b/c federating in unmoderated data to a moderated domain removes all derived views
+    val pendingOn0 = List.empty
+    // confirm there are pending views on domain 0 that could have come back:
+    domain0Docs.filter(d => d.moderationStatus.getOrElse("") == "pending") shouldNot be('empty)
+    val expectedPendingFxfs = pendingOn1 ++ pendingOn0
+
+    expectedApprovedFxfs shouldNot be('empty)
+    expectedRejectedFxfs shouldNot be('empty)
+    expectedPendingFxfs shouldNot be('empty)
+
+    val userBody = authedUserBodyFromRole("administrator")
+    prepareAuthenticatedUser(cookie, moderatedDomain, userBody)
+
+    val params = Map("search_context" -> Seq(moderatedDomain), "domains" -> Seq(s"$moderatedDomain,$unmoderatedDomain"))
+    val actualApprovedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("approved")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualRejectedFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("rejected")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+    val actualPendingFxfs = fxfs(service.doSearch(params ++ Map("approval_status" -> Seq("pending")),
+      requireAuth = true, AuthParams(cookie=Some(cookie)), Some(unmoderatedDomain), None)._2)
+
+    actualApprovedFxfs should contain theSameElementsAs expectedApprovedFxfs
+    actualRejectedFxfs should contain theSameElementsAs expectedRejectedFxfs
+    actualPendingFxfs should contain theSameElementsAs expectedPendingFxfs
+  }
 }

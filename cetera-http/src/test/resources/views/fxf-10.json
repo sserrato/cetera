@@ -1,80 +1,94 @@
 {
-  "created_at" : "2016-09-19T10:37:20.933-07:00",
-  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "created_at": "2016-09-19T10:37:20.933-07:00",
+  "updated_at": "2016-09-19T10:37:20.857-07:00",
   "socrata_id": {
-   "dataset_id": "fxf-10",
-   "parent_dataset_id": ["fxf-0"],
-   "domain_id": 2,
-   "nbe_id": "abcd-efgh",
-   "obe_id": "hgfe-dcba"
- },
- "resource": {
-   "description": "Bird is the third word",
-   "nbe_fxf": "fxf-10",
-   "parent_fxf": "fxf-0",
-   "updated_at": "2016-09-19T10:37:20.857-07:00",
-   "created_at": "2016-09-19T10:37:20.933-07:00",
-   "type": "story",
-   "id": "fxf-10",
-   "columns": [
-
-   ],
-   "name": "Three",
-   "attribution": null
- },
- "animl_annotations": {
-   "categories": [
-     { "name":  "Personal", "score": 1.0 }
-   ],
-   "tags": [
-     { "name":  "Happy", "score": 0.65 } ,
-{ "name":  "Accident", "score": 0.35 }
-   ]
- },
- "datatype": "story",
- "viewtype": "",
- "popularity": 1.0,
- "indexed_metadata": {
-   "name": "Three",
-   "description": "Bird is the third word",
-   "columns_field_name": [
-
-   ],
-   "columns_description": [
-
-   ],
-   "columns_name": [
-
-   ]
- },
- "customer_metadata_flattened":  [{  "key": "two", "value": "3"  }],
- "is_public": true,
- "is_published": true,
- "is_default_view": false,
- "is_moderation_approved": false,
- "approving_domain_ids": [
-   2
- ],
- "is_approved_by_parent_domain": true,
- "page_views": {
-   "page_views_total": 1,
-   "page_views_last_month": 1,
-   "page_views_last_week": 1
- },
- "customer_category": "Gamma",
- "customer_tags": [
-   "1-one","2-two"
- ],
- "update_freq": 3,
- "owner_id": "robin-hood",
- "owner" : {
-   "id": "robin-hood",
-   "screen_name": "Robin Hood"
- },
- "shared_to": [  ],
- "attribution": null,
- "preview_image_id": null,
- "grants": [],
- "hide_from_catalog": false,
- "hide_from_data_json": false
+    "dataset_id": "fxf-10",
+    "parent_dataset_id": [
+      "fxf-0"
+    ],
+    "domain_id": 2,
+    "nbe_id": "abcd-efgh",
+    "obe_id": "hgfe-dcba"
+  },
+  "resource": {
+    "description": "Bird is the third word",
+    "nbe_fxf": "fxf-10",
+    "parent_fxf": "fxf-0",
+    "updated_at": "2016-09-19T10:37:20.857-07:00",
+    "created_at": "2016-09-19T10:37:20.933-07:00",
+    "type": "story",
+    "id": "fxf-10",
+    "columns": [
+    ],
+    "name": "Three",
+    "attribution": null
+  },
+  "animl_annotations": {
+    "categories": [
+      {
+        "name": "Personal",
+        "score": 1.0
+      }
+    ],
+    "tags": [
+      {
+        "name": "Happy",
+        "score": 0.65
+      },
+      {
+        "name": "Accident",
+        "score": 0.35
+      }
+    ]
+  },
+  "datatype": "story",
+  "viewtype": "",
+  "popularity": 1.0,
+  "indexed_metadata": {
+    "name": "Three",
+    "description": "Bird is the third word",
+    "columns_field_name": [
+    ],
+    "columns_description": [
+    ],
+    "columns_name": [
+    ]
+  },
+  "customer_metadata_flattened": [
+    {
+      "key": "two",
+      "value": "3"
+    }
+  ],
+  "is_public": true,
+  "is_published": true,
+  "is_default_view": false,
+  "is_moderation_approved": false,
+  "moderation_status": "rejected",
+  "approving_domain_ids": [
+    2
+  ],
+  "is_approved_by_parent_domain": true,
+  "page_views": {
+    "page_views_total": 1,
+    "page_views_last_month": 1,
+    "page_views_last_week": 1
+  },
+  "customer_category": "Gamma",
+  "customer_tags": [
+    "1-one",
+    "2-two"
+  ],
+  "update_freq": 3,
+  "owner_id": "robin-hood",
+  "owner": {
+    "id": "robin-hood",
+    "screen_name": "Robin Hood"
+  },
+  "shared_to": [],
+  "attribution": null,
+  "preview_image_id": null,
+  "grants": [],
+  "hide_from_catalog": false,
+  "hide_from_data_json": false
 }

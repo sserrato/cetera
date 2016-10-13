@@ -71,7 +71,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
         "boostTitle" -> "9.0",
         "boostDesc" -> "8.0"
-      ).mapValues(Seq(_)), None)
+      ).mapValues(Seq(_)))
 
     scoringParams.fieldBoosts should be (expectedFieldBoosts)
     scoringParams.datatypeBoosts should be (Map())
@@ -84,36 +84,52 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
   }
 
   test("'only' query parameter allows multiple selections") {
-    val params = QueryParametersParser(Map("only" -> Seq("datasets,datalenses")), None).searchParamSet
+    val params = QueryParametersParser(Map("only" -> Seq("datasets,datalenses"))).searchParamSet
     params.datatypes should be('defined)
     params.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
   }
 
   test("'only[]' query parameter allows multiple selections") {
-    val params = QueryParametersParser(Map("only[]" -> Seq("datasets", "datalenses")), None).searchParamSet
+    val params = QueryParametersParser(Map("only[]" -> Seq("datasets", "datalenses"))).searchParamSet
     params.datatypes should be('defined)
     params.datatypes.get should be(Set(TypeDatasets.singular, TypeDatalenses.singular))
   }
 
+  test("valid 'approval_status' values should return the correct ApprovalStatus") {
+    val actualApprovedApproval = QueryParametersParser(Map("approval_status" -> Seq("approved"))).searchParamSet.approvalStatus
+    val actualRejectedApproval = QueryParametersParser(Map("approval_status" -> Seq("rejected"))).searchParamSet.approvalStatus
+    val actualPendingApproval = QueryParametersParser(Map("approval_status" -> Seq("pending"))).searchParamSet.approvalStatus
+
+    actualApprovedApproval.get should be(ApprovalStatus.approved)
+    actualRejectedApproval.get should be(ApprovalStatus.rejected)
+    actualPendingApproval.get should be(ApprovalStatus.pending)
+  }
+
+  test("invalid 'approval_status' values should throw") {
+    intercept[IllegalArgumentException] {
+      QueryParametersParser(Map("approval_status" -> Seq("accepted"))).searchParamSet.approvalStatus
+    }
+  }
+
   test("no datatype boost params results in empty datatype boosts map") {
-    val params = QueryParametersParser(Map("query" -> "crime").mapValues(Seq(_)), None).scoringParamset
+    val params = QueryParametersParser(Map("query" -> "crime").mapValues(Seq(_))).scoringParamset
     params.datatypeBoosts should have size 0
   }
 
   test("malformed datatype boost params result in empty datatype boosts map") {
-    val params = QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0").mapValues(Seq(_)), None).scoringParamset
+    val params = QueryParametersParser(Map("query" -> "crime", "boostsDatasets" -> "5.0").mapValues(Seq(_))).scoringParamset
     params.datatypeBoosts should have size 0
   }
 
   test("well-formed datatype boost params validate") {
     val params = QueryParametersParser(Map("query" -> "crime", "boostDatasets" -> "5.0", "boostMaps" -> "2.0")
-      .mapValues(Seq(_)), None).scoringParamset
+      .mapValues(Seq(_))).scoringParamset
     params.datatypeBoosts should have size 2
   }
 
   test("allow category with commas") {
     val params = QueryParametersParser(Map("categories" -> "Traffic, Parking, and Transportation")
-      .mapValues(Seq(_)), None).searchParamSet
+      .mapValues(Seq(_))).searchParamSet
     params.categories should be('defined)
     params.categories.get should have size 1
     params.categories.get.head should be("Traffic, Parking, and Transportation")
@@ -121,35 +137,35 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   test("allow tag with commas") {
     val params = QueryParametersParser(Map("tags" -> "this, probably, doesn't, happen, on, any, customer, sites")
-      .mapValues(Seq(_)), None).searchParamSet
+      .mapValues(Seq(_))).searchParamSet
     params.tags should be('defined)
     params.tags.get should have size 1
     params.tags.get.head should be("this, probably, doesn't, happen, on, any, customer, sites")
   }
 
   test("allow multiple category parameters") {
-    val params = QueryParametersParser(Map("categories" -> Seq("Traffic", "Parking", "Transportation")), None).searchParamSet
+    val params = QueryParametersParser(Map("categories" -> Seq("Traffic", "Parking", "Transportation"))).searchParamSet
     params.categories should be('defined)
     params.categories.get should have size 3
     params.categories.get should contain theSameElementsAs Seq("Traffic", "Parking", "Transportation")
   }
 
   test("allow multiple tag parameters") {
-    val params = QueryParametersParser(Map("tags" -> Seq("Traffic", "Parking", "Transportation")), None).searchParamSet
+    val params = QueryParametersParser(Map("tags" -> Seq("Traffic", "Parking", "Transportation"))).searchParamSet
     params.tags should be('defined)
     params.tags.get should have size 3
     params.tags.get should contain theSameElementsAs Seq("Traffic", "Parking", "Transportation")
   }
 
   test("also allow categories[] parameters") {
-    val params = QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz")), None).searchParamSet
+    val params = QueryParametersParser(Map("categories" -> Seq("foo", "foos"), "categories[]" -> Seq("bar", "baz"))).searchParamSet
     params.categories should be('defined)
     params.categories.get should have size 4
     params.categories.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
   }
 
   test("also allow tags[] parameters") {
-    val params = QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz")), None).searchParamSet
+    val params = QueryParametersParser(Map("tags" -> Seq("foo", "foos"), "tags[]" -> Seq("bar", "baz"))).searchParamSet
     params.tags should be('defined)
     params.tags.get should have size 4
     params.tags.get should contain theSameElementsAs Seq("foo", "foos", "bar", "baz")
@@ -248,14 +264,13 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
         knownNumericParams ++
         knownStringParams ++
         knownArrayParams ++
-        domainBoostExamples,
-      None
+        domainBoostExamples
     ).searchParamSet.domainMetadata shouldNot be('defined)
   }
 
   // just documenting that we do not support boostDomains without the []
   test ("boostDomains without [] gets interpreted as custom metadata") {
-    val params = QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34")), None).searchParamSet
+    val params = QueryParametersParser(Map("boostDomains" -> Seq("1.23"), "pants" -> Seq("2.34"))).searchParamSet
     params.domainMetadata match {
       case Some(metadata) => metadata should be(Set("boostDomains" -> "1.23", "pants" -> "2.34"))
       case None => fail("expected to see boostDomains show up in metadata")
@@ -264,55 +279,56 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
 
   // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&
   test("empty query string param key doesn't throw") {
-    QueryParametersParser(Map("" -> Seq()), None)
+    QueryParametersParser(Map("" -> Seq()))
   }
 
   // empty query string param is passed in from socrata-http multi params sometimes, e.g. catalog?q=bikes&one+extra
   test("empty param values shouldn't throw") {
-    QueryParametersParser(Map("one extra" -> Seq()), None)
-    QueryParametersParser(Map("q" -> Seq("")), None)
-    QueryParametersParser(Map("q_internal" -> Seq("")), None)
-    QueryParametersParser(Map("domains" -> Seq("")), None)
+    QueryParametersParser(Map("one extra" -> Seq()))
+    QueryParametersParser(Map("q" -> Seq("")))
+    QueryParametersParser(Map("q_internal" -> Seq("")))
+    QueryParametersParser(Map("domains" -> Seq("")))
   }
 
   test("empty boolean param values should be true") {
-    QueryParametersParser(Map("show_score" -> Seq()), None).formatParamSet.showScore should be(true)
-    QueryParametersParser(Map("show_visibility" -> Seq()), None).formatParamSet.showVisibility should be(true)
-    QueryParametersParser(Map("public" -> Seq()), None).searchParamSet.public.get should be(true)
-    QueryParametersParser(Map("published" -> Seq()), None).searchParamSet.published.get should be(true)
-    QueryParametersParser(Map("derived" -> Seq()), None).searchParamSet.derived.get should be(true)
-    QueryParametersParser(Map("explicitly_hidden" -> Seq()), None).searchParamSet.explicitlyHidden.get should be(true)
+    QueryParametersParser(Map("show_score" -> Seq())).formatParamSet.showScore should be(true)
+    QueryParametersParser(Map("show_visibility" -> Seq())).formatParamSet.showVisibility should be(true)
+    QueryParametersParser(Map("public" -> Seq())).searchParamSet.public.get should be(true)
+    QueryParametersParser(Map("published" -> Seq())).searchParamSet.published.get should be(true)
+    QueryParametersParser(Map("derived" -> Seq())).searchParamSet.derived.get should be(true)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq())).searchParamSet.explicitlyHidden.get should be(true)
   }
 
   test("explicitly true boolean param values should be true") {
-    QueryParametersParser(Map("show_score" -> Seq("true")), None).formatParamSet.showScore should be(true)
-    QueryParametersParser(Map("show_visibility" -> Seq("true")), None).formatParamSet.showVisibility should be(true)
-    QueryParametersParser(Map("public" -> Seq("true")), None).searchParamSet.public.get should be(true)
-    QueryParametersParser(Map("published" -> Seq("true")), None).searchParamSet.published.get should be(true)
-    QueryParametersParser(Map("derived" -> Seq("true")), None).searchParamSet.derived.get should be(true)
-    QueryParametersParser(Map("explicitly_hidden" -> Seq("true")), None).searchParamSet.explicitlyHidden.get should be(true)
+    QueryParametersParser(Map("show_score" -> Seq("true"))).formatParamSet.showScore should be(true)
+    QueryParametersParser(Map("show_visibility" -> Seq("true"))).formatParamSet.showVisibility should be(true)
+    QueryParametersParser(Map("public" -> Seq("true"))).searchParamSet.public.get should be(true)
+    QueryParametersParser(Map("published" -> Seq("true"))).searchParamSet.published.get should be(true)
+    QueryParametersParser(Map("derived" -> Seq("true"))).searchParamSet.derived.get should be(true)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq("true"))).searchParamSet.explicitlyHidden.get should be(true)
   }
 
   test("explicitly false boolean param values should be false") {
-    QueryParametersParser(Map("show_score" -> Seq("false")), None).formatParamSet.showScore should be(false)
-    QueryParametersParser(Map("show_visibility" -> Seq("false")), None).formatParamSet.showVisibility should be(false)
-    QueryParametersParser(Map("public" -> Seq("false")), None).searchParamSet.public.get should be(false)
-    QueryParametersParser(Map("published" -> Seq("false")), None).searchParamSet.published.get should be(false)
-    QueryParametersParser(Map("derived" -> Seq("false")), None).searchParamSet.derived.get should be(false)
-    QueryParametersParser(Map("explicitly_hidden" -> Seq("false")), None).searchParamSet.explicitlyHidden.get should be(false)
+    QueryParametersParser(Map("show_score" -> Seq("false"))).formatParamSet.showScore should be(false)
+    QueryParametersParser(Map("show_visibility" -> Seq("false"))).formatParamSet.showVisibility should be(false)
+    QueryParametersParser(Map("public" -> Seq("false"))).searchParamSet.public.get should be(false)
+    QueryParametersParser(Map("published" -> Seq("false"))).searchParamSet.published.get should be(false)
+    QueryParametersParser(Map("derived" -> Seq("false"))).searchParamSet.derived.get should be(false)
+    QueryParametersParser(Map("explicitly_hidden" -> Seq("false"))).searchParamSet.explicitlyHidden.get should be(false)
   }
 
   test("empty non-boolean param values shouldn't be defined") {
-    QueryParametersParser(Map("search_context" -> Seq("")), None).searchParamSet.searchContext shouldNot be('defined)
-    QueryParametersParser(Map("categories" -> Seq("")), None).searchParamSet.categories shouldNot be('defined)
-    QueryParametersParser(Map("tags" -> Seq("")), None).searchParamSet.tags shouldNot be('defined)
-    QueryParametersParser(Map("datatypes" -> Seq("")), None).searchParamSet.datatypes shouldNot be('defined)
-    QueryParametersParser(Map("for_user" -> Seq("")), None).searchParamSet.user shouldNot be('defined)
-    QueryParametersParser(Map("shared_to" -> Seq("")), None).searchParamSet.sharedTo shouldNot be('defined)
-    QueryParametersParser(Map("attribution" -> Seq("")), None).searchParamSet.attribution shouldNot be('defined)
-    QueryParametersParser(Map("provenance" -> Seq("")), None).searchParamSet.provenance shouldNot be('defined)
-    QueryParametersParser(Map("derived_from" -> Seq("")), None).searchParamSet.parentDatasetId shouldNot be('defined)
-    QueryParametersParser(Map("custom_metadata" -> Seq("")), None).searchParamSet.parentDatasetId shouldNot be('defined)
+    QueryParametersParser(Map("search_context" -> Seq(""))).searchParamSet.searchContext shouldNot be('defined)
+    QueryParametersParser(Map("categories" -> Seq(""))).searchParamSet.categories shouldNot be('defined)
+    QueryParametersParser(Map("tags" -> Seq(""))).searchParamSet.tags shouldNot be('defined)
+    QueryParametersParser(Map("datatypes" -> Seq(""))).searchParamSet.datatypes shouldNot be('defined)
+    QueryParametersParser(Map("for_user" -> Seq(""))).searchParamSet.user shouldNot be('defined)
+    QueryParametersParser(Map("shared_to" -> Seq(""))).searchParamSet.sharedTo shouldNot be('defined)
+    QueryParametersParser(Map("attribution" -> Seq(""))).searchParamSet.attribution shouldNot be('defined)
+    QueryParametersParser(Map("provenance" -> Seq(""))).searchParamSet.provenance shouldNot be('defined)
+    QueryParametersParser(Map("derived_from" -> Seq(""))).searchParamSet.parentDatasetId shouldNot be('defined)
+    QueryParametersParser(Map("appoval" -> Seq(""))).searchParamSet.approvalStatus shouldNot be('defined)
+    QueryParametersParser(Map("custom_metadata" -> Seq(""))).searchParamSet.parentDatasetId shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("role" -> Seq(""))).searchParamSet.roles shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("email" -> Seq(""))).searchParamSet.emails shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("screen_name" -> Seq(""))).searchParamSet.screenNames shouldNot be('defined)
@@ -325,7 +341,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[data.seattle.gov]" -> Seq("4.56")
     )
 
-    QueryParametersParser(domainBoosts, None).scoringParamset.domainBoosts should be(
+    QueryParametersParser(domainBoosts).scoringParamset.domainBoosts should be(
       Map("example.com" -> 1.23f, "data.seattle.gov" -> 4.56f)
     )
   }
@@ -336,7 +352,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[data.seattle.gov]" -> Seq("4.56")
     )
 
-    QueryParametersParser(domainBoosts, None).scoringParamset.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
+    QueryParametersParser(domainBoosts).scoringParamset.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
   }
 
   test("domain boosts missing fields do not explode the params parser") {
@@ -347,7 +363,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[]" -> Seq()
     )
 
-    QueryParametersParser(domainBoosts, None).scoringParamset.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
+    QueryParametersParser(domainBoosts).scoringParamset.domainBoosts should be(Map("data.seattle.gov" -> 4.56f))
   }
 
   test("domain boost degenerate cases do not explode the params parser") {
@@ -355,7 +371,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       "boostDomains[boostDomains[example.com]]" -> Seq("1.23")
     )
 
-    QueryParametersParser(domainBoosts, None).scoringParamset.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
+    QueryParametersParser(domainBoosts).scoringParamset.domainBoosts should be(Map("boostDomains[example.com]" -> 1.23f))
   }
 
   test("domain boost params are not interpreted as custom metadata fields") {
@@ -364,7 +380,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       Params.boostDomains + "[example.com]" -> Seq("1.23")
     )
 
-    QueryParametersParser(params, None).scoringParamset.domainBoosts should be(Map("example.com" -> 1.23f))
+    QueryParametersParser(params).scoringParamset.domainBoosts should be(Map("example.com" -> 1.23f))
   }
 
   // just documenting current if not-quite-ideal behavior
@@ -374,22 +390,22 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
       Params.boostDomains + "example.com" -> Seq("1.23"),
       Params.boostDomains -> Seq("1.23")
     )
-    QueryParametersParser(params, None).scoringParamset.domainBoosts should be(Map.empty[String, Float])
+    QueryParametersParser(params).scoringParamset.domainBoosts should be(Map.empty[String, Float])
   }
 
   test("sort order can be parsed") {
     val sortOrder = Map("order" -> Seq("page_views_total"))
-    QueryParametersParser(sortOrder, None).pagingParamSet.sortOrder should be(Some("page_views_total"))
+    QueryParametersParser(sortOrder).pagingParamSet.sortOrder should be(Some("page_views_total"))
   }
 
   test("an upper bound of 10000 is imposed on the limit parameter") {
     val limit = Map("limit" -> Seq("100000"))
-    QueryParametersParser(limit, None).pagingParamSet.limit should be(10000)
+    QueryParametersParser(limit).pagingParamSet.limit should be(10000)
   }
 
   test("a limit param of less than 10000 is allowed") {
     val limit = Map("limit" -> Seq("100"))
-    QueryParametersParser(limit, None).pagingParamSet.limit should be(100)
+    QueryParametersParser(limit).pagingParamSet.limit should be(100)
   }
  }
 

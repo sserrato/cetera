@@ -260,6 +260,13 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     }
   }
 
+  val browseParams = Map(
+    "public" -> "true",
+    "published" -> "true",
+    "approval_status" -> "approved",
+    "explicitly_hidden" -> "false"
+  ).mapValues(Seq(_))
+
   test("search with a non-existent search_context throws a DomainNotFoundError") {
     val params = Map(
       "domains" -> "opendata-demo.socrata.com",
@@ -692,14 +699,53 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     actualFxfs should be('empty)
   }
 
-  test("adding on public=true and published=true and explicitlyHidden=false params should not change the set of anonymously viewable results") {
+  test("adding on the set of 'browse' params should not change the set of anonymously viewable results in the ODN scenario") {
     val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
-    val redundantParams = Map(
-      "public" -> "true",
-      "published" -> "true",
-      "explicitly_hidden" -> "false"
-    ).mapValues(Seq(_))
-    val (_, resultsWithRedundantParams, _, _) = service.doSearch(redundantParams, false, AuthParams(), None, None)
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(browseParams, false, AuthParams(), None, None)
+
+    val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs(expectedFxfs)
+  }
+
+  test("adding on the set of 'browse' params should not change the set of anonymously viewable results when the search_context and domains are unmoderated") {
+    val unmoderatedDomains = domains.filter(!_.moderationEnabled).map(_.domainCname)
+    val params = Map("search_context" -> Seq(domains(0).domainCname), "domains" -> unmoderatedDomains)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(params ++ browseParams, false, AuthParams(), None, None)
+
+    val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs(expectedFxfs)
+  }
+
+  test("adding on the set of 'browse' params should not change the set of anonymously viewable results when the search_context and domains are moderated") {
+    val moderatedDomains = domains.filter(_.moderationEnabled).map(_.domainCname)
+    val params = Map("search_context" -> Seq(domains(1).domainCname), "domains" -> moderatedDomains)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(params ++ browseParams, false, AuthParams(), None, None)
+
+    val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs(expectedFxfs)
+  }
+
+  test("adding on the set of 'browse' params should not change the set of anonymously viewable results when the search_context is unmoderated, and the domains are moderated") {
+    val moderatedDomains = domains.filter(_.moderationEnabled).map(_.domainCname)
+    val params = Map("search_context" -> Seq(domains(0).domainCname), "domains" -> moderatedDomains)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(params ++ browseParams, false, AuthParams(), None, None)
+
+    val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should contain theSameElementsAs(expectedFxfs)
+  }
+
+  test("adding on the set of 'browse' params should not change the set of anonymously viewable results when the search_context is moderated, and the domains are unmoderated") {
+    val unmoderatedDomains = domains.filter(!_.moderationEnabled).map(_.domainCname)
+    val params = Map("search_context" -> Seq(domains(1).domainCname), "domains" -> unmoderatedDomains)
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val (_, resultsWithRedundantParams, _, _) = service.doSearch(params ++ browseParams, false, AuthParams(), None, None)
 
     val actualFxfs = resultsWithRedundantParams.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     val expectedFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
@@ -715,6 +761,20 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
 
   test("adding on a published=false param should empty out the set of anonymously viewable results") {
     val params = Map("published" -> "false").mapValues(Seq(_))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
+  }
+
+  test("adding on an approval_status=pending param should empty out the set of anonymously viewable results") {
+    val params = Map("approval_status" -> "pending").mapValues(Seq(_))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
+    actualFxfs should be('empty)
+  }
+
+  test("adding on an approval_status=rejected param should empty out the set of anonymously viewable results") {
+    val params = Map("approval_status" -> "pending").mapValues(Seq(_))
     val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
     val actualFxfs = results.results.map(_.resource.dyn.id.!.asInstanceOf[JString].string)
     actualFxfs should be('empty)

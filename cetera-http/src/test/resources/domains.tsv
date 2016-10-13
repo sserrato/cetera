@@ -2,7 +2,7 @@ id	cname	siteTitle	Organization	isCustomerDomain	isDomainModerated	hasRoutingApp
 0	petercetera.net	Temporary URI	org	true	false	false	false	false
 1	opendata-demo.socrata.com	And other things	org	false	true	false	false	false
 2	blue.org	Fame and Fortune	org	true	false	true	false	false
-3	annabelle.island.net	Socrata Demo	org	true	true	true	false	false	true
+3	annabelle.island.net	Socrata Demo	org	true	true	true	false	false
 4	dylan.demo.socrata.com	Skid Row	Hair Metal Bands	true	false	true	false	false
 5	dylan2.demo.socrata.com	Mötley Crüe	Hair Metal Bands	false	false	false	false	false
 6	locked.demo.com	Locked Down	org	false	true	true	true	false

@@ -24,6 +24,7 @@ case class DatatypeError(override val message: String) extends ParseError
 object QueryParametersParser { // scalastyle:ignore number.of.methods
   val filterDelimiter = "," // to be deprecated
   val limitLimit = 10000
+  val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(filterDelimiter)
 
   def validated[T](x: Either[ParamConversionFailure, T]): T = x match {
     case Right(v) => v
@@ -72,7 +73,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     mergeOptionalSets(keys.map(key => queryParameters.get(key).map(_.toSet)))
   }
 
-  val allowedFilterTypes = Datatypes.all.flatMap(d => Seq(d.plural, d.singular)).mkString(filterDelimiter)
 
   // This can stay case-sensitive because it is so specific
   def restrictParamFilterDatatype(datatype: String): Either[DatatypeError, Option[Set[String]]] = datatype match {
@@ -87,6 +87,13 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def restrictParamFilterDatatype(datatype: Option[String]): Either[DatatypeError, Option[Set[String]]] =
     datatype.map(restrictParamFilterDatatype).getOrElse(Right(None))
 
+  private def restrictApprovalFilter(status: String): ApprovalStatus =
+    ApprovalStatus.all.find(_.status == status) match {
+      case Some(s) => s
+      case None => throw new IllegalArgumentException(
+        s"'${Params.approvalStatus}' must be one of ${ApprovalStatus.all.map(_.status)}; got $status")
+    }
+
   // for extracting `example.com` from `boostDomains[example.com]`
   class FieldExtractor(val key: String) {
     def unapply(s: String): Option[String] =
@@ -96,14 +103,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   object FloatExtractor {
     def unapply(s: String): Option[Float] = try { Some(s.toFloat) } catch { case _: NumberFormatException => None }
   }
-
-  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
-    queryParameters.typedFirst[SortOrderString](Params.order).map(validated(_).value)
-
-  //////////////////
-  // PARAM PREPARERS
-  //
-  // Prepare means parse and validate
 
   private def filterNonEmptySetParams(params: Option[Set[String]]): Option[Set[String]] =
     params.flatMap { ps: Set[String] =>
@@ -130,6 +129,15 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     }
   }
 
+
+  //////////////////
+  // PARAM PREPARERS
+  //
+  // Prepare means parse and validate
+
+  def prepareSortOrder(queryParameters: MultiQueryParams): Option[String] =
+    queryParameters.typedFirst[SortOrderString](Params.order).map(validated(_).value)
+
   def prepareLocale(queryParametesrs: MultiQueryParams): Option[String] =
     queryParametesrs.first(Params.locale).map(_.toLowerCase)
 
@@ -145,10 +153,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       domain.toLowerCase.split(filterDelimiter).toSet
     ))
 
-  // if query string includes search context use that; otherwise default to the http header X-Socrata-Host
-  def prepareSearchContext(queryParameters: MultiQueryParams, extendedHost: Option[String]): Option[String] = {
+  def prepareSearchContext(queryParameters: MultiQueryParams): Option[String] = {
     val contextSet = queryParameters.first(Params.searchContext).map(_.toLowerCase)
-    filterNonEmptyStringParams(Seq(contextSet, extendedHost).flatten.headOption)
+    filterNonEmptyStringParams(contextSet)
   }
 
   def prepareCategories(queryParameters: MultiQueryParams): Option[Set[String]] =
@@ -202,6 +209,11 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
 
   def prepareHidden(queryParameters: MultiQueryParams): Option[Boolean] =
     prepareBooleanParam(queryParameters, Params.explicitlyHidden)
+
+  def prepareApprovalStatus(queryParameters: MultiQueryParams): Option[ApprovalStatus] = {
+    val status = filterNonEmptyStringParams(queryParameters.first(Params.approvalStatus))
+    status.map(restrictApprovalFilter(_))
+  }
 
   def prepareDomainMetadata(queryParameters: MultiQueryParams): Option[Set[(String, String)]] = {
     val queryParamsNonEmpty = queryParameters.filter { case (key, value) => key.nonEmpty && value.nonEmpty }
@@ -308,15 +320,11 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   // NOTE: Watch out for case sensitivity in params
   // Some field values are stored internally in lowercase, others are not
   // Yes, the params parser now concerns itself with ES internals
-  def apply(
-      queryParameters: MultiQueryParams,
-      extendedHost: Option[String])
-    : ValidatedQueryParameters = {
-
+  def apply(queryParameters: MultiQueryParams): ValidatedQueryParameters = {
     val searchParams = SearchParamSet(
       prepareSearchQuery(queryParameters),
       prepareDomains(queryParameters),
-      prepareSearchContext(queryParameters, extendedHost),
+      prepareSearchContext(queryParameters),
       prepareDomainMetadata(queryParameters),
       prepareCategories(queryParameters),
       prepareTags(queryParameters),
@@ -330,7 +338,8 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       preparePublic(queryParameters),
       preparePublished(queryParameters),
       prepareDerived(queryParameters),
-      prepareHidden(queryParameters)
+      prepareHidden(queryParameters),
+      prepareApprovalStatus(queryParameters)
     )
 
     val scoringParams = ScoringParamSet(
@@ -390,6 +399,7 @@ object Params {
   val published = "published"
   val derived = "derived"
   val explicitlyHidden = "explicitly_hidden"
+  val approvalStatus = "approval_status"
 
   val qInternal = "q_internal"
   val q = "q"
@@ -479,6 +489,7 @@ object Params {
     published,
     derived,
     explicitlyHidden,
+    approvalStatus,
     locale,
     sharedTo,
     qInternal,

@@ -1,80 +1,89 @@
 {
-  "created_at" : "2016-09-19T10:37:20.933-07:00",
-  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "created_at": "2016-09-19T10:37:20.933-07:00",
+  "updated_at": "2016-09-19T10:37:20.857-07:00",
   "socrata_id": {
-   "dataset_id": "fxf-7",
-   "parent_dataset_id": ["fxf-0"],
-   "domain_id": 3,
-   "nbe_id": "abcd-efgh",
-   "obe_id": "hgfe-dcba"
- },
- "resource": {
-   "description": "May the fourth be with you",
-   "nbe_fxf": "fxf-7",
-   "parent_fxf": "fxf-0",
-   "updated_at": "2016-09-19T10:37:20.857-07:00",
-   "created_at": "2016-09-19T10:37:20.933-07:00",
-   "type": "map",
-   "id": "fxf-7",
-   "columns": [
-
-   ],
-   "name": "Four",
-   "attribution": null
- },
- "animl_annotations": {
-   "categories": [
-     { "name":  "Personal", "score": 1.0 }
-   ],
-   "tags": [
-     { "name":  "Happy", "score": 0.65 } ,
-{ "name":  "Accident", "score": 0.35 }
-   ]
- },
- "datatype": "map",
- "viewtype": "",
- "popularity": 42.0,
- "indexed_metadata": {
-   "name": "Four",
-   "description": "May the fourth be with you",
-   "columns_field_name": [
-
-   ],
-   "columns_description": [
-
-   ],
-   "columns_name": [
-
-   ]
- },
- "customer_metadata_flattened": [],
- "is_public": true,
- "is_published": true,
- "is_default_view": false,
- "is_moderation_approved": null,
- "approving_domain_ids": [
-   2
- ],
- "is_approved_by_parent_domain": false,
- "page_views": {
-   "page_views_total": 8,
-   "page_views_last_month": 8,
-   "page_views_last_week": 8
- },
- "customer_category": "",
- "customer_tags": [
-   "1-one","2-two"
- ],
- "update_freq": 4,
- "owner_id": "lil-john",
- "owner" : {
-   "id": "lil-john",
-   "screen_name": "Little John"
- },
- "shared_to": [  ],
- "attribution": null,
- "preview_image_id": null,
- "grants": [],
- "hide_from_catalog": false,
- "hide_from_data_json": false
+    "dataset_id": "fxf-7",
+    "parent_dataset_id": [
+      "fxf-0"
+    ],
+    "domain_id": 3,
+    "nbe_id": "abcd-efgh",
+    "obe_id": "hgfe-dcba"
+  },
+  "resource": {
+    "description": "May the fourth be with you",
+    "nbe_fxf": "fxf-7",
+    "parent_fxf": "fxf-0",
+    "updated_at": "2016-09-19T10:37:20.857-07:00",
+    "created_at": "2016-09-19T10:37:20.933-07:00",
+    "type": "map",
+    "id": "fxf-7",
+    "columns": [
+    ],
+    "name": "Four",
+    "attribution": null
+  },
+  "animl_annotations": {
+    "categories": [
+      {
+        "name": "Personal",
+        "score": 1.0
+      }
+    ],
+    "tags": [
+      {
+        "name": "Happy",
+        "score": 0.65
+      },
+      {
+        "name": "Accident",
+        "score": 0.35
+      }
+    ]
+  },
+  "datatype": "map",
+  "viewtype": "",
+  "popularity": 42.0,
+  "indexed_metadata": {
+    "name": "Four",
+    "description": "May the fourth be with you",
+    "columns_field_name": [
+    ],
+    "columns_description": [
+    ],
+    "columns_name": [
+    ]
+  },
+  "customer_metadata_flattened": [],
+  "is_public": true,
+  "is_published": true,
+  "is_default_view": false,
+  "is_moderation_approved": null,
+  "moderation_status": "pending",
+  "approving_domain_ids": [
+    2
+  ],
+  "is_approved_by_parent_domain": false,
+  "page_views": {
+    "page_views_total": 8,
+    "page_views_last_month": 8,
+    "page_views_last_week": 8
+  },
+  "customer_category": "",
+  "customer_tags": [
+    "1-one",
+    "2-two"
+  ],
+  "update_freq": 4,
+  "owner_id": "lil-john",
+  "owner": {
+    "id": "lil-john",
+    "screen_name": "Little John"
+  },
+  "shared_to": [],
+  "attribution": null,
+  "preview_image_id": null,
+  "grants": [],
+  "hide_from_catalog": false,
+  "hide_from_data_json": false
 }

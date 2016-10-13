@@ -51,7 +51,7 @@ class DomainCountService(domainClient: BaseDomainClient, coreClient: CoreClient)
 
     val now = Timings.now()
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
-    val searchParams = QueryParametersParser(queryParameters, extendedHost).searchParamSet
+    val searchParams = QueryParametersParser(queryParameters).searchParamSet
     val (domainSet, domainSearchTime) = domainClient.findSearchableDomains(
       searchParams.searchContext, extendedHost, searchParams.domains,
       excludeLockedDomains = true, authorizedUser, requestId

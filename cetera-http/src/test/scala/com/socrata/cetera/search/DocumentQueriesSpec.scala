@@ -7,7 +7,7 @@ import org.scalatest.{ShouldMatchers, WordSpec}
 import com.socrata.cetera.handlers.ScoringParamSet
 import com.socrata.cetera.types._
 
-class QueriesSpec extends WordSpec with ShouldMatchers {
+class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
   val msm = Some("2<-25% 9<-3") // I can be an involved string
   val defaultMinShouldMatch = Some("37%")
@@ -121,6 +121,42 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
       val actual = JsonReader.fromString(simpleQuery.toString)
       actual should be(expected)
     }
+
+    "produce anything but a simple query" in {
+      val expectedJson = j"""{
+      "bool" :{
+        "must" :{"multi_match" :{
+          "query" : "query string OR (query AND string)",
+          "fields" : [ "fts_analyzed", "fts_raw" ],
+          "type" : "cross_fields",
+          "minimum_should_match" : "20%"}},
+        "should": {"multi_match" :{
+            "query" : "query string OR (query AND string)",
+            "fields" :[
+              "fts_analyzed",
+              "fts_raw",
+              "indexed_metadata.description^7.77",
+              "indexed_metadata.name^8.88"],
+            "type" : "phrase",
+            "slop" : 12}}}
+      }"""
+
+      val actual = DocumentQueries.chooseMatchQuery(
+        SimpleQuery("query string OR (query AND string)"),
+        None,
+        ScoringParamSet(
+          fieldBoosts = Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f),
+          datatypeBoosts = Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f),
+          minShouldMatch = Some("20%"), // minShouldMatch is a String because it can be a percentage
+          slop = Some(12) // slop is max num of intervening unmatched positions permitted
+        ),
+        None,
+        None
+      )
+      val actualJson = JsonReader.fromString(actual.toString)
+
+      actualJson should be (expectedJson)
+    }
   }
 
   "DocumentQueries: advancedQuery" should {
@@ -152,6 +188,68 @@ class QueriesSpec extends WordSpec with ShouldMatchers {
 
       val actual = JsonReader.fromString(advancedQuery.toString)
       actual should be(expected)
+    }
+
+    "produce an advanced query with field boosts applied" in {
+      val expectedJson = j"""{
+      "bool": {
+        "should": [
+          {
+            "query_string": {
+              "auto_generate_phrase_queries": true,
+              "fields": [
+                "fts_analyzed",
+                "fts_raw",
+                "indexed_metadata.name^6.66",
+                "indexed_metadata.columns_description^1.11",
+                "indexed_metadata.columns_field_name^2.22",
+                "indexed_metadata.columns_name^3.33",
+                "datatype^4.44",
+                "indexed_metadata.description^5.55"
+              ],
+              "query": "any old query string"
+            }
+          },
+          {
+            "has_parent": {
+              "parent_type": "domain",
+              "query": {
+                "query_string": {
+                  "auto_generate_phrase_queries": true,
+                  "fields": [
+                    "fts_analyzed",
+                    "fts_raw",
+                    "domain_cname",
+                    "indexed_metadata.name^6.66",
+                    "indexed_metadata.columns_description^1.11",
+                    "indexed_metadata.columns_field_name^2.22",
+                    "indexed_metadata.columns_name^3.33",
+                    "datatype^4.44",
+                    "indexed_metadata.description^5.55"
+                  ],
+                  "query": "any old query string"
+                }
+              }
+            }
+          }
+        ]
+      }}"""
+
+      val actual = DocumentQueries.advancedQuery(
+        "any old query string",
+        Map(
+          ColumnDescriptionFieldType -> 1.11f,
+          ColumnFieldNameFieldType -> 2.22f,
+          ColumnNameFieldType -> 3.33f,
+          DatatypeFieldType -> 4.44f,
+          DescriptionFieldType -> 5.55f,
+          TitleFieldType -> 6.66f
+        )
+      )
+
+      val actualJson = JsonReader.fromString(actual.toString)
+
+      actualJson should be (expectedJson)
     }
   }
 

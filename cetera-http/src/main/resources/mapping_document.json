@@ -143,7 +143,10 @@
     },
     "is_default_view": { "type": "boolean" },
     "is_moderation_approved": { "type": "boolean" },
-    "moderation_status": { "type": "string", "index": "not_analyzed" },
+    "moderation_status": {
+      "type": "string",
+      "index": "not_analyzed"
+    },
     "page_views": {
       "properties": {
         "page_views_last_month": { "type": "long" },

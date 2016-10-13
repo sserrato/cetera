@@ -49,7 +49,7 @@ class SearchService(
     val now = Timings.now()
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
     val ValidatedQueryParameters(searchParams, scoringParams, pagingParams, formatParams) =
-      QueryParametersParser(queryParameters, extendedHost)
+      QueryParametersParser(queryParameters)
 
     val authedUserId = authorizedUser.map(_.id)
     val (domains, domainSearchTime) = domainClient.findSearchableDomains(

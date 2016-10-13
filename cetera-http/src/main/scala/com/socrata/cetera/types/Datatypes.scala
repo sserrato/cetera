@@ -42,6 +42,7 @@ case object TypeCalendars extends DatatypeSimple with Materialized {
 case object TypeDatalenses extends DatatypeSimple with Materialized {
   val plural: String = "datalenses"
   override lazy val singular: String = "datalens"
+  val allVarieties = Set(singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular)
 }
 case object TypeDatasets extends DatatypeSimple with Materialized {
   val plural: String = "datasets"

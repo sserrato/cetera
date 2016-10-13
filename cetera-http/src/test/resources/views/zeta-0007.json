@@ -1,81 +1,80 @@
 {
-  "created_at" : "2016-09-19T10:37:20.933-07:00",
-  "updated_at" : "2016-09-19T10:37:20.857-07:00",
+  "created_at": "2016-09-19T10:37:20.933-07:00",
+  "updated_at": "2016-09-19T10:37:20.857-07:00",
   "socrata_id": {
-   "dataset_id": "zeta-0007",
-   "parent_dataset_id": [],
-   "domain_id": 0,
-   "nbe_id": "zeta-0007",
-   "obe_id": "data-0007"
- },
- "resource": {
-   "description": "a dataset with attribution and provenance",
-   "nbe_fxf": "zeta-0007",
-   "parent_fxf": null,
-   "updated_at": "2016-09-19T10:37:21.149-07:00",
-   "created_at": "2016-09-19T10:37:21.149-07:00",
-   "type": "dataset",
-   "id": "zeta-0007",
-   "columns": [
-
-   ],
-   "name": "",
-   "attribution": "The Merry Men",
-   "provenance": "official"
- },
- "animl_annotations": {
-   "categories": [
-
-   ],
-   "tags": [
-
-   ]
- },
- "datatype": "dataset",
- "viewtype": "",
- "popularity": 0.0,
- "indexed_metadata": {
-   "name": "",
-   "description": "",
-   "columns_field_name": [
-
-   ],
-   "columns_description": [
-
-   ],
-   "columns_name": [
-
-   ]
- },
- "customer_metadata_flattened": [],
- "is_public": true,
- "is_published": true,
- "is_default_view": true,
- "is_moderation_approved": true,
- "approving_domain_ids": [
-   0,1,2,3
- ],
- "is_approved_by_parent_domain": true,
- "page_views": {
-   "page_views_total": 42,
-   "page_views_last_month": 42,
-   "page_views_last_week": 42
- },
- "customer_category": "Fun",
- "customer_tags": [
-
- ],
- "update_freq": 0,
- "owner_id": "lil-john",
- "owner" : {
-   "id": "lil-john",
-   "screen_name": "Little John"
- },
- "shared_to": [ "King Richard" ],
- "attribution": "The Merry Men",
- "provenance": "official",
- "preview_image_id": "123456789",
- "grants": [],
- "hide_from_catalog": false,
- "hide_from_data_json": false
+    "dataset_id": "zeta-0007",
+    "parent_dataset_id": [],
+    "domain_id": 0,
+    "nbe_id": "zeta-0007",
+    "obe_id": "data-0007"
+  },
+  "resource": {
+    "description": "a dataset with attribution and provenance",
+    "nbe_fxf": "zeta-0007",
+    "parent_fxf": null,
+    "updated_at": "2016-09-19T10:37:21.149-07:00",
+    "created_at": "2016-09-19T10:37:21.149-07:00",
+    "type": "dataset",
+    "id": "zeta-0007",
+    "columns": [
+    ],
+    "name": "",
+    "attribution": "The Merry Men",
+    "provenance": "official"
+  },
+  "animl_annotations": {
+    "categories": [
+    ],
+    "tags": [
+    ]
+  },
+  "datatype": "dataset",
+  "viewtype": "",
+  "popularity": 0.0,
+  "indexed_metadata": {
+    "name": "",
+    "description": "",
+    "columns_field_name": [
+    ],
+    "columns_description": [
+    ],
+    "columns_name": [
+    ]
+  },
+  "customer_metadata_flattened": [],
+  "is_public": true,
+  "is_published": true,
+  "is_default_view": true,
+  "is_moderation_approved": true,
+  "moderation_status": "approved",
+  "approving_domain_ids": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "is_approved_by_parent_domain": true,
+  "page_views": {
+    "page_views_total": 42,
+    "page_views_last_month": 42,
+    "page_views_last_week": 42
+  },
+  "customer_category": "Fun",
+  "customer_tags": [
+  ],
+  "update_freq": 0,
+  "owner_id": "lil-john",
+  "owner": {
+    "id": "lil-john",
+    "screen_name": "Little John"
+  },
+  "shared_to": [
+    "King Richard"
+  ],
+  "attribution": "The Merry Men",
+  "provenance": "official",
+  "preview_image_id": "123456789",
+  "grants": [],
+  "hide_from_catalog": false,
+  "hide_from_data_json": false
 }

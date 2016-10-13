@@ -21,14 +21,14 @@ fxf-2	domain 2: customer domain, not moderated, has R&A, not locked-down
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: Some(false)
-	isDatalensApproved: Some(false)
+	isDatalensApproved: Some(false)  b/c is pending
 	visibleToAnonymous: Some(false)
 	hideFromCatalog: false
 	hideFromDataJson: false
 fxf-3	domain 3: customer domain, moderated, has R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
-	isModerationApproved: Some(true)
+	isModerationApproved: Some(false)
 	isRoutingApproved: Some(false)
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
@@ -46,7 +46,7 @@ fxf-4	domain 0: customer domain, no moderation, no R&A, not locked-down
 fxf-5	domain 1: not customer domain, is moderated, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
-	isModerationApproved: Some(false)
+	isModerationApproved: Some(false)  b/c is rejected
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
@@ -82,7 +82,7 @@ fxf-8	domain 0: customer domain, no moderation, no R&A, not locked-down
 fxf-9	domain 1: not customer domain, is moderated, no R&A, not locked-down
 	isPublic: Some(true)
 	isPublished: Some(true)
-	isModerationApproved: Some(false)
+	isModerationApproved: Some(false)  b/c is pending
 	isRoutingApproved: None
 	isDatalensApproved: None
 	visibleToAnonymous: Some(false)
@@ -129,7 +129,7 @@ zeta-0004	domain 0: customer domain, no moderation, no R&A, not locked-down
 	isPublished: Some(true)
 	isModerationApproved: None
 	isRoutingApproved: None
-	isDatalensApproved: Some(false)
+	isDatalensApproved: Some(false)  b/c is pending
 	visibleToAnonymous: Some(false)
 	hideFromCatalog: false
 	hideFromDataJson: false
@@ -187,3 +187,21 @@ zeta-0010	domain 3: customer domain, moderated, has R&A, not locked-down
 	visibleToAnonymous: Some(false)
 	hideFromCatalog: true
 	hideFromDataJson: true
+zeta-0011	domain 0: customer domain, no moderation, no R&A, not locked-down
+	isPublic: Some(true)
+	isPublished: Some(true)
+	isModerationApproved: None
+	isRoutingApproved: None
+	isDatalensApproved: Some(false) b/c is rejected
+	visibleToAnonymous: Some(false)
+	hideFromCatalog: false
+	hideFromDataJson: false
+zeta-0012	domain 0: customer domain, no moderation, no R&A, not locked-down
+	isPublic: Some(true)
+	isPublished: Some(true)
+	isModerationApproved: None
+	isRoutingApproved: None
+	isDatalensApproved: Some(true)
+	visibleToAnonymous: Some(true)
+	hideFromCatalog: false
+	hideFromDataJson: false

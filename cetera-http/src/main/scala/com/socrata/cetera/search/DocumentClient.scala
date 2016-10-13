@@ -13,7 +13,6 @@ import com.socrata.cetera.search.DocumentQueries.{chooseMatchQuery, compositeFil
 import com.socrata.cetera.types._
 
 trait BaseDocumentClient {
-  // if you choose to `restrictVisibility`, the search will include the public, published & mod/RA status filters
   def buildSearchRequest(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
