@@ -8,7 +8,9 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
   val superAdmin = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
   val customerAdmin = User("", Some(domains(8)), roleName = Some("administrator"), rights = None, flags = None)
   val customerEditor = User("", Some(domains(8)), roleName = Some("editor"), rights = None, flags = None)
+  val customerEditorStories = User("", Some(domains(8)), roleName = Some("editor_stories"), rights = None, flags = None)
   val customerPublisher = User("", Some(domains(8)), roleName = Some("publisher"), rights = None, flags = None)
+  val customerPublisherStories = User("", Some(domains(8)), roleName = Some("publisher_stories"), rights = None, flags = None)
   val customerViewer = User("", Some(domains(8)), roleName = Some("viewer"), rights = None, flags = None)
   val customerDesigner = User("", Some(domains(8)), roleName = Some("designer"), rights = None, flags = None)
   val anonymous = User("", None, roleName = None, rights = None, flags = None)
@@ -62,7 +64,9 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
     "return true if the user has a supported role from the authenticating domain" in {
       customerAdmin.canViewLockedDownCatalog(domains(8)) should be(true)
       customerEditor.canViewLockedDownCatalog(domains(8)) should be(true)
+      customerEditorStories.canViewLockedDownCatalog(domains(8)) should be(true)
       customerPublisher.canViewLockedDownCatalog(domains(8)) should be(true)
+      customerPublisherStories.canViewLockedDownCatalog(domains(8)) should be(true)
       customerViewer.canViewLockedDownCatalog(domains(8)) should be(true)
     }
 
@@ -73,7 +77,9 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
     "return false if the user has a role but it isn't from the authenticating domain" in {
       customerAdmin.canViewLockedDownCatalog(domains(7)) should be(false)
       customerEditor.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerEditorStories.canViewLockedDownCatalog(domains(7)) should be(false)
       customerPublisher.canViewLockedDownCatalog(domains(7)) should be(false)
+      customerPublisherStories.canViewLockedDownCatalog(domains(7)) should be(false)
       customerViewer.canViewLockedDownCatalog(domains(7)) should be(false)
       customerDesigner.canViewLockedDownCatalog(domains(7)) should be(false)
     }
@@ -92,17 +98,21 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
       customerAdmin.canViewAllViews(domains(8)) should be(true)
       customerDesigner.canViewAllViews(domains(8)) should be(true)
       customerPublisher.canViewAllViews(domains(8)) should be(true)
+      customerPublisherStories.canViewAllViews(domains(8)) should be(true)
       customerViewer.canViewAllViews(domains(8)) should be(true)
     }
 
     "return false if the user has a role from the authenticating domain but it isn't supported" in {
       customerEditor.canViewAllViews(domains(8)) should be(false)
+      customerEditorStories.canViewAllViews(domains(8)) should be(false)
     }
 
     "return false if the user has a role but it isn't from the authenticating domain" in {
       customerAdmin.canViewAllViews(domains(7)) should be(false)
       customerEditor.canViewAllViews(domains(7)) should be(false)
+      customerEditorStories.canViewAllViews(domains(7)) should be(false)
       customerPublisher.canViewAllViews(domains(7)) should be(false)
+      customerPublisherStories.canViewAllViews(domains(7)) should be(false)
       customerViewer.canViewAllViews(domains(7)) should be(false)
       customerDesigner.canViewAllViews(domains(7)) should be(false)
     }
@@ -123,7 +133,9 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
     "return false if the user has any other role" in {
       customerEditor.canViewUsers should be(false)
+      customerEditorStories.canViewUsers should be(false)
       customerPublisher.canViewUsers should be(false)
+      customerPublisherStories.canViewUsers should be(false)
       customerViewer.canViewUsers should be(false)
     }
 

@@ -14,7 +14,7 @@ case class User(
     flags: Option[Seq[String]] = None) {
 
   def hasRole: Boolean = roleName.nonEmpty
-  def hasRole(role: String): Boolean = roleName.contains(role)
+  def hasRole(role: String): Boolean = roleName.exists(r => r.startsWith(role))
   def hasOneOfRoles(roles: Seq[String]): Boolean = roles.map(hasRole(_)).fold(false)(_ || _)
   def isSuperAdmin: Boolean = flags.exists(_.contains("admin"))
   def isAdmin: Boolean = hasRole("administrator") || isSuperAdmin
