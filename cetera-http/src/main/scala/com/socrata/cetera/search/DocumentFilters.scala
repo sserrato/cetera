@@ -44,8 +44,11 @@ object DocumentFilters {
     termsFilter(aggPrefix + SocrataIdDomainIdFieldType.fieldName, domainIds.toSeq: _*)
   }
 
-  def approvedByParentDomainFilter(aggPrefix: String = ""): FilterBuilder =
-    termFilter(aggPrefix + ApprovedByParentFieldType.fieldName, true)
+  def raStatusAccordingToParentDomainFilter(status: ApprovalStatus, aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + status.raAccordingToParentField, true)
+
+  def raStatusAccordingToContextFilter(status: ApprovalStatus, context: Domain, aggPrefix: String = ""): FilterBuilder =
+    termsFilter(aggPrefix + status.raQueueField, context.domainId)
 
   def derivedFilter(derived: Boolean = true, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, !derived)
@@ -96,11 +99,10 @@ object DocumentFilters {
   // having been through or are presently in the context's RA queue
   def raSearchContextFilter(domainSet: DomainSet): Option[FilterBuilder] =
     domainSet.searchContext.collect { case c: Domain if c.routingApprovalEnabled =>
-      val beApprovedByContext = termsFilter(ApprovingDomainIdsFieldType.fieldName, c.domainId)
-      // TODO: define these and add them in when we know about RA rejected/pending
-      // val beRejectedByContext = ???
-      // val bePendingWithinContextsQueue = ???
-      boolFilter().should(beApprovedByContext) // .should(beRejectedByContext).should(bePendingWithinContextsQueue)
+      val beApprovedByContext = raStatusAccordingToContextFilter(ApprovalStatus.approved, c)
+      val beRejectedByContext = raStatusAccordingToContextFilter(ApprovalStatus.rejected, c)
+      val bePendingWithinContextsQueue = raStatusAccordingToContextFilter(ApprovalStatus.pending, c)
+      boolFilter().should(beApprovedByContext).should(beRejectedByContext).should(bePendingWithinContextsQueue)
     }
 
   // this filter limits results based on the processes in place on the search context
@@ -164,55 +166,55 @@ object DocumentFilters {
     }
   }
 
-  // this filter limits results to those that are R&A approved (or from RA disabled domains when RA is not relevant)
-  def routingApprovalFilter(domainSet: DomainSet, isDomainAgg: Boolean = false): FilterBuilder = {
-    val prefix = if (isDomainAgg) esDocumentType + "." else ""
-
-    // each view must either be approved or be from a domain without R&A
-    val beFromRADisabledDomain = domainIdFilter(domainSet.raDisabledIds, prefix)
-    val beApprovedOrNotApplicable = boolFilter()
-      .should(approvedByParentDomainFilter(prefix))
-      .should(beFromRADisabledDomain)
-
-    // if the search_context has R&A, views must also be approved on the search context
-    val beApprovedBySearchContext = domainSet.searchContext.collect {
-      case d: Domain if d.routingApprovalEnabled && !isDomainAgg =>
-        termsFilter(ApprovingDomainIdsFieldType.fieldName, d.domainId)
-    }
-
-    // the final filter insists both conditions above be true
-    val filter = boolFilter().must(beApprovedOrNotApplicable)
-    beApprovedBySearchContext.foreach(filter.must)
-    filter
-  }
-
-  // this filter limits results to those with the given R&A status
+  // this filter limits results to those with the given R&A status on their parent domain
   def raStatusFilter(status: ApprovalStatus, domainSet: DomainSet, isDomainAgg: Boolean = false): FilterBuilder = {
     status match {
-      case ApprovalStatus.approved => routingApprovalFilter(domainSet, isDomainAgg)
-      // TODO: finish when have all the RA info
-      case _ => domainIdFilter(Set.empty) // this is just a hack to not match anything yet
+      case ApprovalStatus.approved =>
+        val prefix = if (isDomainAgg) esDocumentType + "." else ""
+        val beFromRADisabledDomain = domainIdFilter(domainSet.raDisabledIds, prefix)
+        val haveGivenStatus = raStatusAccordingToParentDomainFilter(ApprovalStatus.approved, prefix)
+        boolFilter()
+          .should(beFromRADisabledDomain)
+          .should(haveGivenStatus)
+      case _ => raStatusAccordingToParentDomainFilter(status)
     }
   }
 
+  // this filter limits results to those with the given R&A status on a given context
+  def raStatusOnContextFilter(status: ApprovalStatus, domainSet: DomainSet): Option[FilterBuilder] =
+    domainSet.searchContext.collect {
+      case c: Domain if c.routingApprovalEnabled => raStatusAccordingToContextFilter(status, c)
+    }
+
   // this filter limits results to those with a given approval status
-  // approved views must pass all 3 processes (viewModertion, R&A and Datalens approval)
-  // rejected/pending views need be rejected/pending by 1 or more processes
+  // - approved views must pass all 4 processes:
+  //   1. viewModeration (if enabled on the domain)
+  //   2. datalens moderation (if a datalens)
+  //   3. R&A on the parent domain (if enabled on the parent domain)
+  //   4. R&A on the context (if enabled on the context and you choose to include contextApproval)
+  // - rejected/pending views need be rejected/pending by 1 or more processes
   def approvalStatusFilter(
       status: ApprovalStatus,
       domainSet: DomainSet,
+      includeContextApproval: Boolean = true,
       isDomainAgg: Boolean = false)
   : FilterBuilder = {
     val haveGivenVMStatus = moderationStatusFilter(status, domainSet, isDomainAgg)
     val haveGivenDLStatus = datalensStatusFilter(status, isDomainAgg)
     val haveGivenRAStatus = raStatusFilter(status, domainSet, isDomainAgg)
+    val haveGivenRAStatusOnContext = raStatusOnContextFilter(status, domainSet)
+
     status match {
       case ApprovalStatus.approved =>
-        // if we are looking for approvals, a view must be approved according to all 3 processes
-        boolFilter().must(haveGivenVMStatus).must(haveGivenDLStatus).must(haveGivenRAStatus)
+        // if we are looking for approvals, a view must be approved according to all 3 or 4 processes
+        val filter = boolFilter().must(haveGivenVMStatus).must(haveGivenDLStatus).must(haveGivenRAStatus)
+        if (includeContextApproval) haveGivenRAStatusOnContext.foreach(filter.must)
+        filter
       case _ =>
-        // otherwise, a view can fail due to any of the 3 processes
-        boolFilter().should(haveGivenVMStatus).should(haveGivenDLStatus).should(haveGivenRAStatus)
+        // otherwise, a view can fail due to any of the 3 or 4 processes
+        val filter = boolFilter().should(haveGivenVMStatus).should(haveGivenDLStatus).should(haveGivenRAStatus)
+        if (includeContextApproval) haveGivenRAStatusOnContext.foreach(filter.should)
+        filter
     }
   }
 
@@ -260,11 +262,12 @@ object DocumentFilters {
   }
 
   // this filter limits results to those that would show at /browse , i.e. public/published/approved/unhidden
-  def anonymousFilter(domainSet: DomainSet, isDomainAgg: Boolean = false)
+  // optionally acknowledging the context, which sometimes should matter and sometimes should not
+  def anonymousFilter(domainSet: DomainSet, includeContextApproval: Boolean = true, isDomainAgg: Boolean = false)
   : FilterBuilder = {
     val bePublic = publicFilter(public = true, isDomainAgg)
     val bePublished = publishedFilter(published = true, isDomainAgg)
-    val beApproved = approvalStatusFilter(ApprovalStatus.approved, domainSet, isDomainAgg)
+    val beApproved = approvalStatusFilter(ApprovalStatus.approved, domainSet, includeContextApproval, isDomainAgg)
     val beUnhidden = hideFromCatalogFilter(isDomainAgg)
 
     boolFilter()
@@ -283,7 +286,7 @@ object DocumentFilters {
   }
 
   // this filter will limit results to only those the user is allowed to see
-  def visibilityFilter(user: Option[User], domainSet: DomainSet, requireAuth: Boolean)
+  def authFilter(user: Option[User], domainSet: DomainSet, requireAuth: Boolean)
   : Option[FilterBuilder] = {
     (requireAuth, user) match {
       // if user is super admin, no vis filter needed
@@ -292,7 +295,10 @@ object DocumentFilters {
       // plus, of course, things they own/share and public/published/approved views from other domains
       case (true, Some(u)) if (u.authenticatingDomain.exists(d => u.canViewAllViews(d))) => {
         val personFilter = ownedOrSharedFilter(u)
-        val anonFilter = anonymousFilter(domainSet)
+        // re: includeContextApproval = false, in order for admins/etc to see views they've rejected from other domains,
+        // we must allow them access to views that are approved on the parent domain, but not on the context.
+        // yes, this is a snow-flaky case and it involves our auth. I am sorry  :(
+        val anonFilter = anonymousFilter(domainSet, includeContextApproval = false)
         val fromUsersDomain = u.authenticatingDomain.map(d => domainIdFilter(Set(d.domainId)))
         val filter = boolFilter().should(personFilter).should(anonFilter)
         fromUsersDomain.foreach(filter.should(_))
@@ -318,11 +324,11 @@ object DocumentFilters {
       user: Option[User],
       requireAuth: Boolean)
   : FilterBuilder = {
-    val domainFilter = Some(domainSetFilter(domainSet))
-    val searchFilter = searchParamsFilter(searchParams, user, domainSet)
-    val visFilters = visibilityFilter(user, domainSet, requireAuth)
+    val domainFilters = Some(domainSetFilter(domainSet))
+    val authFilters = authFilter(user, domainSet, requireAuth)
+    val searchFilters = searchParamsFilter(searchParams, user, domainSet)
 
-    val allFilters = List(domainFilter, searchFilter, visFilters).flatten
+    val allFilters = List(domainFilters, authFilters, searchFilters).flatten
     allFilters.foldLeft(boolFilter()) { (b, f) => b.must(f) }
   }
 }

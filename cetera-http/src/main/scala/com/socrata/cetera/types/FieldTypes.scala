@@ -155,12 +155,28 @@ case object ModerationStatusFieldType extends DocumentFieldType {
   val fieldName: String = "moderation_status"
 }
 
+case object ApprovedByParentFieldType extends DocumentFieldType {
+  val fieldName: String = "is_approved_by_parent_domain"
+}
+
+case object RejectedByParentFieldType extends DocumentFieldType {
+  val fieldName: String = "is_rejected_by_parent_domain"
+}
+
+case object PendingOnParentFieldType extends DocumentFieldType {
+  val fieldName: String = "is_pending_on_parent_domain"
+}
+
 case object ApprovingDomainIdsFieldType extends DocumentFieldType {
   val fieldName: String = "approving_domain_ids"
 }
 
-case object ApprovedByParentFieldType extends DocumentFieldType {
-  val fieldName: String = "is_approved_by_parent_domain"
+case object RejectingDomainIdsFieldType extends DocumentFieldType {
+  val fieldName: String = "rejecting_domain_ids"
+}
+
+case object PendingDomainIdsFieldType extends DocumentFieldType {
+  val fieldName: String = "pending_domain_ids"
 }
 
 case object SocrataIdDomainIdFieldType extends DocumentFieldType {

@@ -44,5 +44,5 @@ case class DomainSet(
   val contextHasRoutingApproval = searchContext.exists(_.routingApprovalEnabled)
   val allIds = domains.map(_.domainId)
   val (moderationEnabledIds, moderationDisabledIds) = partitionIds(_.moderationEnabled)
-  val (_, raDisabledIds) = partitionIds(_.routingApprovalEnabled)
+  val (raEnabledIds, raDisabledIds) = partitionIds(_.routingApprovalEnabled)
 }

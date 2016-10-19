@@ -48,7 +48,14 @@
   "moderation_status": "rejected",
   "approving_domain_ids": [
   ],
+  "rejecting_domain_ids": [
+  ],
+  "pending_domain_ids": [
+    2
+  ],
   "is_approved_by_parent_domain": false,
+  "is_rejected_by_parent_domain": false,
+  "is_pending_on_parent_domain": false,
   "page_views": {
     "page_views_total": 42,
     "page_views_last_month": 42,
@@ -64,6 +71,7 @@
     "screen_name": "Little John"
   },
   "shared_to": [
+    "maid-marian"
   ],
   "attribution": null,
   "preview_image_id": null,

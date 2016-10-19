@@ -18,17 +18,10 @@ import com.socrata.cetera.{HeaderAuthorizationKey, HeaderCookieKey, HeaderXSocra
 class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
 
-  val httpClient = new TestHttpClient()
-  val coreTestPort = 8031
-  val mockServer = startClientAndServer(coreTestPort)
-  val coreClient = new TestCoreClient(httpClient, coreTestPort)
-
-  val client = new TestESClient(testSuiteName)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
-  val service = new UserSearchService(userClient, domainClient, coreClient)
+  val userService = new UserSearchService(userClient, domainClient, coreClient)
 
-  val cookie = "Traditional = WASD"
+  override val cookie = "Traditional = WASD"
   val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
   val oAuth = "OAuth 123456789"
   val context = Some(domains(0))
@@ -41,46 +34,40 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
       "flags" : [ "admin" ]
     }"""
 
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
-  override def beforeEach(): Unit = {
-    mockServer.reset()
-  }
+  override def beforeEach(): Unit = mockServer.reset()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()
     client.close()
     mockServer.stop(true)
     httpClient.close()
-    super.afterAll()
   }
 
   test("search without authentication throws an unauthorizedError") {
     intercept[UnauthorizedError] {
-      service.doSearch(Map.empty, AuthParams(), None, None)
+      userService.doSearch(Map.empty, AuthParams(), None, None)
     }
   }
 
   test("search with cookie, but no socrata host throws an unauthorizedError") {
     intercept[UnauthorizedError] {
-      service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), None, None)
+      userService.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), None, None)
     }
   }
 
   test("search with basic auth, but no socrata host throws an unauthorizedError") {
     val basicAuth = "Basic cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
     intercept[UnauthorizedError] {
-      service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), None, None)
+      userService.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), None, None)
     }
   }
 
   test("search with oauth, but no socrata host throws an unauthorizedError") {
     val oAuth = "OAuth cHJvZmVzc29yeDpjZXJlYnJvNGxpZmU="
     intercept[UnauthorizedError] {
-      service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), None, None)
+      userService.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), None, None)
     }
   }
 
@@ -107,7 +94,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     intercept[UnauthorizedError] {
-      service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
+      userService.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
     }
   }
 
@@ -128,7 +115,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
 
     intercept[DomainNotFoundError] {
       val params = Map(Params.domain -> "bad-domain.com").mapValues(Seq(_))
-      service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+      userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     }
   }
 
@@ -147,7 +134,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(Map.empty, AuthParams(cookie=Some(cookie)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -172,7 +159,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -197,7 +184,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val (status, results, _, _) = service.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(Map.empty, AuthParams(oAuth=Some(oAuth)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)
@@ -222,7 +209,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.q -> "dark.star@deathcity.com").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
@@ -246,7 +233,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.q -> "death-the-kid").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
@@ -270,7 +257,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.q -> "dark.star@deathcity.com", Params.roles -> "assasin").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
     mockServer.verify(expectedRequest)
     status should be(OK)
 
@@ -296,7 +283,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     )
 
     val params = Map(Params.domain -> "opendata-demo.socrata.com").mapValues(Seq(_))
-    val (status, results, _, _) = service.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)

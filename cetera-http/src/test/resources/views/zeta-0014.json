@@ -2,20 +2,20 @@
   "created_at": "2016-09-19T10:37:20.933-07:00",
   "updated_at": "2016-09-19T10:37:20.857-07:00",
   "socrata_id": {
-    "dataset_id": "zeta-0006",
-    "parent_dataset_id": [],
-    "domain_id": 0,
-    "nbe_id": "zeta-0006",
-    "obe_id": "data-0006"
+    "dataset_id": "zeta-0014",
+    "parent_dataset_id": [ "fxf-3" ],
+    "domain_id": 3,
+    "nbe_id": "zeta-0014",
+    "obe_id": "data-0014"
   },
   "resource": {
-    "description": "unpublished dataset",
-    "nbe_fxf": "zeta-0006",
+    "description": "RA-rejected, VM/DL-approved datalens",
+    "nbe_fxf": "zeta-0014",
     "parent_fxf": null,
-    "updated_at": "2016-09-19T10:37:21.147-07:00",
-    "created_at": "2016-09-19T10:37:21.147-07:00",
-    "type": "dataset",
-    "id": "zeta-0006",
+    "updated_at": "2016-09-19T10:37:21.153-07:00",
+    "created_at": "2016-09-19T10:37:21.153-07:00",
+    "type": "datalens",
+    "id": "zeta-0014",
     "columns": [
     ],
     "name": "",
@@ -27,7 +27,7 @@
     "tags": [
     ]
   },
-  "datatype": "dataset",
+  "datatype": "datalens",
   "viewtype": "",
   "popularity": 0.0,
   "indexed_metadata": {
@@ -42,36 +42,37 @@
   },
   "customer_metadata_flattened": [],
   "is_public": true,
-  "is_published": false,
-  "is_default_view": true,
-  "is_moderation_approved": null,
-  "moderation_status": null,
+  "is_published": true,
+  "is_default_view": false,
+  "is_moderation_approved": true,
+  "moderation_status": "approved",
   "approving_domain_ids": [
   ],
   "rejecting_domain_ids": [
+    3
   ],
   "pending_domain_ids": [
   ],
   "is_approved_by_parent_domain": false,
-  "is_rejected_by_parent_domain": false,
+  "is_rejected_by_parent_domain": true,
   "is_pending_on_parent_domain": false,
   "page_views": {
     "page_views_total": 42,
     "page_views_last_month": 42,
     "page_views_last_week": 42
   },
-  "customer_category": "Unpublished",
+  "customer_category": "Fun",
   "customer_tags": [
+    "fake",
+    "king"
   ],
   "update_freq": 0,
-  "owner_id": "cook-mons",
+  "owner_id": "prince-john",
   "owner": {
-    "id": "cook-mons",
-    "screen_name": "Cookie monster"
+    "id": "prince-john",
+    "screen_name": "Prince John"
   },
-  "shared_to": [
-    "Little John"
-  ],
+  "shared_to": [ "lil-john" ],
   "attribution": null,
   "preview_image_id": null,
   "grants": [],

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 import com.socrata.cetera.handlers.FormatParamSet
 import com.socrata.cetera.types._
 
+// scalastyle:ignore number.of.methods
 object Format {
   lazy val logger = LoggerFactory.getLogger(Format.getClass)
   val UrlSegmentLengthLimit = 50
@@ -40,7 +41,6 @@ object Format {
       case _                                  => s"d"
     }
 
-    val urlSegmentLengthLimit = 50
     val pretty = datatype match {
       // TODO: maybe someday stories will allow pretty seo links
       // stories don't have a viewtype today, but who knows...
@@ -130,6 +130,7 @@ object Format {
 
   def isPublished(j: JValue): Boolean = extractJBoolean(j.dyn.is_published.?).exists(identity)
 
+  // TODO: change to use moderation_status
   private def literallyApproved(j: JValue): Boolean = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
 
   private def approvalsContainId(j: JValue, id: Int): Boolean = {
@@ -146,49 +147,74 @@ object Format {
     if (isDatalens) Some(literallyApproved(j)) else None
   }
 
-  def moderationApproved(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
+  def moderationApproved(j: JValue, viewsDomain: Domain): Option[Boolean] = {
     val isDefault = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
-
-    (domainSet.contextIsModerated, viewsDomain.moderationEnabled) match {
-      // if a view comes from a moderated domain (regardless of context), it must be a default view or approved
-      case (_, true) => Some(isDefault || literallyApproved(j))
-      // only default views from unmoderated domains can flow into moderated contexts.
-      case (true, false) => Some(isDefault)
-      // if moderation isn't enabled anywhere, views flow freely
-      case (false, false) => None
+    viewsDomain.moderationEnabled match {
+      case true => Some(isDefault || literallyApproved(j))
+      case false => None
     }
   }
 
-  def routingApproved(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
-    val viewDomainId = viewsDomain.domainId
-    (domainSet.contextHasRoutingApproval, viewsDomain.routingApprovalEnabled) match {
-      // if both context and domain have R&A enabled, both must approve the view (or its parent)
-      case (true, true) => Some(approvalsContainId(j, domainSet.searchContext.get.domainId) &&
-        approvalsContainId(j, viewsDomain.domainId))
-      // if only the context has R&A enabled, only the context must approve the view (or its parent)
-      case (true, false) => Some(approvalsContainId(j, domainSet.searchContext.get.domainId))
-      // if only the domain has R&A enabled, only the domain must approve the view (or its parent)
-      case (false, true) => Some(approvalsContainId(j, viewsDomain.domainId))
-      // if R&A isn't enabled anywhere, views flow freely
-      case (false, false) => None
+  def moderationApprovedByContext(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
+    val isDefault = extractJBoolean(j.dyn.is_default_view.?).exists(identity)
+    (domainSet.contextIsModerated, viewsDomain.moderationEnabled) match {
+      // if a view comes from a moderated domain, it must be a default view or approved
+      case (true, true) => Some(isDefault || literallyApproved(j))
+      // if a view comes from an unmoderated domain, it must be a default view
+      case (true, false) => Some(isDefault)
+      // if the context isn't moderated, a views moderationApproval is decided by its parent domain, not the context
+      case (false, _) => None
     }
+  }
+
+  def routingApproved(j: JValue, viewsDomain: Domain): Option[Boolean] = {
+    val viewDomainId = viewsDomain.domainId
+    viewsDomain.routingApprovalEnabled match {
+      case true => Some(approvalsContainId(j, viewsDomain.domainId))
+      case false => None
+    }
+  }
+
+  def routingApprovedByContext(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Option[Boolean] = {
+    val contextDomainId = domainSet.searchContext.map(d => d.domainId).getOrElse(0)
+    domainSet.contextHasRoutingApproval match {
+      case true => Some(approvalsContainId(j, contextDomainId))
+      case false => None
+    }
+  }
+
+  def contextApprovals(j: JValue, viewsDomain: Domain, domainSet: DomainSet): (Option[Boolean],Option[Boolean]) = {
+    val viewDomainId = viewsDomain.domainId
+    val contextDomainId = domainSet.searchContext.map(d => d.domainId).getOrElse(0)
+    val moderationApprovalOnContext = moderationApprovedByContext(j, viewsDomain, domainSet)
+    val routingApprovalOnContext = routingApprovedByContext(j, viewsDomain, domainSet)
+    if (viewDomainId != contextDomainId) (moderationApprovalOnContext, routingApprovalOnContext) else (None, None)
   }
 
   def calculateVisibility(j: JValue, viewsDomain: Domain, domainSet: DomainSet): Metadata = {
+    val viewDomainId = viewsDomain.domainId
+    val contextDomainId = domainSet.searchContext.map(d => d.domainId).getOrElse(0)
     val public = isPublic(j)
     val published = isPublished(j)
-    val routingApproval = routingApproved(j, viewsDomain, domainSet)
-    val moderationApproval = moderationApproved(j, viewsDomain, domainSet)
+    val routingApproval = routingApproved(j, viewsDomain)
+    val moderationApproval = moderationApproved(j, viewsDomain)
     val datalensApproval = datalensApproved(j)
+    val(moderationApprovalOnContext, routingApprovalOnContext) = contextApprovals(j, viewsDomain, domainSet)
     val viewGrants = grants(j)
-    val anonymousVis = public & published & routingApproval.getOrElse(true) &
-      moderationApproval.getOrElse(true) & datalensApproval.getOrElse(true)
+    val anonymousVis =
+      public & published &
+      routingApproval.getOrElse(true) & routingApprovalOnContext.getOrElse(true) &
+      moderationApproval.getOrElse(true) & moderationApprovalOnContext.getOrElse(true) &
+      datalensApproval.getOrElse(true)
+
     Metadata(
       domain = viewsDomain.domainCname,
       isPublic = Some(public),
       isPublished = Some(published),
       isModerationApproved = moderationApproval,
+      isModerationApprovedOnContext = moderationApprovalOnContext,
       isRoutingApproved = routingApproval,
+      isRoutingApprovedOnContext = routingApprovalOnContext,
       isDatalensApproved = datalensApproval,
       visibleToAnonymous = Some(anonymousVis),
       grants = viewGrants)

@@ -98,7 +98,11 @@ case class Document(
     socrataId: SocrataId,
     animlAnnotations: Option[AnimlAnnotations],
     approvingDomainIds: Option[Seq[Int]],
+    rejectingDomainIds: Option[Seq[Int]],
+    pendingDomainIds: Option[Seq[Int]],
     isApprovedByParentDomain: Boolean,
+    isRejectedByParentDomain: Boolean,
+    isPendingOnParentDomain: Boolean,
     customerTags: Seq[String],
     customerCategory: String,
     // If this comes back empty, it comes back as an empty object, not an empty array
@@ -114,7 +118,21 @@ case class Document(
     grants: Seq[ESGrant],
     hideFromCatalog: Option[Boolean],
     hideFromDataJson: Option[Boolean],
-    moderationStatus: Option[String])
+    moderationStatus: Option[String]) {
+
+  def isSharedOrOwned(userId: String): Boolean = ownerId == userId || sharedTo.contains(userId)
+  def isDatalens: Boolean = datatype.startsWith("datalens")
+  def isHiddenFromCatalog: Boolean = hideFromCatalog.getOrElse(false)
+
+  def isVmApproved: Boolean = moderationStatus.exists(s => s == ApprovalStatus.approved.status)
+  def isVmRejected: Boolean = moderationStatus.exists(s => s == ApprovalStatus.rejected.status)
+  def isVmPending: Boolean = moderationStatus.exists(s => s == ApprovalStatus.pending.status)
+
+  def isRaApproved(domainId: Int): Boolean = approvingDomainIds.getOrElse(Seq.empty).contains(domainId)
+  def isRaRejected(domainId: Int): Boolean = rejectingDomainIds.getOrElse(Seq.empty).contains(domainId)
+  def isRaPending(domainId: Int): Boolean = pendingDomainIds.getOrElse(Seq.empty).contains(domainId)
+  def isInRaQueue(domainId: Int): Boolean = isRaApproved(domainId) || isRaRejected(domainId) || isRaPending(domainId)
+}
 
 object Document {
   implicit val jCodec = AutomaticJsonCodecBuilder[Document]

@@ -17,13 +17,6 @@ import com.socrata.cetera.types.DomainSet
 class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   with BeforeAndAfterAll with BeforeAndAfterEach {
 
-  val coreTestPort = 8030
-  val client = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, coreTestPort)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-
-  val mockServer = startClientAndServer(coreTestPort)
   val unlockedCustomerDomain = domains(0)
   val unlockedNonCustomerDomain = domains(1)
   val unlockedCustomerDomain2 = domains(2)
@@ -33,13 +26,9 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
   val unlockedDomains = domains.filter(d => !d.isLocked)
   val unlockedCustomerDomains = domains.filter(d => d.isCustomerDomain && !d.isLocked)
 
-  override def beforeEach(): Unit = {
-    mockServer.reset()
-  }
+  override def beforeEach(): Unit = mockServer.reset()
 
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()

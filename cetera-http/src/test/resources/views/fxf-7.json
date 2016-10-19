@@ -61,9 +61,15 @@
   "is_moderation_approved": null,
   "moderation_status": "pending",
   "approving_domain_ids": [
-    2
+  ],
+  "rejecting_domain_ids": [
+  ],
+  "pending_domain_ids": [
+    3
   ],
   "is_approved_by_parent_domain": false,
+  "is_rejected_by_parent_domain": false,
+  "is_pending_on_parent_domain": true,
   "page_views": {
     "page_views_total": 8,
     "page_views_last_month": 8,
@@ -75,10 +81,10 @@
     "2-two"
   ],
   "update_freq": 4,
-  "owner_id": "lil-john",
+  "owner_id": "prince-john",
   "owner": {
-    "id": "lil-john",
-    "screen_name": "Little John"
+    "id": "prince-john",
+    "screen_name": "Phony King of England"
   },
   "shared_to": [],
   "attribution": null,

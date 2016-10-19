@@ -177,18 +177,55 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
   }
 
-  "the isApprovedByParentDomainFilter" should {
-    "return the expected filter when no prefix is given" in {
-      val approvalFilter = DocumentFilters.approvedByParentDomainFilter()
+  "the raStatusAccordingToParentDomainFilter" should {
+    "return the expected filter when looking for approved and no prefix is given" in {
+      val approvalFilter = DocumentFilters.raStatusAccordingToParentDomainFilter(ApprovalStatus.approved)
       val expected = j"""{ "term": { "is_approved_by_parent_domain": true } }"""
       val actual = JsonReader.fromString(approvalFilter.toString)
       actual should be(expected)
     }
 
-    "return the expected filter when some prefix is given" in {
-      val approvalFilter = DocumentFilters.approvedByParentDomainFilter("child_")
+    "return the expected filter when looking for approved and some prefix is given" in {
+      val approvalFilter = DocumentFilters.raStatusAccordingToParentDomainFilter(ApprovalStatus.approved, "child_")
       val expected = j"""{ "term": { "child_is_approved_by_parent_domain": true } }"""
       val actual = JsonReader.fromString(approvalFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter when looking for rejected" in {
+      val rejectedFilter = DocumentFilters.raStatusAccordingToParentDomainFilter(ApprovalStatus.rejected)
+      val expected = j"""{ "term": { "is_rejected_by_parent_domain": true } }"""
+      val actual = JsonReader.fromString(rejectedFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter when looking for pending" in {
+      val pendingFilter = DocumentFilters.raStatusAccordingToParentDomainFilter(ApprovalStatus.pending)
+      val expected = j"""{ "term": { "is_pending_on_parent_domain": true } }"""
+      val actual = JsonReader.fromString(pendingFilter.toString)
+      actual should be(expected)
+    }
+  }
+
+  "the raStatusAccordingToContextFilter" should {
+    "return the expected filter when looking for approved" in {
+      val approvalFilter = DocumentFilters.raStatusAccordingToContextFilter(ApprovalStatus.approved, domains(3))
+      val expected = j"""{ "terms": { "approving_domain_ids": [ 3 ] } }"""
+      val actual = JsonReader.fromString(approvalFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter when looking for rejected" in {
+      val rejectedFilter = DocumentFilters.raStatusAccordingToContextFilter(ApprovalStatus.rejected, domains(3))
+      val expected = j"""{ "terms": { "rejecting_domain_ids": [ 3 ] } }"""
+      val actual = JsonReader.fromString(rejectedFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter when looking for pending" in {
+      val pendingFilter = DocumentFilters.raStatusAccordingToContextFilter(ApprovalStatus.pending, domains(3))
+      val expected = j"""{ "terms": { "pending_domain_ids": [ 3 ] } }"""
+      val actual = JsonReader.fromString(pendingFilter.toString)
       actual should be(expected)
     }
   }
@@ -361,7 +398,10 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
 
     "return the expected filter if the search context does have R&A enabled" in {
       val domainSet = DomainSet(Set(domains(2), domains(3)), Some(domains(3)))
-      val expected = j"""{"bool" : {"should" : {"terms" : {"approving_domain_ids" : [ 3 ]}}}}"""
+      val approved = j"""{ "terms": { "approving_domain_ids": [ 3 ] } }"""
+      val rejected = j"""{ "terms": { "rejecting_domain_ids": [ 3 ] } }"""
+      val pending = j"""{ "terms": { "pending_domain_ids": [ 3 ] } }"""
+      val expected = j"""{"bool" : {"should" : [$approved, $rejected, $pending]}}"""
       val filter = DocumentFilters.raSearchContextFilter(domainSet).get
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
@@ -382,13 +422,11 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
 
     "return the expected filter if the search context has both R&A and VM enabled" in {
-      val approvedByContext = j"""{ "terms": { "approving_domain_ids": [ 2 ] } }"""
-      // TODO: add in other means of being in the contexts queue when have that info
-      // val rejectedByContext = ???
-      // val pending = ???
-      val expected = j"""{"bool": {"should": $approvedByContext }}"""
-      val domainSet = DomainSet(Set(domains(2), domains(3)), Some(domains(2)))
-      val filter = DocumentFilters.raSearchContextFilter(domainSet).get
+      val domainSet = DomainSet(Set(domains(2), domains(3)), Some(domains(3)))
+      val vmFilter = JsonReader.fromString(DocumentFilters.vmSearchContextFilter(domainSet).get.toString())
+      val raFilter = JsonReader.fromString(DocumentFilters.raSearchContextFilter(domainSet).get.toString())
+      val expected = j"""{"bool" : {"must" : [$vmFilter, $raFilter]}}"""
+      val filter = DocumentFilters.searchContextFilter(domainSet).get
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
@@ -519,72 +557,112 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
   }
 
-  "the routingApprovalFilter" should {
-    val raDisabledDomain = domains(0)
-    val raEnabledDomain = domains(2)
-    val bothTypesOfDomain = Set(raDisabledDomain, raEnabledDomain)
-    val approvedByParent = j"""{ "term": { "is_approved_by_parent_domain": true } }"""
-    val fromRADisabledDomain = j"""{ "terms": { "socrata_id.domain_id": [ 0 ] } }"""
-    val fromNoDomain = j"""{ "terms": { "socrata_id.domain_id": [ ] } }"""
-    val approvedByParentNoSearchContext = j"""{ "bool" :{"should" :[$approvedByParent, $fromNoDomain]}}"""
+  "the raStatusFilter" should {
+    "return the expected filter when looking for rejected regardless of context" in {
+      val status = ApprovalStatus.rejected
+      val domainSetNoContext = DomainSet((0 to 4).map(domains(_)).toSet, None)
+      val domainSetRaDisabledContext = domainSetNoContext.copy(searchContext = Some(domains(0)))
+      val domainSetRaEnabledContext = domainSetNoContext.copy(searchContext = Some(domains(2)))
+      val expected = j"""{ "term": { "is_rejected_by_parent_domain": true } }"""
 
-    "include views that are approved by the parent domain if no search context is given & all domains have RA-enabled" in {
-      val domainSet = DomainSet(Set(raEnabledDomain), None)
-      val filter = DocumentFilters.routingApprovalFilter(domainSet)
-      val expected = j"""{"bool": {"must": {"bool": {"should": [$approvedByParent, $fromNoDomain]}} }}"""
-      val actual = JsonReader.fromString(filter.toString)
-      actual should be(expected)
+      val filterNoContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetNoContext).toString)
+      val filterRaDisabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaDisabledContext).toString)
+      val filterRaEnabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaEnabledContext).toString)
+
+      filterNoContext should be(expected)
+      filterRaDisabledContext should be(expected)
+      filterRaEnabledContext should be(expected)
     }
 
-    "include views that are approved by the parent domain + any views from domains w/o RA if no search context is given" in {
-      val domainSet = DomainSet(bothTypesOfDomain, None)
-      val filter = DocumentFilters.routingApprovalFilter(domainSet)
-      val expected = j"""{"bool": {"must": {"bool": {"should": [$approvedByParent, $fromRADisabledDomain]}} }}"""
-      val actual = JsonReader.fromString(filter.toString)
-      actual should be(expected)
+    "return the expected filter when looking for pending regardless of context" in {
+      val status = ApprovalStatus.pending
+      val domainSetNoContext = DomainSet((0 to 4).map(domains(_)).toSet, None)
+      val domainSetRaDisabledContext = domainSetNoContext.copy(searchContext = Some(domains(0)))
+      val domainSetRaEnabledContext = domainSetNoContext.copy(searchContext = Some(domains(2)))
+      val expected = j"""{ "term": { "is_pending_on_parent_domain": true } }"""
+
+      val filterNoContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetNoContext).toString)
+      val filterRaDisabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaDisabledContext).toString)
+      val filterRaEnabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaEnabledContext).toString)
+
+      filterNoContext should be(expected)
+      filterRaDisabledContext should be(expected)
+      filterRaEnabledContext should be(expected)
     }
 
-    "include views that are approved by the parent domain + any views from domains w/o RA if the search context is given but has RA disabled" in {
-      val domainSet = DomainSet(bothTypesOfDomain, Some(raDisabledDomain))
-      val filter = DocumentFilters.routingApprovalFilter(domainSet)
-      val expected = j"""{"bool": {"must": {"bool": {"should": [$approvedByParent, $fromRADisabledDomain]}} }}"""
-      val actual = JsonReader.fromString(filter.toString)
-      actual should be(expected)
-    }
+    "return the expected filter when looking for approved regardless of context" in {
+      val status = ApprovalStatus.approved
+      val domainSetNoContext = DomainSet((0 to 4).map(domains(_)).toSet, None)
+      val domainSetRaDisabledContext = domainSetNoContext.copy(searchContext = Some(domains(0)))
+      val domainSetRaEnabledContext = domainSetNoContext.copy(searchContext = Some(domains(2)))
+      val approvedByParent = j"""{ "term": { "is_approved_by_parent_domain": true } }"""
+      val fromRADisabledDomain = j"""{ "terms": { "socrata_id.domain_id": [ 1, 0 ] } }"""
+      val expected = j"""{"bool": {"should": [$fromRADisabledDomain, $approvedByParent]}}"""
 
-    "include views that are approved by both the parent domain and the search_context if the search context has RA" in {
-      val domainSet = DomainSet(bothTypesOfDomain, Some(raEnabledDomain))
-      val filter = DocumentFilters.routingApprovalFilter(domainSet)
-      val contextApproves = j"""{"terms" :{"approving_domain_ids" :[ ${raEnabledDomain.domainId}]}}"""
-      val expected = j"""
-        {"bool": {"must": [
-          {"bool": {"should": [$approvedByParent, $fromRADisabledDomain]}},
-          $contextApproves
-        ]}}"""
-      val actual = JsonReader.fromString(filter.toString)
-      actual should be(expected)
+      val filterNoContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetNoContext).toString)
+      val filterRaDisabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaDisabledContext).toString)
+      val filterRaEnabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaEnabledContext).toString)
+
+      filterNoContext should be(expected)
+      filterRaDisabledContext should be(expected)
+      filterRaEnabledContext should be(expected)
     }
   }
 
-  "the raStatusFilter" should {
-    "be the same as the raApprovalFilter if looking for approved" in {
-      val domainSet = DomainSet((0 to 4).map(domains(_)).toSet, Some(domains(2)))
-      val expected = JsonReader.fromString(DocumentFilters.routingApprovalFilter(domainSet).toString)
-      val filter = DocumentFilters.raStatusFilter(ApprovalStatus.approved, domainSet)
-      val actual = JsonReader.fromString(filter.toString)
+  "the raStatusOnContextFilter" should {
+    val someDomains = (0 to 4).map(domains(_)).toSet
+    val raEnabledContext = Some(domains(2))
+    val raDisabledContext = Some(domains(0))
+
+    "return None if there is no context, regardless of status" in {
+      val domainSet = DomainSet(someDomains, None)
+      val approvedFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.approved, domainSet)
+      val rejectedFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.rejected, domainSet)
+      val pendingFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.pending, domainSet)
+
+      approvedFilter should be(None)
+      rejectedFilter should be(None)
+      pendingFilter should be(None)
+    }
+
+    "return None if the context doesn't have R&A, regardless of status" in {
+      val domainSet = DomainSet(someDomains, raDisabledContext)
+      val approvedFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.approved, domainSet)
+      val rejectedFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.rejected, domainSet)
+      val pendingFilter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.pending, domainSet)
+
+      approvedFilter should be(None)
+      rejectedFilter should be(None)
+      pendingFilter should be(None)
+    }
+
+    "return the expected filter when looking for approved on a search context with R&A" in {
+      val domainSet = DomainSet(someDomains, raEnabledContext)
+      val expected = j"""{ "terms": { "approving_domain_ids": [ 2 ] } }"""
+      val filter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.approved, domainSet)
+      val actual = JsonReader.fromString(filter.get.toString)
       actual should be(expected)
     }
 
-    "have testing for the rejected case" in {
-      // TODO
+    "return the expected filter when looking for rejected on a search context with R&A" in {
+      val domainSet = DomainSet(someDomains, raEnabledContext)
+      val expected = j"""{ "terms": { "rejecting_domain_ids": [ 2 ] } }"""
+      val filter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.rejected, domainSet)
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
     }
 
-    "have testing for the pending case" in {
-      // TODO
+    "return the expected filter when looking for pending on a search context with R&A" in {
+      val domainSet = DomainSet(someDomains, raEnabledContext)
+      val expected = j"""{ "terms": { "pending_domain_ids": [ 2 ] } }"""
+      val filter = DocumentFilters.raStatusOnContextFilter(ApprovalStatus.pending, domainSet)
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
     }
   }
 
   "the approvalStatusFilter" should {
+    val someDomains = (0 to 4).map(domains(_)).toSet
     val defaultFilter = j"""{ "term": { "is_default_view": true } }"""
     val approvedFilter = j"""{ "term": { "moderation_status" : "approved" } }"""
     val defaultOrApprovedFilter = j"""{"bool": {"should": [$defaultFilter, $approvedFilter]}}"""
@@ -596,38 +674,77 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     val moderatedDomains = Set(domains(1), domains(3))
     val unmoderatedDomains = Set(domains(0), domains(2))
 
-    "return the composite of viewModeration, R&A and datalens approval if the status is approved" in {
-      val domainSet = DomainSet(unmoderatedDomains, Some(domains(0)))
+    "return the expected filter for approved views if the status is approved and we include the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
+      val beModApproved = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.approved, domainSet).toString)
+      val beDatalensApproved = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.approved).toString)
+      val beRAApproved = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.approved, domainSet).toString)
+      val beRAApprovedOnContext = JsonReader.fromString(DocumentFilters.raStatusOnContextFilter(ApprovalStatus.approved, domainSet).get.toString)
+      val expected = j"""{ "bool": { "must": [$beModApproved, $beDatalensApproved, $beRAApproved, $beRAApprovedOnContext]}}"""
+
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.approved, domainSet, includeContextApproval = true)
+      val actual = JsonReader.fromString(filter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter for approved views if the status is approved and we exclude the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
       val beModApproved = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.approved, domainSet).toString)
       val beDatalensApproved = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.approved).toString)
       val beRAApproved = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.approved, domainSet).toString)
       val expected = j"""{ "bool": { "must": [$beModApproved, $beDatalensApproved, $beRAApproved]}}"""
 
-      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.approved, domainSet)
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.approved, domainSet, includeContextApproval = false)
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
 
-    "return a filter for rejected views/datalens if the status is rejected" in {
-      val domainSet = DomainSet(moderatedDomains, Some(domains(1)))
+    "return the expected filter for rejected views if the status is rejected and we include the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
+      val beModRejected = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.rejected, domainSet).toString)
+      val beDatalensRejected = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.rejected).toString)
+      val beRARejected = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.rejected, domainSet).toString)
+      val beRARejectedOnContext = JsonReader.fromString(DocumentFilters.raStatusOnContextFilter(ApprovalStatus.rejected, domainSet).get.toString)
+      val expected = j"""{ "bool": { "should": [$beModRejected, $beDatalensRejected, $beRARejected, $beRARejectedOnContext]}}"""
+
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.rejected, domainSet, includeContextApproval = true)
+      val actual = JsonReader.fromString(filter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter for rejected views if the status is rejected and we exclude the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
       val beModRejected = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.rejected, domainSet).toString)
       val beDatalensRejected = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.rejected).toString)
       val beRARejected = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.rejected, domainSet).toString)
       val expected = j"""{ "bool": { "should": [$beModRejected, $beDatalensRejected, $beRARejected]}}"""
 
-      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.rejected, domainSet)
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.rejected, domainSet, includeContextApproval = false)
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
 
-    "return a filter for pending views/datalens if the status is pending" in {
-      val domainSet = DomainSet(moderatedDomains, Some(domains(1)))
+    "return the expected filter for pending views if the status is pending and we include the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
+      val beModPending = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.pending, domainSet).toString)
+      val beDatalensPending = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.pending).toString)
+      val beRAPending = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.pending, domainSet).toString)
+      val beRAPendingOnContext = JsonReader.fromString(DocumentFilters.raStatusOnContextFilter(ApprovalStatus.pending, domainSet).get.toString)
+      val expected = j"""{ "bool": { "should": [$beModPending, $beDatalensPending, $beRAPending, $beRAPendingOnContext]}}"""
+
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.pending, domainSet, includeContextApproval = true)
+      val actual = JsonReader.fromString(filter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter for pending views if the status is pending and we exclude the context" in {
+      val domainSet = DomainSet(someDomains, Some(domains(3)))
       val beModPending = JsonReader.fromString(DocumentFilters.moderationStatusFilter(ApprovalStatus.pending, domainSet).toString)
       val beDatalensPending = JsonReader.fromString(DocumentFilters.datalensStatusFilter(ApprovalStatus.pending).toString)
       val beRAPending = JsonReader.fromString(DocumentFilters.raStatusFilter(ApprovalStatus.pending, domainSet).toString)
       val expected = j"""{ "bool": { "should": [$beModPending, $beDatalensPending, $beRAPending]}}"""
 
-      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.pending, domainSet)
+      val filter = DocumentFilters.approvalStatusFilter(ApprovalStatus.pending, domainSet, includeContextApproval = false)
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
@@ -766,71 +883,74 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
   }
 
-  "the chooseVisFilters" should {
+  "the authFilter" should {
+    val someDomains = (0 to 4).map(domains(_)).toSet
+    val contextWithRA = Some(domains(3))
+
     "throw an UnauthorizedError if no user is given and auth is required" in  {
       an[UnauthorizedError] should be thrownBy {
-        DocumentFilters.visibilityFilter(None, DomainSet(), true)
+        DocumentFilters.authFilter(None, DomainSet(), true)
       }
     }
 
     "return None for super admins if auth is required" in {
       val user = User("mooks", flags = Some(List("admin")))
-      val domainSet = DomainSet(Set(domains(1)), Some(domains(1)))
-      val filter = DocumentFilters.visibilityFilter(Some(user), domainSet, true)
+      val domainSet = DomainSet(someDomains, contextWithRA)
+      val filter = DocumentFilters.authFilter(Some(user), domainSet, true)
       filter should be(None)
     }
 
-    "return only anon and personal views for users who can view everything (but aren't super admins and don't have an authenticating domain) if auth is required" in {
+    "return anon (acknowleding context) and personal views for users who can view everything (but aren't super admins and don't have an authenticating domain) if auth is required" in {
       val user = User("mooks", roleName = Some("publisher"))
-      val domainSet = DomainSet(Set(domains(1)), Some(domains(1)))
-      val filter = DocumentFilters.visibilityFilter(Some(user), domainSet, true)
+      val domainSet = DomainSet(someDomains, contextWithRA)
+      val filter = DocumentFilters.authFilter(Some(user), domainSet, true)
       val actual = JsonReader.fromString(filter.get.toString)
-      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet).toString)
+      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet, includeContextApproval = true).toString)
       val personalFilter = JsonReader.fromString(DocumentFilters.ownedOrSharedFilter(user).toString)
       val expected = j"""{"bool": {"should": [$personalFilter, $anonFilter]}}"""
       actual should be(expected)
     }
 
-    "return only anon, personal and within-domains views for users who can view everything and do have an authenticating domain if auth is required" in {
-      val user = User("mooks", authenticatingDomain = Some(domains(2)), roleName = Some("publisher"))
-      val domainSet = DomainSet(Set(domains(1)), Some(domains(1)))
-      val filter = DocumentFilters.visibilityFilter(Some(user), domainSet, true)
+    "return anon views (disregarding context), personal views and within-domains views for users who can view everything and do have an authenticating domain if auth is required" in {
+      val user = User("mooks", authenticatingDomain = contextWithRA, roleName = Some("publisher"))
+      val domainSet = DomainSet(someDomains, contextWithRA)
+      val filter = DocumentFilters.authFilter(Some(user), domainSet, true)
       val actual = JsonReader.fromString(filter.get.toString)
-      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet).toString)
+      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet, includeContextApproval = false).toString)
       val personalFilter = JsonReader.fromString(DocumentFilters.ownedOrSharedFilter(user).toString)
-      val withinDomainFilter = JsonReader.fromString(DocumentFilters.domainIdFilter(Set(2)).toString)
+      val withinDomainFilter = JsonReader.fromString(DocumentFilters.domainIdFilter(Set(3)).toString)
       val expected = j"""{"bool": {"should": [$personalFilter, $anonFilter, $withinDomainFilter]}}"""
       actual should be(expected)
     }
 
-    "return only anon and personal views for users who have logged in but cannot view everything if auth is required" in {
-      val user = User("mooks", authenticatingDomain = Some(domains(1)), roleName = Some("editor"))
-      val domainSet = DomainSet(Set(domains(1)), Some(domains(1)))
-      val filter = DocumentFilters.visibilityFilter(Some(user), domainSet, true)
+    "return anon (acknowleding context) and personal views for users who have logged in but cannot view everything if auth is required" in {
+      val user = User("mooks", authenticatingDomain = contextWithRA, roleName = Some("editor"))
+      val domainSet = DomainSet(someDomains, contextWithRA)
+      val filter = DocumentFilters.authFilter(Some(user), domainSet, true)
       val actual = JsonReader.fromString(filter.get.toString)
-      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet).toString)
+      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet, includeContextApproval = true).toString)
       val personalFilter = JsonReader.fromString(DocumentFilters.ownedOrSharedFilter(user).toString)
       val expected = j"""{"bool": {"should": [$personalFilter, $anonFilter]}}"""
       actual should be(expected)
     }
 
-    "return only anon views if auth is not required" in {
+    "return only anon (acknowleding context) views if auth is not required" in {
       val userWhoCannotViewAll = User("mooks", roleName = Some("editor"))
       val userWhoCanViewAllButNoDomain = User("mooks", roleName = Some("publisher"))
-      val userWhoCanViewAllWithDomain = User("mooks", Some(domains(1)), roleName = Some("publisher"))
+      val userWhoCanViewAllWithDomain = User("mooks", contextWithRA, roleName = Some("publisher"))
       val superAdmin = User("mooks", flags = Some(List("admin")))
-      val domainSet = DomainSet(Set(domains(1)), Some(domains(1)))
+      val domainSet = DomainSet(someDomains, contextWithRA)
 
-      val filter1 = DocumentFilters.visibilityFilter(Some(userWhoCannotViewAll), domainSet, false)
-      val filter2 = DocumentFilters.visibilityFilter(Some(userWhoCanViewAllButNoDomain), domainSet, false)
-      val filter3 = DocumentFilters.visibilityFilter(Some(userWhoCanViewAllWithDomain), domainSet, false)
-      val filter4 = DocumentFilters.visibilityFilter(Some(superAdmin), domainSet, false)
+      val filter1 = DocumentFilters.authFilter(Some(userWhoCannotViewAll), domainSet, false)
+      val filter2 = DocumentFilters.authFilter(Some(userWhoCanViewAllButNoDomain), domainSet, false)
+      val filter3 = DocumentFilters.authFilter(Some(userWhoCanViewAllWithDomain), domainSet, false)
+      val filter4 = DocumentFilters.authFilter(Some(superAdmin), domainSet, false)
 
       val actual1 = JsonReader.fromString(filter1.get.toString)
       val actual2 = JsonReader.fromString(filter2.get.toString)
       val actual3 = JsonReader.fromString(filter3.get.toString)
       val actual4 = JsonReader.fromString(filter4.get.toString)
-      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet).toString)
+      val anonFilter = JsonReader.fromString(DocumentFilters.anonymousFilter(domainSet, includeContextApproval = true).toString)
 
       actual1 should be(anonFilter)
       actual2 should be(anonFilter)

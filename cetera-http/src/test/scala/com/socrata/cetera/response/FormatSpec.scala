@@ -335,128 +335,161 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
   }
 
   "the moderationApproved method" should {
-    "return None if the domain does not have moderation enabled and there is no search context" in {
-      val view = j"""{ }"""
-      val unmoderatedDomain = domains(0)
-      val noContext = DomainSet(searchContext = None)
-      Format.moderationApproved(view, unmoderatedDomain, noContext) should be(None)
-    }
-
-    "return None if neither the domain or the context have moderation enabled" in {
-      val view = j"""{ }"""
-      val unmoderatedDomain = domains(0)
-      val moderatedContext = DomainSet(searchContext = Some(domains(2)))
-      Format.moderationApproved(view, unmoderatedDomain, moderatedContext) should be(None)
-    }
-
-    "return false if the view is rejected and the context (but not the domain) has moderation enabled" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
-      val unmoderatedDomain = domains(0)
-      val moderatedDomain = domains(1)
-      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
-      Format.moderationApproved(view, unmoderatedDomain, moderatedContext).get should be(false)
-    }
-
-    "return false if the view is rejected and the domain has moderation enabled (regardless of search context settings)" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
-      val unmoderatedDomain = domains(0)
-      val moderatedDomain = domains(1)
-      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
-      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
-      val noContext = DomainSet(searchContext = None)
-
-      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(false)
-      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(false)
-      Format.moderationApproved(view, moderatedDomain, noContext).get should be(false)
-    }
-
-    "return true if the view is a dataset in all relevant cases" in {
-      val view = j"""{ "datatype": "dataset", "is_default_view": true }"""
-      val unmoderatedDomain = domains(0)
-      val moderatedDomain = domains(1)
-      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
-      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
-      val noContext = DomainSet(searchContext = None)
-
-      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(true)
-      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(true)
-      Format.moderationApproved(view, moderatedDomain, noContext).get should be(true)
-      Format.moderationApproved(view, unmoderatedDomain, moderatedContext).get should be(true)
-    }
-
-    "return true if the view is approved and the domain has moderation enabled (regardless of search context settings)" in {
+    "return None if the domain does not have moderation enabled" in {
       val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
       val unmoderatedDomain = domains(0)
-      val moderatedDomain = domains(1)
-      val unmoderatedContext = DomainSet(searchContext = Some(unmoderatedDomain))
-      val moderatedContext = DomainSet(searchContext = Some(moderatedDomain))
-      val noContext = DomainSet(searchContext = None)
+      Format.moderationApproved(view, unmoderatedDomain) should be(None)
+    }
 
-      Format.moderationApproved(view, moderatedDomain, moderatedContext).get should be(true)
-      Format.moderationApproved(view, moderatedDomain, unmoderatedContext).get should be(true)
-      Format.moderationApproved(view, moderatedDomain, noContext).get should be(true)
+    "return false if the view is rejected and the domain has moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      Format.moderationApproved(view, moderatedDomain).get should be(false)
+    }
+
+    "return true if the view is a dataset and the domain has moderation enabled" in {
+      val view = j"""{ "datatype": "dataset", "is_default_view": true }"""
+      val moderatedDomain = domains(1)
+      Format.moderationApproved(view, moderatedDomain).get should be(true)
+    }
+
+    "return true if the view is approved and the domain has moderation enabled)" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val moderatedDomain = domains(1)
+      Format.moderationApproved(view, moderatedDomain).get should be(true)
+    }
+  }
+
+  "the moderationApprovedByContext method" should {
+    "return None if the context doesn't have view moderation" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val unmoderatedDomain0 = domains(0)
+      val unmoderatedDomain2 = domains(2)
+      val moderatedDomain = domains(1)
+      val context = DomainSet(searchContext = Some(unmoderatedDomain0))
+      Format.moderationApprovedByContext(view, unmoderatedDomain2, context) should be(None)
+      Format.moderationApprovedByContext(view, moderatedDomain, context) should be(None)
+    }
+
+    "return false if the view is rejected and the domain and context have moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val moderatedDomain1 = domains(1)
+      val moderatedDomain3 = domains(3)
+      val context = DomainSet(searchContext = Some(moderatedDomain1))
+      Format.moderationApprovedByContext(view, moderatedDomain3, context).get should be(false)
+    }
+
+    "return true if the view is a dataset and the domain and context have moderation enabled" in {
+      val view = j"""{ "datatype": "dataset", "is_default_view": true }"""
+      val moderatedDomain1 = domains(1)
+      val moderatedDomain3 = domains(3)
+      val context = DomainSet(searchContext = Some(moderatedDomain1))
+      Format.moderationApprovedByContext(view, moderatedDomain3, context).get should be(true)
+    }
+
+    "return true if the view is approved and the domain and context have moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val moderatedDomain1 = domains(1)
+      val moderatedDomain3 = domains(3)
+      val context = DomainSet(searchContext = Some(moderatedDomain1))
+      Format.moderationApprovedByContext(view, moderatedDomain3, context).get should be(true)
+    }
+
+    "return false if the view is not default and the context has moderation enabled, but not the view's domain" in {
+      val view = j"""{ "datatype": "chart", "is_default_view": false }"""
+      val moderatedDomain = domains(1)
+      val viewsDomain = domains(0)
+      val context = DomainSet(searchContext = Some(moderatedDomain))
+      Format.moderationApprovedByContext(view, viewsDomain, context).get should be(false)
+    }
+
+    "return true if the view is a dataset and the context has moderation enabled, but not the view's domain" in {
+      val view = j"""{ "datatype": "dataset", "is_default_view": true }"""
+      val moderatedDomain = domains(1)
+      val viewsDomain = domains(0)
+      val context = DomainSet(searchContext = Some(moderatedDomain))
+      Format.moderationApprovedByContext(view, viewsDomain, context).get should be(true)
     }
   }
 
   "the routingApproved method" should {
-    "return None if the domain does not have R&A enabled and there is no search context" in {
+    "return None if the domain does not have R&A enabled" in {
       val view = j"""{ }"""
       val unroutedDomain = domains(0)
-      val noContext = DomainSet(searchContext = None)
-      Format.routingApproved(view, unroutedDomain, noContext) should be(None)
+      Format.routingApproved(view, unroutedDomain) should be(None)
     }
 
-    "return None if neither the domain or the context have R&A enabled" in {
-      val view = j"""{ }"""
-      val unroutedDomain = domains(0)
-      val unroutedContext = DomainSet(searchContext = Some(domains(1)))
-      Format.routingApproved(view, unroutedDomain, unroutedContext) should be(None)
-    }
-
-    "return false if the dataset isn't approved by its parent domain (regardless of context)" in {
+    "return false if the dataset isn't approved by its parent domain" in {
       val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 0 ] }"""
       val unroutedDomain = domains(0)
       val routedDomain = domains(2)
-      val routedContext = DomainSet(searchContext = Some(routedDomain))
-      val unroutedContext = DomainSet(searchContext = Some(unroutedDomain))
+      Format.routingApproved(view, routedDomain).get should be(false)
+    }
+
+    "return true if the dataset is approved by its parent domain" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2 ] }"""
+      val routedDomain = domains(2)
+      Format.routingApproved(view, routedDomain).get should be(true)
+    }
+  }
+
+  "the routingApprovedByContext method" should {
+    "return None if there is no search context regardless of parent domain" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 0, 2 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(2)
       val noContext = DomainSet(searchContext = None)
-
-      Format.routingApproved(view, routedDomain, routedContext).get should be(false)
-      Format.routingApproved(view, routedDomain, unroutedContext).get should be(false)
-      Format.routingApproved(view, routedDomain, noContext).get should be(false)
+      Format.routingApprovedByContext(view, unroutedDomain, noContext) should be(None)
+      Format.routingApprovedByContext(view, routedDomain, noContext) should be(None)
     }
 
-    "return false if the dataset isn't approved by the context (regardless of domain)" in {
+    "return None if the context doesn't have R&A enabled, regardless of parent domain" in {
+      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 0, 2 ] }"""
+      val unroutedDomain = domains(0)
+      val routedDomain = domains(2)
+      val unroutedContext = DomainSet(searchContext = Some(domains(1)))
+      Format.routingApprovedByContext(view, unroutedDomain, unroutedContext) should be(None)
+      Format.routingApprovedByContext(view, routedDomain, unroutedContext) should be(None)
+    }
+
+    "return false if the dataset isn't approved by the RA-enabled context" in {
       val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 3 ] }"""
-      val unroutedDomain = domains(0)
-      val routedDomain = domains(3)
-      val routedContext = DomainSet(searchContext = Some(domains(2)))
-
-      Format.routingApproved(view, unroutedDomain, routedContext).get should be(false)
-      Format.routingApproved(view, routedDomain, routedContext).get should be(false)
-    }
-
-    "return true if the dataset is approved by the context but is from a domain with R&A disabled" in {
-      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2 ] }"""
-      val unroutedDomain = domains(0)
+      val viewsDomain = domains(3)
       val routedDomain = domains(2)
       val routedContext = DomainSet(searchContext = Some(routedDomain))
-      Format.routingApproved(view, unroutedDomain, routedContext).get should be(true)
+
+      Format.routingApprovedByContext(view, viewsDomain, routedContext).get should be(false)
     }
 
-    "return true if the dataset is approved by its domain but and the context has R&A disabled" in {
-      val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2 ] }"""
-      val unroutedDomain = domains(0)
-      val routedDomain = domains(2)
-      val unroutedContext = DomainSet(searchContext = Some(unroutedDomain))
-      Format.routingApproved(view, routedDomain, unroutedContext).get should be(true)
-    }
-
-    "return true if the dataset is approved by both its domain and the context" in {
+    "return true if the dataset is approved by the RA-enabled context" in {
       val view = j"""{ "datatype": "dataset", "approving_domain_ids": [ 2, 3 ] }"""
+      val viewsDomain = domains(3)
       val routedDomain = domains(2)
-      val routedContext = DomainSet(searchContext = Some(domains(3)))
-      Format.routingApproved(view, routedDomain, routedContext).get should be(true)
+      val routedContext = DomainSet(searchContext = Some(routedDomain))
+
+      Format.routingApprovedByContext(view, viewsDomain, routedContext).get should be(true)
+    }
+  }
+
+  "the contextApprovals method" should {
+    "return None for both VM and R&A if the view's domainId is the same as the search context's id" in {
+      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val moderatedDomain = domains(1)
+      val context = DomainSet(searchContext = Some(moderatedDomain))
+      val (vmContextApproval, raContextApproval) = Format.contextApprovals(view, moderatedDomain, context)
+      vmContextApproval should be(None)
+      raContextApproval should be(None)
+    }
+
+    "return the expected VM and R&A context approvals if the view's domainId is not the same as the search context's id" in {
+      val view = j"""{ "datatype": "dataset", "is_default_view": true, "approving_domain_ids": [ 3 ] }"""
+      val viewsDomain = domains(1)
+      val contextDomain = domains(3)
+      val context = DomainSet(searchContext = Some(contextDomain))
+      val (vmContextApproval, raContextApproval) = Format.contextApprovals(view, viewsDomain, context)
+      vmContextApproval.get should be(true)
+      raContextApproval.get should be(true)
     }
   }
 

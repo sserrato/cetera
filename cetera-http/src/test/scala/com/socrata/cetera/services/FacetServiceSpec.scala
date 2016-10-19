@@ -29,22 +29,11 @@ class FacetServiceSpec
   with BeforeAndAfterAll
   with BeforeAndAfterEach {
 
-  val client = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreTestPort = 8035
-  val coreClient = new TestCoreClient(httpClient, coreTestPort)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new FacetService(documentClient, domainClient, coreClient)
-  val mockServer = startClientAndServer(coreTestPort)
+  val facetService = new FacetService(documentClient, domainClient, coreClient)
 
-  override def beforeEach(): Unit = {
-    mockServer.reset()
-  }
+  override def beforeEach(): Unit = mockServer.reset()
 
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()
@@ -65,12 +54,12 @@ class FacetServiceSpec
 
   test("retrieve all visible domain facets for domains that are unlocked") {
     val domainResults = List(
-      service.doAggregate(domains(0).domainCname, AuthParams(), None, None),
-      service.doAggregate(domains(1).domainCname, AuthParams(), None, None),
-      service.doAggregate(domains(2).domainCname, AuthParams(), None, None),
-      service.doAggregate(domains(3).domainCname, AuthParams(), None, None),
-      service.doAggregate(domains(4).domainCname, AuthParams(), None, None),
-      service.doAggregate(domains(5).domainCname, AuthParams(), None, None))
+      facetService.doAggregate(domains(0).domainCname, AuthParams(), None, None),
+      facetService.doAggregate(domains(1).domainCname, AuthParams(), None, None),
+      facetService.doAggregate(domains(2).domainCname, AuthParams(), None, None),
+      facetService.doAggregate(domains(3).domainCname, AuthParams(), None, None),
+      facetService.doAggregate(domains(4).domainCname, AuthParams(), None, None),
+      facetService.doAggregate(domains(5).domainCname, AuthParams(), None, None))
 
     val domainFacets = domainResults.map{ r =>
       val facets = r._2
@@ -100,19 +89,19 @@ class FacetServiceSpec
     // and the "2" custom metadata value
     domainFacets(1).metadata should contain theSameElementsAs(List(ValueCount("2",1)))
 
-    // domain 2 has 1 story (fxf-10) that is anonymously viewable
-    domainFacets(2).datatypes should contain theSameElementsAs(List(ValueCount("story", 1)))
+    // domain 2 has 1 story (fxf-10) and 1 filter (zeta-0005) that are anonymously viewable
+    domainFacets(2).datatypes should contain theSameElementsAs(List(ValueCount("filter",1), ValueCount("story",1)))
     // it has the "Gamma" category
-    domainFacets(2).categories should contain theSameElementsAs(List(ValueCount("Gamma",1)))
+    domainFacets(2).categories should contain theSameElementsAs(List(ValueCount("Fun",1), ValueCount("Gamma",1)))
     // and two tags: "1-one" and "2-two"
     domainFacets(2).tags should contain theSameElementsAs(List(ValueCount("1-one",1), ValueCount("2-two",1)))
     // and the "3" custom metadata value
     domainFacets(2).metadata should contain theSameElementsAs(List(ValueCount("3",1)))
 
-    // domain 3 has 2 datasets (zeta-2 and zeta-5) that are anonymously viewable
-    domainFacets(3).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 2)))
+    // domain 3 has 1 dataset (zeta-0002) that is anonymously viewable
+    domainFacets(3).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 1)))
     // these both have the "Fun" category
-    domainFacets(3).categories should contain theSameElementsAs(List(ValueCount("Fun",2)))
+    domainFacets(3).categories should contain theSameElementsAs(List(ValueCount("Fun",1)))
     // and neither have tags or metadata
     domainFacets(3).tags should be('empty)
     domainFacets(3).metadata should be('empty)
@@ -156,7 +145,7 @@ class FacetServiceSpec
         .withBody(CompactJsonWriter.toString(userBody))
     )
 
-    val (_, facets, timings, _) = service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
+    val (_, facets, timings, _) = facetService.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
     val datatypes = facets.find(_.facet == "datatypes").map(_.values).getOrElse(fail())
     val categories = facets.find(_.facet == "categories").map(_.values).getOrElse(fail())
     val tags = facets.find(_.facet == "tags").map(_.values).getOrElse(fail())
@@ -208,7 +197,7 @@ class FacetServiceSpec
     )
 
     intercept[DomainNotFoundError] {
-      service.doAggregate("bs-domain.com", AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
+      facetService.doAggregate("bs-domain.com", AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
     }
   }
 
@@ -241,7 +230,7 @@ class FacetServiceSpec
     )
 
     intercept[UnauthorizedError] {
-      service.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
+      facetService.doAggregate(context.domainCname, AuthParams(cookie=Some("c=cookie")), Some(context.domainCname), None)
     }
   }
 }

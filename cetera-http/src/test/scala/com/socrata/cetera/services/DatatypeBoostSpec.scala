@@ -15,17 +15,7 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
   val boostedDatatype = TypeCalendars
   val boostedDatatypeQueryString = "boost" + boostedDatatype.plural.capitalize
 
-  val client = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, 8033)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
-
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()

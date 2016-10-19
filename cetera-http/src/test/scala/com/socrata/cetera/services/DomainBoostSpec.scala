@@ -10,17 +10,7 @@ import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.search._
 
 class DomainBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, 8030)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val balboaClient = new BalboaClient("/tmp/metrics")
-  val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
-
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()

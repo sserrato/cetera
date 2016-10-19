@@ -36,11 +36,11 @@
       }
     },
     "approving_domain_ids": { "type": "long" },
-    "pending_domain_ids": { "type": "long" },
     "rejecting_domain_ids": { "type": "long" },
+    "pending_domain_ids": { "type": "long" },
     "is_approved_by_parent_domain": { "type": "boolean" },
-    "is_pending_on_parent_domain": { "type": "boolean" },
     "is_rejected_by_parent_domain": { "type": "boolean" },
+    "is_pending_on_parent_domain": { "type": "boolean" },
     "created_at": { "type": "date", "format": "dateOptionalTime" },
     "customer_category": {
       "type": "string",

@@ -8,7 +8,6 @@ import com.socrata.cetera.handlers.{PagingParamSet, UserSearchParamSet}
 import com.socrata.cetera.{TestESClient, TestESData, TestESUsers}
 
 class UserClientSpec extends FunSuiteLike with Matchers with TestESData with TestESUsers with BeforeAndAfterAll {
-  val client = new TestESClient(testSuiteName)
   val userClient = new UserClient(client, testSuiteName)
 
   val superAdmin = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
@@ -20,10 +19,7 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Tes
   val anonymous = User("", None, roleName = None, rights = None, flags = None)
   val adminWithoutAuthenticatingDomain = User("", None, roleName = Some("administrator"), rights = None, flags = None)
 
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()

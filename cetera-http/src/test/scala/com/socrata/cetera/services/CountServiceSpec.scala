@@ -124,16 +124,9 @@ class CountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll
 
 
 class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, 8032)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val documentClient = new DocumentClient(client, domainClient, testSuiteName, None, None, Set.empty)
-  val service = new CountService(documentClient, domainClient, coreClient)
+  val countService = new CountService(documentClient, domainClient, coreClient)
 
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     client.close()
@@ -142,31 +135,31 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
 
   test("categories count request") {
     val expectedResults = List(Count("Personal", 3))
-    val (_, res, _, _) = service.doAggregate(CategoriesFieldType, Map.empty, AuthParams(), None, None)
+    val (_, res, _, _) = countService.doAggregate(CategoriesFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("tags count request") {
     val expectedResults = List(Count("Happy", 3), Count("Accident", 3))
-    val (_, res, _, _) = service.doAggregate(TagsFieldType, Map.empty, AuthParams(), None, None)
+    val (_, res, _, _) = countService.doAggregate(TagsFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain categories count request") {
     val expectedResults = List(Count("Alpha to Omega", 2), Count("Gamma", 1), Count("Pumas",1), Count("Fun", 4))
-    val (_, res, _, _) = service.doAggregate(DomainCategoryFieldType, Map.empty, AuthParams(), None, None)
+    val (_, res, _, _) = countService.doAggregate(DomainCategoryFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("domain tags count request") {
     val expectedResults = List(Count("1-one", 3), Count("2-two", 1))
-    val (_, res, _, _) = service.doAggregate(DomainTagsFieldType, Map.empty, AuthParams(), None, None)
+    val (_, res, _, _) = countService.doAggregate(DomainTagsFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
   test("owners count request") {
-    val expectedResults = List(Count("robin-hood", 4), Count("lil-john", 3),  Count("john-clan", 1))
-    val (_, res, _, _) = service.doAggregate(OwnerIdFieldType, Map.empty, AuthParams(), None, None)
+    val expectedResults = List(Count("robin-hood", 4), Count("lil-john", 2),  Count("john-clan", 1), Count("prince-john",1))
+    val (_, res, _, _) = countService.doAggregate(OwnerIdFieldType, Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -177,7 +170,7 @@ class CountServiceSpecWithTestESData extends FunSuiteLike with Matchers with Bef
       .mapValues(Seq(_))
 
     intercept[DomainNotFoundError] {
-      val (_, res, _, _) = service.doAggregate(OwnerIdFieldType, params, AuthParams(), None, None)
+      val (_, res, _, _) = countService.doAggregate(OwnerIdFieldType, params, AuthParams(), None, None)
     }
   }
 }

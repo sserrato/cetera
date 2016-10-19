@@ -4,7 +4,6 @@
   "socrata_id": {
     "dataset_id": "fxf-1",
     "parent_dataset_id": [
-      "fxf-0"
     ],
     "domain_id": 1,
     "nbe_id": "abcd-efgh",
@@ -66,9 +65,14 @@
   "is_moderation_approved": true,
   "moderation_status": "approved",
   "approving_domain_ids": [
-    2
+  ],
+  "rejecting_domain_ids": [
+  ],
+  "pending_domain_ids": [
   ],
   "is_approved_by_parent_domain": false,
+  "is_rejected_by_parent_domain": false,
+  "is_pending_on_parent_domain": false,
   "page_views": {
     "page_views_total": 2,
     "page_views_last_month": 2,
@@ -80,10 +84,10 @@
     "2-two"
   ],
   "update_freq": 2,
-  "owner_id": "lil-john",
+  "owner_id": "maid-marian",
   "owner": {
-    "id": "lil-john",
-    "screen_name": "Little John"
+    "id": "maid-marian",
+    "screen_name": "Maid Marian"
   },
   "shared_to": [],
   "attribution": null,

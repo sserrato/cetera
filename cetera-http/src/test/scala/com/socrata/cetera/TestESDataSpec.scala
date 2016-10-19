@@ -10,11 +10,8 @@ import com.socrata.cetera.search.ElasticSearchClient
 import com.socrata.cetera.types._
 
 class TestESDataSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val client: ElasticSearchClient = new TestESClient(testSuiteName)
 
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     removeBootstrapData()

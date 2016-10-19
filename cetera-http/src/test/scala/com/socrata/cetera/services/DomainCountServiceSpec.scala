@@ -17,15 +17,9 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.types.Count
 
 class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAfterAll with TestESData {
-  val client = new TestESClient(testSuiteName)
-  val httpClient = new TestHttpClient()
-  val coreClient = new TestCoreClient(httpClient, 8034)
-  val domainClient = new DomainClient(client, coreClient, testSuiteName)
-  val service = new DomainCountService(domainClient, coreClient)
+  val domainCountService = new DomainCountService(domainClient, coreClient)
 
-  override protected def beforeAll(): Unit = {
-    bootstrapData()
-  }
+  override protected def beforeAll(): Unit = bootstrapData()
 
   override protected def afterAll(): Unit = {
     client.close()
@@ -34,11 +28,11 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("count domains from unmoderated search context") {
     val expectedResults = List(
-      Count("annabelle.island.net", 2),
-      Count("blue.org", 1),
+      Count("annabelle.island.net", 1),
+      Count("blue.org", 2),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 5))
-    val (_, res, _, _) = service.doAggregate(Map(
+    val (_, res, _, _) = domainCountService.doAggregate(Map(
       Params.searchContext -> "petercetera.net",
       Params.domains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), AuthParams(), None, None)
@@ -50,11 +44,11 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
     // this wouldn't come back with so many results. All the derived views from unmoderated domains
     // would not be counted.  which is what we really want.
     val expectedResults = List(
-      Count("annabelle.island.net", 2),
-      Count("blue.org", 1),
+      Count("annabelle.island.net", 1),
+      Count("blue.org", 2),
       Count("opendata-demo.socrata.com", 1),
       Count("petercetera.net", 5))
-    val (_, res, _, _) = service.doAggregate(Map(
+    val (_, res, _, _) = domainCountService.doAggregate(Map(
       Params.searchContext -> "annabelle.island.net",
       Params.domains -> "petercetera.net,opendata-demo.socrata.com,blue.org,annabelle.island.net")
       .mapValues(Seq(_)), AuthParams(), None, None)
@@ -63,13 +57,13 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
 
   test("count domains default to include only unlocked customer domains") {
     val expectedResults = List(
-      Count("annabelle.island.net", 2),
-      Count("blue.org", 1),
+      Count("annabelle.island.net", 1),
+      Count("blue.org", 2),
       Count("dylan.demo.socrata.com", 0),
       // opendata-demo.socrata.com is not a customer domain, so the domain and all docs should be hidden
       // Count("opendata-demo.socrata.com", 0),
       Count("petercetera.net", 5))
-    val (_, res, _, _) = service.doAggregate(Map.empty, AuthParams(), None, None)
+    val (_, res, _, _) = domainCountService.doAggregate(Map.empty, AuthParams(), None, None)
     res.results should contain theSameElementsAs expectedResults
   }
 
@@ -80,7 +74,7 @@ class DomainCountServiceSpec extends FunSuiteLike with Matchers with BeforeAndAf
       .mapValues(Seq(_))
 
     intercept[DomainNotFoundError] {
-      val (_, res, _, _) = service.doAggregate(params, AuthParams(), None, None)
+      val (_, res, _, _) = domainCountService.doAggregate(params, AuthParams(), None, None)
     }
   }
 }

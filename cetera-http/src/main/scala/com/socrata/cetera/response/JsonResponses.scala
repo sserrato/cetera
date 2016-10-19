@@ -55,7 +55,9 @@ case class Metadata(
     isPublic: Option[Boolean] = None,
     isPublished: Option[Boolean] = None,
     isModerationApproved: Option[Boolean] = None,
+    isModerationApprovedOnContext: Option[Boolean] = None,
     isRoutingApproved: Option[Boolean] = None,
+    isRoutingApprovedOnContext: Option[Boolean] = None,
     isDatalensApproved: Option[Boolean] = None,
     visibleToAnonymous: Option[Boolean] = None,
     score: Option[BigDecimal] = None,
@@ -94,5 +96,5 @@ object SearchResults {
       SearchResults(Seq.empty[T], 0),
       InternalTimings(Timings.elapsedInMillis(time), Seq(0)),
       setCookies
-      )
+    )
 }

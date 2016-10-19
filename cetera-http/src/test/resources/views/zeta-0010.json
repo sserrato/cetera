@@ -4,7 +4,7 @@
   "socrata_id": {
     "dataset_id": "zeta-0010",
     "parent_dataset_id": [],
-    "domain_id": 3,
+    "domain_id": 2,
     "nbe_id": "zeta-0010",
     "obe_id": "data-0010"
   },
@@ -41,15 +41,22 @@
     ]
   },
   "customer_metadata_flattened": [],
-  "is_public": false,
+  "is_public": true,
   "is_published": true,
   "is_default_view": false,
-  "is_moderation_approved": true,
-  "moderation_status": "approved",
+  "is_moderation_approved": null,
+  "moderation_status": null,
   "approving_domain_ids": [
+    2
+  ],
+  "rejecting_domain_ids": [
     3
   ],
+  "pending_domain_ids": [
+  ],
   "is_approved_by_parent_domain": true,
+  "is_rejected_by_parent_domain": false,
+  "is_pending_on_parent_domain": false,
   "page_views": {
     "page_views_total": 42,
     "page_views_last_month": 42,

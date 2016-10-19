@@ -68,12 +68,18 @@
   "is_public": true,
   "is_published": true,
   "is_default_view": false,
-  "is_moderation_approved": false,
-  "moderation_status": "rejected",
+  "is_moderation_approved": null,
+  "moderation_status": null,
   "approving_domain_ids": [
-    0
   ],
-  "is_approved_by_parent_domain": true,
+  "rejecting_domain_ids": [
+  ],
+  "pending_domain_ids": [
+    2
+  ],
+  "is_approved_by_parent_domain": false,
+  "is_rejected_by_parent_domain": false,
+  "is_pending_on_parent_domain": false,
   "page_views": {
     "page_views_total": 1,
     "page_views_last_month": 1,
