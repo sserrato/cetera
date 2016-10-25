@@ -130,8 +130,10 @@ object Format {
 
   def isPublished(j: JValue): Boolean = extractJBoolean(j.dyn.is_published.?).exists(identity)
 
-  // TODO: change to use moderation_status
-  private def literallyApproved(j: JValue): Boolean = extractJBoolean(j.dyn.is_moderation_approved.?).exists(identity)
+  private def literallyApproved(j: JValue): Boolean = {
+    val status = extractJString(j.dyn.moderation_status.?)
+    status.contains(ApprovalStatus.approved.status)
+  }
 
   private def approvalsContainId(j: JValue, id: Int): Boolean = {
     j.dyn.approving_domain_ids.! match {

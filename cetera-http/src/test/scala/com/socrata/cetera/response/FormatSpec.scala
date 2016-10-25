@@ -319,14 +319,19 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
 
     "return false if the datalens is rejected" in {
-      val view = j"""{ "datatype": "datalens", "is_moderation_approved": false }"""
+      val view = j"""{ "datatype": "datalens", "moderation_status": "rejected" }"""
+      Format.datalensApproved(view).get should be(false)
+    }
+
+    "return false if the datalens is pending" in {
+      val view = j"""{ "datatype": "datalens", "moderation_status": "pending" }"""
       Format.datalensApproved(view).get should be(false)
     }
 
     "return true if the datalens is approved (for all datalens types)" in {
-      val datalens = j"""{ "datatype": "datalens", "is_moderation_approved": true }"""
-      val datalensChart = j"""{ "datatype": "datalens_chart", "is_moderation_approved": true }"""
-      val datalensMap = j"""{ "datatype": "datalens_map", "is_moderation_approved": true }"""
+      val datalens = j"""{ "datatype": "datalens", "moderation_status": "approved" }"""
+      val datalensChart = j"""{ "datatype": "datalens_chart", "moderation_status": "approved" }"""
+      val datalensMap = j"""{ "datatype": "datalens_map", "moderation_status": "approved" }"""
 
       Format.datalensApproved(datalens).get should be(true)
       Format.datalensApproved(datalensChart).get should be(true)
@@ -336,13 +341,20 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "the moderationApproved method" should {
     "return None if the domain does not have moderation enabled" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "approved" }"""
       val unmoderatedDomain = domains(0)
       Format.moderationApproved(view, unmoderatedDomain) should be(None)
     }
 
     "return false if the view is rejected and the domain has moderation enabled" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "rejected" }"""
+      val unmoderatedDomain = domains(0)
+      val moderatedDomain = domains(1)
+      Format.moderationApproved(view, moderatedDomain).get should be(false)
+    }
+
+    "return false if the view is pending and the domain has moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "moderation_status": "pending" }"""
       val unmoderatedDomain = domains(0)
       val moderatedDomain = domains(1)
       Format.moderationApproved(view, moderatedDomain).get should be(false)
@@ -355,7 +367,7 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
 
     "return true if the view is approved and the domain has moderation enabled)" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "approved" }"""
       val moderatedDomain = domains(1)
       Format.moderationApproved(view, moderatedDomain).get should be(true)
     }
@@ -363,7 +375,7 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "the moderationApprovedByContext method" should {
     "return None if the context doesn't have view moderation" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "approved" }"""
       val unmoderatedDomain0 = domains(0)
       val unmoderatedDomain2 = domains(2)
       val moderatedDomain = domains(1)
@@ -373,7 +385,15 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
 
     "return false if the view is rejected and the domain and context have moderation enabled" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": false }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "rejected" }"""
+      val moderatedDomain1 = domains(1)
+      val moderatedDomain3 = domains(3)
+      val context = DomainSet(searchContext = Some(moderatedDomain1))
+      Format.moderationApprovedByContext(view, moderatedDomain3, context).get should be(false)
+    }
+
+    "return false if the view is pending and the domain and context have moderation enabled" in {
+      val view = j"""{ "datatype": "chart", "moderation_status": "pending" }"""
       val moderatedDomain1 = domains(1)
       val moderatedDomain3 = domains(3)
       val context = DomainSet(searchContext = Some(moderatedDomain1))
@@ -389,7 +409,7 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
 
     "return true if the view is approved and the domain and context have moderation enabled" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "approved" }"""
       val moderatedDomain1 = domains(1)
       val moderatedDomain3 = domains(3)
       val context = DomainSet(searchContext = Some(moderatedDomain1))
@@ -474,7 +494,7 @@ class FormatSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "the contextApprovals method" should {
     "return None for both VM and R&A if the view's domainId is the same as the search context's id" in {
-      val view = j"""{ "datatype": "chart", "is_moderation_approved": true }"""
+      val view = j"""{ "datatype": "chart", "moderation_status": "approved" }"""
       val moderatedDomain = domains(1)
       val context = DomainSet(searchContext = Some(moderatedDomain))
       val (vmContextApproval, raContextApproval) = Format.contextApprovals(view, moderatedDomain, context)

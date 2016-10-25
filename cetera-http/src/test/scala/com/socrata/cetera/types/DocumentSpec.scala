@@ -300,7 +300,7 @@ class DocumentSpec extends WordSpec with ShouldMatchers with TestESData with Bef
       doc.isDatalens should be(false)
       doc.isHiddenFromCatalog should be(false)
       doc.isSharedOrOwned("prince-john") should be(true)
-      verifyVmPending(doc)
+      verifyVmMissing(doc) // b/c is a default view
       verifyRaRejected(doc, 3)
     }
 

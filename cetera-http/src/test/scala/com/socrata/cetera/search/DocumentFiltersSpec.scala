@@ -487,11 +487,12 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
 
   "the moderationStatusFilter for rejected" should {
     val rejectedFilter = j"""{ "term": { "moderation_status": "rejected" } }"""
+    val beDerived = j"""{ "term" : { "is_default_view" : false } }"""
 
     "return the expected document-eliminating filter if there are no moderated domains" in {
       val domainSet = DomainSet(Set(domains(0), domains(2)))
       val fromNoDomain = j"""{ "terms" : { "socrata_id.domain_id" : [] } }"""
-      val expected = j"""{"bool": {"must": [$fromNoDomain, $rejectedFilter]}}"""
+      val expected = j"""{"bool": {"must": [$fromNoDomain, $beDerived, $rejectedFilter]}}"""
       val filter = DocumentFilters.moderationStatusFilter(ApprovalStatus.rejected, domainSet)
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
@@ -501,7 +502,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
       val domainSet = DomainSet(Set(domains(1), domains(2), domains(3)))
       val filter = DocumentFilters.moderationStatusFilter(ApprovalStatus.rejected, domainSet)
       val fromModeratedDomain = j"""{ "terms": { "socrata_id.domain_id": [ 1, 3 ] } }"""
-      val expected = j"""{"bool": {"must": [$fromModeratedDomain, $rejectedFilter]}}"""
+      val expected = j"""{"bool": {"must": [$fromModeratedDomain, $beDerived, $rejectedFilter]}}"""
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
@@ -509,11 +510,12 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
 
   "the moderationStatusFilter for pending" should {
     val pendingFilter = j"""{ "term": { "moderation_status": "pending" } }"""
+    val beDerived = j"""{ "term" : { "is_default_view" : false } }"""
 
     "return the expected document-eliminating filter if there are no moderated domains" in {
       val domainSet = DomainSet(Set(domains(0), domains(2)))
       val fromNoDomain = j"""{ "terms" : { "socrata_id.domain_id" : [] } }"""
-      val expected = j"""{"bool": {"must": [$fromNoDomain, $pendingFilter]}}"""
+      val expected = j"""{"bool": {"must": [$fromNoDomain, $beDerived, $pendingFilter]}}"""
       val filter = DocumentFilters.moderationStatusFilter(ApprovalStatus.pending, domainSet)
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
@@ -523,7 +525,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
       val domainSet = DomainSet(Set(domains(1), domains(2), domains(3)))
       val filter = DocumentFilters.moderationStatusFilter(ApprovalStatus.pending, domainSet)
       val fromModeratedDomain = j"""{ "terms": { "socrata_id.domain_id": [ 1, 3 ] } }"""
-      val expected = j"""{"bool": {"must": [$fromModeratedDomain, $pendingFilter]}}"""
+      val expected = j"""{"bool": {"must": [$fromModeratedDomain, $beDerived, $pendingFilter]}}"""
       val actual = JsonReader.fromString(filter.toString)
       actual should be(expected)
     }
@@ -558,12 +560,17 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
   }
 
   "the raStatusFilter" should {
+    val rejected = j"""{ "term": { "is_rejected_by_parent_domain": true } }"""
+    val pending = j"""{ "term": { "is_pending_on_parent_domain": true } }"""
+    val approved =  j"""{ "term": { "is_pending_on_parent_domain": true } }"""
+    val fromCustomerDomainsWithRA = j"""{ "terms" : { "socrata_id.domain_id" : [4, 3, 2] } }"""
+
     "return the expected filter when looking for rejected regardless of context" in {
       val status = ApprovalStatus.rejected
       val domainSetNoContext = DomainSet((0 to 4).map(domains(_)).toSet, None)
       val domainSetRaDisabledContext = domainSetNoContext.copy(searchContext = Some(domains(0)))
       val domainSetRaEnabledContext = domainSetNoContext.copy(searchContext = Some(domains(2)))
-      val expected = j"""{ "term": { "is_rejected_by_parent_domain": true } }"""
+      val expected = j"""{"bool": {"must": [$fromCustomerDomainsWithRA, $rejected]}}"""
 
       val filterNoContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetNoContext).toString)
       val filterRaDisabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaDisabledContext).toString)
@@ -579,7 +586,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
       val domainSetNoContext = DomainSet((0 to 4).map(domains(_)).toSet, None)
       val domainSetRaDisabledContext = domainSetNoContext.copy(searchContext = Some(domains(0)))
       val domainSetRaEnabledContext = domainSetNoContext.copy(searchContext = Some(domains(2)))
-      val expected = j"""{ "term": { "is_pending_on_parent_domain": true } }"""
+      val expected = j"""{"bool": {"must": [$fromCustomerDomainsWithRA, $pending]}}"""
 
       val filterNoContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetNoContext).toString)
       val filterRaDisabledContext = JsonReader.fromString(DocumentFilters.raStatusFilter(status, domainSetRaDisabledContext).toString)

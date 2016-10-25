@@ -43,7 +43,7 @@
   "customer_metadata_flattened": [],
   "is_public": true,
   "is_published": true,
-  "is_default_view": true,
+  "is_default_view": false,
   "is_moderation_approved": true,
   "moderation_status": "approved",
   "approving_domain_ids": [

@@ -124,9 +124,9 @@ case class Document(
   def isDatalens: Boolean = datatype.startsWith("datalens")
   def isHiddenFromCatalog: Boolean = hideFromCatalog.getOrElse(false)
 
-  def isVmApproved: Boolean = moderationStatus.exists(s => s == ApprovalStatus.approved.status)
-  def isVmRejected: Boolean = moderationStatus.exists(s => s == ApprovalStatus.rejected.status)
-  def isVmPending: Boolean = moderationStatus.exists(s => s == ApprovalStatus.pending.status)
+  def isVmApproved: Boolean = moderationStatus.exists(s => s == ApprovalStatus.approved.status) & !isDefaultView
+  def isVmRejected: Boolean = moderationStatus.exists(s => s == ApprovalStatus.rejected.status) & !isDefaultView
+  def isVmPending: Boolean = moderationStatus.exists(s => s == ApprovalStatus.pending.status) & !isDefaultView
 
   def isRaApproved(domainId: Int): Boolean = approvingDomainIds.getOrElse(Seq.empty).contains(domainId)
   def isRaRejected(domainId: Int): Boolean = rejectingDomainIds.getOrElse(Seq.empty).contains(domainId)

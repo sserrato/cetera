@@ -69,9 +69,7 @@ class Router(
     Route("/internal_catalog", catalogResource(true)),
     Route("/internal_catalog/v1", catalogResource(true)),
 
-    //  A bunch of routes we should deprecate
-    Route("/asset_selector", catalogResource(true)),  // TODO deprecate
-    Route("/asset_selector/v1", catalogResource(true)),  // TODO deprecate
+    //  Routes we should deprecate
     Route("/personal_catalog", catalogResource(true)),  // TODO deprecate
     Route("/personal_catalog/v1", catalogResource(true))  // TODO deprecate
   )

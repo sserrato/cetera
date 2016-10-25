@@ -143,10 +143,11 @@ object DocumentFilters {
         val beFromUnmoderatedDomain = domainIdFilter(domainSet.moderationDisabledIds, aggPrefix)
         boolFilter().should(beDefault).should(beApproved).should(beFromUnmoderatedDomain)
       case _ =>
-        // to be rejected/pending, a view must be from a moderated domain with the given status
+        // to be rejected/pending, a view must be a derived view from a moderated domain with the given status
         val beFromModeratedDomain = domainIdFilter(domainSet.moderationEnabledIds, aggPrefix)
+        val beDerived = termFilter(aggPrefix + IsDefaultViewFieldType.fieldName, false)
         val haveGivenStatus = termFilter(aggPrefix + ModerationStatusFieldType.fieldName, status.status)
-        boolFilter().must(beFromModeratedDomain).must(haveGivenStatus)
+        boolFilter().must(beFromModeratedDomain).must(beDerived).must(haveGivenStatus)
     }
   }
 
@@ -176,7 +177,12 @@ object DocumentFilters {
         boolFilter()
           .should(beFromRADisabledDomain)
           .should(haveGivenStatus)
-      case _ => raStatusAccordingToParentDomainFilter(status)
+      case _ =>
+        val beFromRAEnabledDomain = domainIdFilter(domainSet.raEnabledIds)
+        val haveGivenStatus = raStatusAccordingToParentDomainFilter(status)
+        boolFilter()
+          .must(beFromRAEnabledDomain)
+          .must(haveGivenStatus)
     }
   }
 
