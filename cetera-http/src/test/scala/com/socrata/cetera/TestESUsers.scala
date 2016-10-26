@@ -11,7 +11,7 @@ trait TestESUsers {
     userTSV.getLines()
     val iter = userTSV.getLines().map(_.split("\t"))
     iter.drop(1) // drop the header columns
-    iter.map { tsvLine =>
+    val originalUsers = iter.map { tsvLine =>
       EsUser(
         id = tsvLine(0),
         screenName = Option(tsvLine(1)).filter(_.nonEmpty),
@@ -23,5 +23,15 @@ trait TestESUsers {
         profileImageUrlSmall = Option(tsvLine(8)).filter(_.nonEmpty)
       )
     }.toSeq
+
+    // we want some users to have roles on mulitple domains
+    originalUsers.map(u =>
+      if (u.id == "bright-heart") {
+        val moreRoles = u.roles.get ++ Some(Role(1, "honorary-bear"))
+        u.copy(roles = Some(moreRoles))
+      } else {
+        u
+      }
+    )
   }
 }

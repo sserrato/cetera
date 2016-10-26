@@ -6,7 +6,7 @@ import org.elasticsearch.index.query.{FilteredQueryBuilder, QueryBuilder, QueryB
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.handlers.UserSearchParamSet
 import com.socrata.cetera.search.UserFilters.compositeFilter
-import com.socrata.cetera.types.{UserEmail, UserScreenName}
+import com.socrata.cetera.types.{Domain, UserEmail, UserScreenName}
 
 object UserQueries {
   def emailNameMatchQuery(query: Option[String]): QueryBuilder =
@@ -25,12 +25,12 @@ object UserQueries {
 
   def userQuery(
       searchParams: UserSearchParamSet,
-      domainId: Option[Int],
+      domain: Option[Domain],
       authorizedUser: Option[User])
   : FilteredQueryBuilder = {
 
     val emailOrNameQuery = emailNameMatchQuery(searchParams.query)
-    val userFilter = compositeFilter(searchParams, domainId, authorizedUser)
+    val userFilter = compositeFilter(searchParams, domain, authorizedUser)
     QueryBuilders.filteredQuery(emailOrNameQuery, userFilter)
   }
 }

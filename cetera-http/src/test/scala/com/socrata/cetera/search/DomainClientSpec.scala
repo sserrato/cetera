@@ -89,6 +89,79 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
     }
   }
 
+  "the findDomainSet method" should {
+    "throw if the search context can't be found" in {
+      intercept[DomainNotFoundError] {
+        domainClient.findDomainSet(Some("iamnotarealcontext.wat"), None, None)
+      }
+    }
+
+    "throw if the extended host can't be found" in {
+      intercept[DomainNotFoundError] {
+        domainClient.findDomainSet(None, Some("iamnotarealhost.wat"), None)
+      }
+    }
+
+    "throw if any domain can't be found" in {
+      intercept[DomainNotFoundError] {
+        domainClient.findDomainSet(None, None, Some(Set("petercetera.net", "iamnotarealdomain.wat")))
+      }
+    }
+
+    "return basically nothing if Nones are given and not opting to get customer domains and not take any search time doing it" in {
+      val (actualDset, timing) = domainClient.findDomainSet(None, None, None, false)
+      actualDset.domains should be('empty)
+      actualDset.searchContext should be(None)
+      actualDset.extendedHost should be(None)
+      timing should be(0)
+    }
+
+    "return basically nothing if Nones/empty Sets are given and not opting to get customer domains and not take any search time doing it" in {
+      val (actualDset, timing) = domainClient.findDomainSet(None, None, Some(Set.empty), false)
+      actualDset.domains should be('empty)
+      actualDset.searchContext should be(None)
+      actualDset.extendedHost should be(None)
+      timing should be(0)
+    }
+
+    "return customer domains only if nothing is given and opting to get customer domains" in {
+      val expectedDomains = domains.filter(_.isCustomerDomain)
+      val (actualDset, _) = domainClient.findDomainSet(None, None, Some(Set.empty), true)
+      actualDset.domains should contain theSameElementsAs(expectedDomains)
+      actualDset.searchContext should be(None)
+      actualDset.extendedHost should be(None)
+    }
+
+    "return all the things if context and extend host are given but no domains are given and opting to get customer domains" in {
+      val expectedDomains = domains.filter(_.isCustomerDomain)
+      val expectedContext = domains(0)
+      val expectedHost = domains(0)
+      val (actualDset, _) = domainClient.findDomainSet(Some(expectedContext.domainCname), Some(expectedHost.domainCname), Some(Set.empty), true)
+      actualDset.domains should contain theSameElementsAs(expectedDomains)
+      actualDset.searchContext.get should be(expectedContext)
+      actualDset.extendedHost.get should be(expectedHost)
+    }
+
+    "return most of the things if context and extend host are given but no domains are given and not opting to get customer domains" in {
+      val expectedContext = domains(0)
+      val expectedHost = domains(2)
+      val (actualDset, _) = domainClient.findDomainSet(Some(expectedContext.domainCname), Some(expectedHost.domainCname), Some(Set.empty), false)
+      actualDset.domains should be('empty)
+      actualDset.searchContext.get should be(expectedContext)
+      actualDset.extendedHost.get should be(expectedHost)
+    }
+
+    "return all the things if context and extend host and domains are given and not opting to get customer domains" in {
+      val expectedDomains = Set(domains(0), domains(2), domains(3))
+      val expectedContext = domains(0)
+      val expectedHost = domains(2)
+      val (actualDset, _) = domainClient.findDomainSet(Some(expectedContext.domainCname), Some(expectedHost.domainCname), Some(expectedDomains.map(_.domainCname)), true)
+      actualDset.domains should contain theSameElementsAs(expectedDomains)
+      actualDset.searchContext.get should be(expectedContext)
+      actualDset.extendedHost.get should be(expectedHost)
+    }
+  }
+
   "finding the context from findSearchableDomains when no cnames are given (and we rely on customer domain search)" should {
     "return the context if it's unlocked and no auth is given" in {
       val (domainSet, _) = domainClient.findSearchableDomains(Some(unlockedCustomerDomain.domainCname), None, None, true, None, None)
@@ -290,18 +363,6 @@ class DomainClientSpec extends WordSpec with ShouldMatchers with TestESData
       intercept[DomainNotFoundError] {
         domainClient.findSearchableDomains(Some("iamnotarealdomain.wat"), None,
           Some(Set("dylan.demo.socrata.com")), true, None, None)
-      }
-    }
-
-    "not throw DomainNotFound exception when searchContext is present" in {
-      noException should be thrownBy {
-        domainClient.findSearchableDomains(Some("dylan.demo.socrata.com"), None, None, true, None, None)
-      }
-    }
-
-    "not throw DomainNotFound exception when domains are missing" in {
-      noException should be thrownBy {
-        domainClient.findSearchableDomains(None, None, Some(Set("iamnotarealdomain.wat")), true, None, None)
       }
     }
   }

@@ -66,37 +66,59 @@ class UserFiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
   }
 
-  "the chooseVisFilters" should {
+  "the authFilter" should {
     "throw an UnauthorizedError if no user is given" in  {
       an[UnauthorizedError] should be thrownBy {
-        UserFilters.visibilityFilter(None, None)
+        UserFilters.authFilter(None, None)
       }
     }
 
     "throw an UnauthorizedError if user's domain doesn't match given domain id" in  {
       val user = User("mooks", Some(domains(6)), Some("administrator"))
       an[UnauthorizedError] should be thrownBy {
-        UserFilters.visibilityFilter(Some(user), Some(4))
+        UserFilters.authFilter(Some(user), Some(domains(4)))
       }
     }
 
     "throw an UnauthorizedError if user hasn't a role to view users" in  {
       val user = User("mooks", Some(domains(6)), Some(""))
       an[UnauthorizedError] should be thrownBy {
-        UserFilters.visibilityFilter(Some(user), None)
+        UserFilters.authFilter(Some(user), None)
       }
     }
 
     "return None for super admins" in {
       val user = User("mooks", flags = Some(List("admin")))
-      val filter = UserFilters.visibilityFilter(Some(user), None)
+      val filter = UserFilters.authFilter(Some(user), None)
       filter should be(None)
     }
 
-    "return None for users who a) can view users, b) aren't snooping around other domains and c) aren't super admins" in {
-      val user = User("mooks", Some(domains(1)), Some("administrator"))
-      val filter = UserFilters.visibilityFilter(Some(user), None)
+    "return None for super admins even if searching for users on a domain that isn't their authenticating domain" in {
+      val user = User("mooks", Some(domains(8)), flags = Some(List("admin")))
+      val filter = UserFilters.authFilter(Some(user), Some(domains(0)))
       filter should be(None)
+    }
+
+    "return None for admins who aren't snooping around other's domains" in {
+      val user = User("mooks", Some(domains(1)), Some("administrator"))
+      val filter = UserFilters.authFilter(Some(user), None)
+      filter should be(None)
+    }
+
+    "return a nested domainId filter for non-admin roled users who aren't querying a specific domain" in {
+      val user = User("mooks", Some(domains(1)), Some("i-have-a-role-really"))
+      val expected = JsonReader.fromString(UserFilters.nestedRolesFilter(None, Some(1)).get.toString)
+      val filter = UserFilters.authFilter(Some(user), None)
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
+    }
+
+    "return a nested domainId filter for non-admin roled users who are querying a specific domain, but it's their domain" in {
+      val user = User("mooks", Some(domains(1)), Some("i-have-a-role-really"))
+      val expected = JsonReader.fromString(UserFilters.nestedRolesFilter(None, Some(1)).get.toString)
+      val filter = UserFilters.authFilter(Some(user), Some(domains(1)))
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
     }
   }
 
@@ -109,7 +131,7 @@ class UserFiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
         roles = Some(Set("admin"))
       )
       val user = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
-      val filter = UserFilters.compositeFilter(params, Some(1042), Some(user))
+      val filter = UserFilters.compositeFilter(params, Some(domains(2)), Some(user))
       val actual = JsonReader.fromString(filter.toString)
       val expected =j"""
         {
@@ -124,7 +146,7 @@ class UserFiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
                   "filter": {
                     "bool": {
                       "must": [
-                        {"term": {"roles.domain_id": 1042}},
+                        {"term": {"roles.domain_id": 2}},
                         {"terms": {"roles.role_name": ["admin"]}}
                       ]
                     }

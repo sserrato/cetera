@@ -45,26 +45,33 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   }
 
   def find(cnames: Set[String]): (Set[Domain], Long) = {
-    val query = QueryBuilders.termsQuery(DomainCnameFieldType.rawFieldName, cnames.toList: _*)
+    if (cnames.isEmpty) {
+      (Set.empty, 0L)
+    } else {
+      val query = QueryBuilders.termsQuery(DomainCnameFieldType.rawFieldName, cnames.toList: _*)
 
-    val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
-      .setQuery(query)
-      .setSize(cnames.size)
+      val search = esClient.client.prepareSearch(indexAliasName).setTypes(esDomainType)
+        .setQuery(query)
+        .setSize(cnames.size)
 
-    logger.info(LogHelper.formatEsRequest(search))
+      logger.info(LogHelper.formatEsRequest(search))
 
-    val res = search.execute.actionGet
-    val timing = res.getTookInMillis
+      val res = search.execute.actionGet
+      val timing = res.getTookInMillis
 
-    val domains = res.getHits.hits.flatMap { hit =>
-      try { Domain(hit.sourceAsString) }
-      catch { case e: Exception =>
-        logger.info(e.getMessage)
-        None
-      }
-    }.toSet
+      val domains = res.getHits.hits.flatMap { hit =>
+        try {
+          Domain(hit.sourceAsString)
+        }
+        catch {
+          case e: Exception =>
+            logger.info(e.getMessage)
+            None
+        }
+      }.toSet
 
-    (domains, timing)
+      (domains, timing)
+    }
   }
 
   // This method returns a DomainSet including optional search context and list of Domains to search.
@@ -99,29 +106,41 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
   }
 
 
-  // if domain cname filter is provided limit to that scope, otherwise default to publicly visible domains
-  // also looks up the search context and throws if it cannot be found
-  // If lock-down is a concern, use the 'findSearchableDomains' method in lieu of this one.
-  def findDomainSet(
+  // This method gets all of the domains you might care about in one go.  This includes:
+  //  - the search context
+  //  - the extended host used for authenticating (which needn't be the same as the context)
+  //  - the domains.  these may be the domains provided, or if the optional flag to get customer
+  //    domains is set and the domains are empty, all customer domains.
+  // NOTE: if lock-down is a concern, use the 'findSearchableDomains' method in lieu of this one.
+  def findDomainSet( // scalastyle:ignore cyclomatic.complexity
       searchContextCname: Option[String],
       extendedHost: Option[String],
-      domainCnames: Option[Set[String]])
+      domainCnames: Option[Set[String]],
+      optionallyGetCustomerDomains: Boolean = true)
   : (DomainSet, Long) = {
-    // We want to fetch all relevant domains (search context, extended host and relevant domains) in a single query
-    // NOTE: the searchContext and/or extended host may be present as themselves, one another or in the relevant domains
-    val (foundDomains, timings) = domainCnames match {
-      case Some(cnames) => find(cnames ++ searchContextCname ++ extendedHost)
-      case None => customerDomainSearch(Set(searchContextCname, extendedHost).flatten)
-    }
-    val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
-    val extendedHostDomain = extendedHost.flatMap(cname => foundDomains.find(_.domainCname == cname))
-    val domains = domainCnames match {
-      case Some(cnames) => foundDomains.filter(d => cnames.contains(d.domainCname))
-      case None => foundDomains.filter(d => d.isCustomerDomain)
+    // we want to treat an empty list of domains like a None
+    val searchDomains = domainCnames.collect { case s: Set[String] if (s.nonEmpty) => s }
+    // find all the domains in one go.
+    val (foundDomains, timings) = (searchDomains, optionallyGetCustomerDomains) match {
+      case (Some(cnames), _) => find(cnames ++ searchContextCname ++ extendedHost)
+      case (None, false) => find(Set(searchContextCname, extendedHost).flatten)
+      case (None, true) => customerDomainSearch(Set(searchContextCname, extendedHost).flatten)
     }
 
-    // If a searchContext is specified and we can't find it, we have to bail
+    // parse out which domains are which
+    val searchContextDomain = searchContextCname.flatMap(cname => foundDomains.find(_.domainCname == cname))
+    val extendedHostDomain = extendedHost.flatMap(cname => foundDomains.find(_.domainCname == cname))
+    val domains = (searchDomains, optionallyGetCustomerDomains) match {
+      case (Some(cnames), _) => foundDomains.filter(d => cnames.contains(d.domainCname))
+      case (None, false) => Set.empty[Domain]
+      case (None, true) => foundDomains.filter(d => d.isCustomerDomain)
+    }
+
+    // If any domains were asked for and we can't find it, we have to bail
+    val foundDomainCnames = domains.map(_.domainCname)
     searchContextCname.foreach(c => if (searchContextDomain.isEmpty) throw new DomainNotFoundError(c))
+    extendedHost.foreach(h => if (extendedHostDomain.isEmpty) throw new DomainNotFoundError(h))
+    domainCnames.getOrElse(Set.empty).foreach(d => if (!foundDomainCnames.contains(d)) throw new DomainNotFoundError(d))
 
     (DomainSet(domains, searchContextDomain, extendedHostDomain), timings)
   }

@@ -23,13 +23,13 @@ class UserClient(esClient: ElasticSearchClient, indexAliasName: String) {
   def search(
       searchParams: UserSearchParamSet,
       pagingParams: PagingParamSet,
-      domainId: Option[Int],
+      domain: Option[Domain],
       authorizedUser: Option[User])
     : (Seq[EsUser], Long, Long) = {
 
     val req = esClient.client.prepareSearch(indexAliasName)
       .setTypes(esUserType)
-      .setQuery(userQuery(searchParams, domainId, authorizedUser))
+      .setQuery(userQuery(searchParams, domain, authorizedUser))
       .setFrom(pagingParams.offset)
       .setSize(pagingParams.limit)
     logger.info(LogHelper.formatEsRequest(req))

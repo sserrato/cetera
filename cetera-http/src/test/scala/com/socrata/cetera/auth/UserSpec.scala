@@ -124,23 +124,23 @@ class UserSpec extends WordSpec with ShouldMatchers with TestESDomains {
 
   "The canViewUsers method" should {
     "return true if the use is a super admin" in {
-      superAdmin.canViewUsers should be(true)
+      superAdmin.canViewAllUsers should be(true)
     }
 
     "return true if the user is a customer admin" in {
-      customerAdmin.canViewUsers should be(true)
+      customerAdmin.canViewAllUsers should be(true)
     }
 
     "return false if the user has any other role" in {
-      customerEditor.canViewUsers should be(false)
-      customerEditorStories.canViewUsers should be(false)
-      customerPublisher.canViewUsers should be(false)
-      customerPublisherStories.canViewUsers should be(false)
-      customerViewer.canViewUsers should be(false)
+      customerEditor.canViewAllUsers should be(false)
+      customerEditorStories.canViewAllUsers should be(false)
+      customerPublisher.canViewAllUsers should be(false)
+      customerPublisherStories.canViewAllUsers should be(false)
+      customerViewer.canViewAllUsers should be(false)
     }
 
     "return false if the user is anonymous" in {
-      anonymous.canViewUsers should be(false)
+      anonymous.canViewAllUsers should be(false)
     }
   }
 }

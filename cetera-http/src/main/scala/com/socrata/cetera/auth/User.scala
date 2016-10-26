@@ -13,7 +13,7 @@ case class User(
     rights: Option[Seq[String]] = None,
     flags: Option[Seq[String]] = None) {
 
-  def hasRole: Boolean = roleName.nonEmpty
+  def hasRole: Boolean = roleName.exists(_.nonEmpty)
   def hasRole(role: String): Boolean = roleName.exists(r => r.startsWith(role))
   def hasOneOfRoles(roles: Seq[String]): Boolean = roles.map(hasRole(_)).fold(false)(_ || _)
   def isSuperAdmin: Boolean = flags.exists(_.contains("admin"))
@@ -36,8 +36,14 @@ case class User(
   def canViewAllViews(domain: Domain): Boolean =
     canViewResource(domain, hasOneOfRoles(Seq("publisher", "designer", "viewer", "administrator")))
 
-  def canViewUsers: Boolean =
+  def canViewAllUsers: Boolean =
     authenticatingDomain.exists(d => canViewResource(d, isAdmin)) || isSuperAdmin
+
+  def canViewDomainUsers: Boolean =
+    authenticatingDomain.exists(d => canViewResource(d, hasRole)) || isSuperAdmin
+
+  def canViewUsers(domain: Domain): Boolean =
+    canViewResource(domain, hasRole)
 }
 
 object User {

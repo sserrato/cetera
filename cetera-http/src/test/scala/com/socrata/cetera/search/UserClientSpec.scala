@@ -5,17 +5,19 @@ import org.scalatest.{BeforeAndAfterAll, FunSuiteLike, Matchers}
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.errors.UnauthorizedError
 import com.socrata.cetera.handlers.{PagingParamSet, UserSearchParamSet}
+import com.socrata.cetera.types.Domain
 import com.socrata.cetera.{TestESClient, TestESData, TestESUsers}
 
 class UserClientSpec extends FunSuiteLike with Matchers with TestESData with TestESUsers with BeforeAndAfterAll {
   val userClient = new UserClient(client, testSuiteName)
 
   val superAdmin = User("", None, roleName = None, rights = None, flags = Some(List("admin")))
-  val customerAdmin = User("", Some(domains(8)), roleName = Some("administrator"), rights = None, flags = None)
-  val customerEditor = User("", Some(domains(8)), roleName = Some("editor"), rights = None, flags = None)
-  val customerPublisher = User("", Some(domains(8)), roleName = Some("publisher"), rights = None, flags = None)
-  val customerViewer = User("", Some(domains(8)), roleName = Some("viewer"), rights = None, flags = None)
-  val customerDesigner = User("", Some(domains(8)), roleName = Some("designer"), rights = None, flags = None)
+  val customerAdmin = User("", Some(domains(0)), roleName = Some("administrator"), rights = None, flags = None)
+  val customerEditor = User("", Some(domains(0)), roleName = Some("editor"), rights = None, flags = None)
+  val customerPublisher = User("", Some(domains(0)), roleName = Some("publisher"), rights = None, flags = None)
+  val customerViewer = User("", Some(domains(0)), roleName = Some("viewer"), rights = None, flags = None)
+  val customerDesigner = User("", Some(domains(0)), roleName = Some("designer"), rights = None, flags = None)
+  val customerRoleless = User("", Some(domains(0)), roleName = None, rights = None, flags = None)
   val anonymous = User("", None, roleName = None, rights = None, flags = None)
   val adminWithoutAuthenticatingDomain = User("", None, roleName = Some("administrator"), rights = None, flags = None)
 
@@ -45,30 +47,43 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Tes
 
   test("an UnauthorizedError should be thrown if the authorized user can't view users") {
     intercept[UnauthorizedError] {
-      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerEditor))
+      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerRoleless))
     }
     intercept[UnauthorizedError] {
-      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerPublisher))
-    }
-    intercept[UnauthorizedError] {
-      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerDesigner))
-    }
-    intercept[UnauthorizedError] {
-      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerViewer))
+      userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(anonymous))
     }
   }
 
   test("an UnauthorizedError should be thrown if the authorized user can view users but is attempting to do so on a domain they aren't authenticated on") {
     intercept[UnauthorizedError] {
-      userClient.search(UserSearchParamSet(domain = Some(domains(2).domainCname)), PagingParamSet(), Some(2), Some(customerAdmin))
+      userClient.search(UserSearchParamSet(domain = Some(domains(2).domainCname)), PagingParamSet(), Some(domains(2)), Some(customerAdmin))
     }
   }
 
   // the rest of these tests assume the user is authed properly and isn't up to no good.
-  test("search returns all by default") {
+  test("search returns all by default for superadmins") {
     val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(superAdmin))
     userRes should contain theSameElementsAs(users)
-    totalCount should be(5)
+    totalCount should be(users.length)
+  }
+
+  test("search returns all by default for admins") {
+    val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerAdmin))
+    userRes should contain theSameElementsAs(users)
+    totalCount should be(users.length)
+  }
+
+  test("search returns only users on the user's domain if they are authed properly but are not a superadmin") {
+    val expectedUsers = users.filter(u => u.roleName(0).nonEmpty)
+    val (resForViewer, _, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerViewer))
+    val (resForDesigner, _, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerDesigner))
+    val (resForEditor, _, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerEditor))
+    val (resForPublisher, _, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), None, Some(customerPublisher))
+
+    resForViewer should contain theSameElementsAs(expectedUsers)
+    resForDesigner should contain theSameElementsAs(expectedUsers)
+    resForEditor should contain theSameElementsAs(expectedUsers)
+    resForPublisher should contain theSameElementsAs(expectedUsers)
   }
 
   test("search by singular role") {
@@ -86,10 +101,11 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Tes
   }
 
   test("search by domain") {
-    val params = UserSearchParamSet(domain = Some("domain.that.will.be.ignored.com"))
-    val (userRes, totalCount, _) = userClient.search(params, PagingParamSet(), Some(1), Some(superAdmin))
-    userRes should contain theSameElementsAs (Seq(users(3), users(4)))
-    totalCount should be(2)
+    val domain = domains(1)
+    val params = UserSearchParamSet(domain = Some(domain.domainCname))
+    val (userRes, totalCount, _) = userClient.search(params, PagingParamSet(), Some(domain), Some(superAdmin))
+    userRes should contain theSameElementsAs (Seq(users(3), users(4), users(5)))
+    totalCount should be(3)
   }
 
   test("search by singular email") {
@@ -211,7 +227,8 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Tes
   }
 
   test("search by non-existent domain, get no results") {
-    val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), Some(80), Some(superAdmin))
+    val badDom = Domain(80, "non", None, None, true, true, true, true, true)
+    val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), PagingParamSet(), Some(badDom), Some(superAdmin))
     userRes should be('empty)
     totalCount should be(0)
   }
@@ -231,9 +248,10 @@ class UserClientSpec extends FunSuiteLike with Matchers with TestESData with Tes
   }
 
   test("search with paging limits") {
-    val params = PagingParamSet(offset = 1, limit = 2)
+    val limit = 2
+    val params = PagingParamSet(offset = 1, limit = limit)
     val (userRes, totalCount, _) = userClient.search(UserSearchParamSet(), params, None, Some(superAdmin))
-    userRes.size should be(2)
-    totalCount should be(5)
+    userRes.size should be(limit)
+    totalCount should be(users.length)
   }
 }

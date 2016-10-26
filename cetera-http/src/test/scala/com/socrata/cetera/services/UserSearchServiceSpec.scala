@@ -75,7 +75,6 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     val userBody =
       j"""{
         "id" : "boo-bear",
-        "roleName" : "headBear",
         "rights" : [ "steal_honey", "scare_tourists"]
         }"""
     val expectedRequest = request()
@@ -119,7 +118,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     }
   }
 
-  test("search with cookie authentication returns any and all users, with required attributes") {
+  test("search with superadmin cookie authentication returns any and all users, with required attributes") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -144,7 +143,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
-  test("search with basic HTTP authentication returns any and all users, with required attributes") {
+  test("search with superadmin basic HTTP authentication returns any and all users, with required attributes") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -169,7 +168,7 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results should contain theSameElementsAs(expectedUsers)
   }
 
-  test("search with OAuth authentication returns any and all users, with required attributes") {
+  test("search with superadmin OAuth authentication returns any and all users, with required attributes") {
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
@@ -267,11 +266,12 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
 
   }
 
-  test("search from a given context about a different domain should return roles from the domain") {
+  test("search from a given context with no domain param should return roles from the context") {
+    val context = domains(2).domainCname
     val expectedRequest = request()
       .withMethod("GET")
       .withPath("/users.json")
-      .withHeader(HeaderXSocrataHostKey, host)
+      .withHeader(HeaderXSocrataHostKey, context)
       .withHeader(HeaderAuthorizationKey, basicAuth)
     mockServer.when(
       expectedRequest
@@ -282,14 +282,43 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
         .withBody(CompactJsonWriter.toString(adminUserBody))
     )
 
-    val params = Map(Params.domain -> "opendata-demo.socrata.com").mapValues(Seq(_))
-    val (status, results, _, _) = userService.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(host), None)
+    val (status, results, _, _) = userService.doSearch(Map.empty, AuthParams(basicAuth=Some(basicAuth)), Some(context), None)
 
     mockServer.verify(expectedRequest)
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = Set(users(3), users(4)).map(u => DomainUser(Some(domains(1)), u)).flatten
+    val expectedUsers = users.map(u => DomainUser(Some(domains(2)), u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
+    results.results.find(u => u.id == "bright-heart").get.roleName.get should be("racoon")
+  }
+
+  test("search from a given context about a different domain should return roles from the domain") {
+    val context = domains(2).domainCname
+    val domain = domains(1).domainCname
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, context)
+      .withHeader(HeaderAuthorizationKey, basicAuth)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val params = Map(Params.domain -> domain).mapValues(Seq(_))
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(basicAuth=Some(basicAuth)), Some(context), None)
+
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+    results.results.headOption should be('defined)
+
+    val expectedUsers = Set(users(3), users(4), users(5)).map(u => DomainUser(Some(domains(1)), u)).flatten
+    results.results should contain theSameElementsAs(expectedUsers)
+    results.results.find(u => u.id == "bright-heart").get.roleName.get should be("honorary-bear")  // and not "racoon" as is the role on domain 2
   }
 }

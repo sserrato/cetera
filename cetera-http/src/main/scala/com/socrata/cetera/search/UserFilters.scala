@@ -1,7 +1,7 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.{FilterBuilder, FilterBuilders}
 import org.elasticsearch.index.query.FilterBuilders._
+import org.elasticsearch.index.query.{FilterBuilder, FilterBuilders}
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.errors.UnauthorizedError
@@ -39,22 +39,23 @@ object UserFilters {
     }
   }
 
-  def visibilityFilter(user: Option[User], domainId: Option[Int]): Option[FilterBuilder] = {
-    (user, domainId) match {
-      // if user is super admin, no vis filter needed
-      case (Some(u), _) if (u.isSuperAdmin) => None
-      // if the user can view users and isn't enquiring about a domian, they can view all users
-      case (Some(u), None) if (u.canViewUsers) => None
-      // if the user can view users and is enquiring about a domian, it must be their domain
-      case (Some(u), Some(id)) if (u.canViewUsers && u.authenticatingDomain.exists(_.domainId == id)) => None
-      // if the user isn't a superadmin or can't view users or is nosing for users on other domains, we throw
-      case (_, _) => throw UnauthorizedError(user, "search users")
+  def authFilter(user: Option[User], domain: Option[Domain]): Option[FilterBuilder] = {
+    user match {
+      // if the user is searching for users on a domain, it must be the domain they are authed on
+      case Some(u) if (domain.exists(d => !u.canViewUsers(d))) =>
+        throw UnauthorizedError(user, s"search for users on domain ${domain.get.domainCname}")
+      // if the user can view all users, no restrictions are needed (other than the one above)
+      case Some(u) if (u.canViewAllUsers) => None
+      // if the user can view domain users, we restrict the user search to user's authenticating domain
+      case Some(u) if (u.canViewDomainUsers) => nestedRolesFilter(None, u.authenticatingDomain.map(_.domainId))
+      // if the user can't view users or is not authenticated, we throw
+      case _ => throw UnauthorizedError(user, "search users")
     }
   }
 
   def compositeFilter(
       searchParams: UserSearchParamSet,
-      domainId: Option[Int],
+      domain: Option[Domain],
       authorizedUser: Option[User])
   : FilterBuilder = {
     val filters = Seq(
@@ -62,8 +63,8 @@ object UserFilters {
       emailFilter(searchParams.emails),
       screenNameFilter(searchParams.screenNames),
       flagFilter(searchParams.flags),
-      nestedRolesFilter(searchParams.roles, domainId),
-      visibilityFilter(authorizedUser, domainId)
+      nestedRolesFilter(searchParams.roles, domain.map(_.domainId)),
+      authFilter(authorizedUser, domain)
     ).flatten
     if (filters.isEmpty) {
       FilterBuilders.matchAllFilter()
