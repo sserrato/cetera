@@ -638,6 +638,14 @@ class SearchServiceSpecWithTestData extends FunSuiteLike with Matchers with Test
     } should be(Some("The Merry Men"))
   }
 
+  test("filtering by provenance works and the resulting resource has a 'provenance' field") {
+    val params = Map("provenance" -> Seq("official"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    results.results.headOption.map { case SearchResult(resource, _, _, _, _, _) =>
+      resource.dyn.provenance.!.asInstanceOf[JString].string
+    } should be(Some("official"))
+  }
+
   test("passing a datatype boost should have no effect on the size of the result set") {
     val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
     val params = Map("boostFiles" -> Seq("2.0"))

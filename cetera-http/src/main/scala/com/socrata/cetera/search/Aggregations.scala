@@ -1,6 +1,5 @@
 package com.socrata.cetera.search
 
-import org.elasticsearch.index.query.FilterBuilders
 import org.elasticsearch.index.query.FilterBuilders.boolFilter
 import org.elasticsearch.search.aggregations.bucket.terms.Terms
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
@@ -64,6 +63,12 @@ object DocumentAggregations {
       .order(Terms.Order.count(false)) // count desc
       .size(aggSize)
 
+  val provenance =
+    AggregationBuilders
+      .terms("provenance")
+      .field(ProvenanceFieldType.rawFieldName)
+      .order(Terms.Order.count(false))
+      .size(aggSize)
 
   def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
     field match {
@@ -75,6 +80,7 @@ object DocumentAggregations {
 
       case OwnerIdFieldType => owners
       case AttributionFieldType => attributions
+      case ProvenanceFieldType => provenance
     }
 }
 

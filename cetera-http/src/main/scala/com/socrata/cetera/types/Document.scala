@@ -28,7 +28,8 @@ case class Resource(
     id: String,
     columns: Seq[String],
     name: String,
-    attribution: Option[String]
+    attribution: Option[String],
+    provenance: Option[String]
 )
 object Resource { implicit val jCodec = AutomaticJsonCodecBuilder[Resource] }
 
@@ -108,6 +109,7 @@ case class Document(
     ownerId: String,
     sharedTo: Seq[String],
     attribution: Option[String],
+    provenance: Option[String],
     previewImageId: Option[String],
     grants: Seq[ESGrant],
     hideFromCatalog: Option[Boolean],

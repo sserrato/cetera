@@ -25,6 +25,9 @@ object DocumentFilters {
   def attributionFilter(attribution: String, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + AttributionFieldType.rawFieldName, attribution)
 
+  def provenanceFilter(provenance: String, aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + ProvenanceFieldType.rawFieldName, provenance)
+
   def parentDatasetFilter(parentDatasetId: String, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + ParentDatasetIdFieldType.fieldName, parentDatasetId)
 
@@ -187,6 +190,7 @@ object DocumentFilters {
       case (_, _) => throw UnauthorizedError(user, "search another user's shared files")
     }
     val attrFilter = searchParams.attribution.map(attributionFilter(_))
+    val provFilter = searchParams.provenance.map(provenanceFilter(_))
     val parentIdFilter = searchParams.parentDatasetId.map(parentDatasetFilter(_))
     val idsFilter = searchParams.ids.map(idFilter(_))
     val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
@@ -198,8 +202,8 @@ object DocumentFilters {
     val publicationFilter = searchParams.published.map(publishedFilter(_))
     val hiddenFilter = searchParams.explicitlyHidden.map(explicitlyHiddenFilter(_))
 
-    val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, parentIdFilter, idsFilter,
-      metadataFilter, derivationFilter, hiddenFilter, privacyFilter, publicationFilter).flatten
+    val allFilters = List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter,
+      idsFilter, metadataFilter, derivationFilter, hiddenFilter, privacyFilter, publicationFilter).flatten
 
     if (allFilters.isEmpty) {
       None

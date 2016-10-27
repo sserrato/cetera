@@ -185,6 +185,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareAttribution(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.attribution))
 
+  def prepareProvenance(queryParameters: MultiQueryParams): Option[String] =
+    filterNonEmptyStringParams(queryParameters.first(Params.provenance))
+
   def prepareParentDatasetId(queryParameters: MultiQueryParams): Option[String] =
     filterNonEmptyStringParams(queryParameters.first(Params.derivedFrom))
 
@@ -321,6 +324,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       prepareUsers(queryParameters),
       prepareSharedTo(queryParameters),
       prepareAttribution(queryParameters),
+      prepareProvenance(queryParameters),
       prepareParentDatasetId(queryParameters),
       prepareId(queryParameters),
       preparePublic(queryParameters),
@@ -328,6 +332,7 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       prepareDerived(queryParameters),
       prepareHidden(queryParameters)
     )
+
     val scoringParams = ScoringParamSet(
       prepareFieldBoosts(queryParameters),
       prepareDatatypeBoosts(queryParameters),
@@ -378,6 +383,7 @@ object Params {
   val only = "only"
   val forUser = "for_user"
   val attribution = "attribution"
+  val provenance = "provenance"
   val derivedFrom = "derived_from"
   val sharedTo = "shared_to"
   val public = "public"
@@ -460,6 +466,7 @@ object Params {
   // If your param is a simple key/value pair, add it here
   private val catalogStringKeys = Set(
     attribution,
+    provenance,
     searchContext,
     domains,
     categories,

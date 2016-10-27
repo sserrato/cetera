@@ -13,6 +13,7 @@ case class SearchParamSet(
     user: Option[String] = None,
     sharedTo: Option[String] = None,
     attribution: Option[String] = None,
+    provenance: Option[String] = None,
     parentDatasetId: Option[String] = None,
     ids: Option[Set[String]] = None,
     public: Option[Boolean] = None,

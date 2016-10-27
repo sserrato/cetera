@@ -97,6 +97,7 @@ class CountService(
       case DomainTagsFieldType => Count.encode("domain_tag")
       case OwnerIdFieldType => Count.encode("owner_id")
       case AttributionFieldType => Count.encode("attribution")
+      case ProvenanceFieldType => Count.encode("provenance")
     }
 
     try {

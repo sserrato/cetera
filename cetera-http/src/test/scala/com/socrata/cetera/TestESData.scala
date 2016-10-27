@@ -25,6 +25,7 @@ trait TestESData extends TestESDomains with TestESUsers {
     }
     val series2Docs = series2DocFiles.map { f =>
       val source = Source.fromInputStream(getClass.getResourceAsStream(f)).getLines().mkString("\n")
+      val doc = Document(source).get
       Document(source).get
     }
     series1Docs.toList ++ series2Docs.toList

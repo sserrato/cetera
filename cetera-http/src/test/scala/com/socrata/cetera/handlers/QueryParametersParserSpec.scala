@@ -310,6 +310,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("for_user" -> Seq("")), None).searchParamSet.user shouldNot be('defined)
     QueryParametersParser(Map("shared_to" -> Seq("")), None).searchParamSet.sharedTo shouldNot be('defined)
     QueryParametersParser(Map("attribution" -> Seq("")), None).searchParamSet.attribution shouldNot be('defined)
+    QueryParametersParser(Map("provenance" -> Seq("")), None).searchParamSet.provenance shouldNot be('defined)
     QueryParametersParser(Map("derived_from" -> Seq("")), None).searchParamSet.parentDatasetId shouldNot be('defined)
     QueryParametersParser(Map("custom_metadata" -> Seq("")), None).searchParamSet.parentDatasetId shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("role" -> Seq(""))).searchParamSet.roles shouldNot be('defined)
@@ -427,5 +428,9 @@ class ParamsSpec extends FunSuiteLike with Matchers {
 
   test("isCatalogKey recognizes attribution") {
     Params.isCatalogKey("attribution") should be (true)
+  }
+
+  test("iscatalogKey recognizes provenance") {
+    Params.isCatalogKey("provenance") should be (true)
   }
 }

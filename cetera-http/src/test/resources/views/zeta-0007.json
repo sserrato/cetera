@@ -9,7 +9,7 @@
    "obe_id": "data-0007"
  },
  "resource": {
-   "description": "a dataset with attribution",
+   "description": "a dataset with attribution and provenance",
    "nbe_fxf": "zeta-0007",
    "parent_fxf": null,
    "updated_at": "2016-09-19T10:37:21.149-07:00",
@@ -20,7 +20,8 @@
 
    ],
    "name": "",
-   "attribution": "The Merry Men"
+   "attribution": "The Merry Men",
+   "provenance": "official"
  },
  "animl_annotations": {
    "categories": [
@@ -72,6 +73,7 @@
  },
  "shared_to": [ "King Richard" ],
  "attribution": "The Merry Men",
+ "provenance": "official",
  "preview_image_id": "123456789",
  "grants": [],
  "hide_from_catalog": false,

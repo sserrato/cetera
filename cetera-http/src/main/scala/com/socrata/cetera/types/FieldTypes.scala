@@ -123,6 +123,10 @@ case object AttributionFieldType extends DocumentFieldType with Countable with R
   val fieldName: String = "attribution"
 }
 
+case object ProvenanceFieldType extends DocumentFieldType with Countable with NativelyRawable {
+  val fieldName: String = "provenance"
+}
+
 /////////////////////
 // Catalog Visibility
 

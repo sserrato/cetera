@@ -84,6 +84,22 @@ class FiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
     }
   }
 
+  "DocumentFilters: provenanceFilter" should {
+    "return the expected filter if some provenance is given" in {
+      val attrFilter = DocumentFilters.provenanceFilter("official")
+      val expected = j"""{ "term": { "provenance": "official" } }"""
+      val actual = JsonReader.fromString(attrFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter if a prefix is used" in {
+      val attrFilter = DocumentFilters.provenanceFilter("official", "document.")
+      val expected = j"""{ "term": { "document.provenance": "official" } }"""
+      val actual = JsonReader.fromString(attrFilter.toString)
+      actual should be(expected)
+    }
+  }
+
   "DocumentFilters: parentDatasetFilter" should {
     "return the expected filter if some id is given" in {
       val pdFilter = DocumentFilters.parentDatasetFilter("wonder-woman")
