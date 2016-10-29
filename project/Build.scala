@@ -60,8 +60,6 @@ object Deps {
     "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
     "Artifactory release" at "https://repo.socrata.com/artifactory/simple/libs-release-local",
     "Artifactory snapshot" at "https://repo.socrata.com/artifactory/simple/libs-snapshot-local",
-    "Cloudbees release" at "https://repository-socrata-oss.forge.cloudbees.com/release",
-    "Cloudbees snapshot" at "https://repository-socrata-oss.forge.cloudbees.com/snapshot",
     Resolver.url("Artifactory ivy", new URL("https://repo.socrata.com/artifactory/ivy-libs-release"))(Resolver.ivyStylePatterns),
     Classpaths.sbtPluginReleases
   )
