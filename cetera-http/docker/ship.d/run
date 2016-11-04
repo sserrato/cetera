@@ -10,6 +10,11 @@ export METRICS_DIR
 HEAP_SIZE=${CETERA_HEAP_SIZE:-512m}
 GC_LOG_DIR=${MESOS_SANDBOX:-/tmp}
 
+# we do not use the mesos switch_user feature, so the sandbox
+# has the wrong permissions, which prevents logs from being
+# written by the real (i.e. child) process.
+chmod 1777 ${GC_LOG_DIR}
+
 CMD="/usr/bin/java \
   -Dconfig.file=${CETERA_CONFIG} \
   -Xms${HEAP_SIZE} \
