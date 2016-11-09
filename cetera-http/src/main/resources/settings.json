@@ -3,64 +3,71 @@
     "index": {
       "analysis": {
         "filter": {
+          "lowercase_en": {
+            "type": "lowercase"
+          },
           "email": {
             "type": "pattern_capture",
             "preserve_original": 0,
             "patterns": [
               "([^@]+)",
-              "(\\p{L}{2,})",
+              "(\\p{L}{3,})",
               "(\\d+)",
               "@(.{2,})"
             ]
           },
-          "lowercase_en": {
-            "type": "lowercase"
-          },
           "stopwords": {
             "type": "stop",
             "stopwords": "_english_"
+          },
+          "tld_stopwords": {
+            "type": "stop",
+            "stopwords": ["com", "gov", "org", "net", "edu", "biz", "info", "mil", "cat", "name",
+                          "int", "nyc", "sch", "con", "comm", "coop", "pro", "comq", "coom", "media", "rog", "cpm",
+                          "aero", "ney", "ner", "orgq", "edi", "hull", "website", "neet", "cmo", "coim", "nrt",
+                          "coml", "gove"]
           }
         },
-        "tokenizer": {
+        "tokenizer":{
           "word": {
             "type": "pattern",
             "pattern": "[\\p{C}\\p{P}\\p{Sm}\\p{Sk}\\p{So}\\p{Z}&&[^\\&]]+",
             "flags": "CASE_INSENSITIVE"
+          },
+          "autocomplete_tokenizer": {
+            "type": "edge_ngram",
+            "min_gram": 1,
+            "max_gram": 20,
+            "token_chars": ["letter", "digit"]
           }
         },
         "analyzer": {
           "case_insensitive_en": {
             "type": "custom",
-            "filter": [
-              "lowercase_en"
-            ],
+            "filter": ["lowercase_en"],
             "tokenizer": "keyword"
-          },
-          "email": {
-            "tokenizer": "uax_url_email",
-            "filter": [
-              "email",
-              "lowercase_en",
-              "unique",
-              "stopwords"
-            ]
-          },
-          "screen_name": {
-            "tokenizer": "word",
-            "filter": [
-              "lowercase_en",
-              "unique",
-              "stopwords"
-            ]
           },
           "snowball_en": {
             "type": "snowball",
             "language": "English"
+          },
+          "email": {
+            "tokenizer": "uax_url_email",
+            "filter": ["lowercase_en", "email", "unique", "stopwords", "tld_stopwords"]
+          },
+          "screen_name": {
+            "tokenizer": "word",
+            "filter": ["lowercase_en", "unique", "stopwords"]
+          },
+          "autocomplete": {
+            "type": "custom",
+            "tokenizer": "autocomplete_tokenizer",
+            "filter": ["lowercase_en"]
           }
         }
       },
-      "number_of_replicas": "0",
-      "number_of_shards": "1"
+      "number_of_shards": "1",
+      "number_of_replicas": "0"
     }
   }
 }

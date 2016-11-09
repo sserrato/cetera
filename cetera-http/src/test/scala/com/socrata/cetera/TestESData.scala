@@ -15,7 +15,7 @@ import com.socrata.cetera.auth.AuthParams
 import com.socrata.cetera.metrics.BalboaClient
 import com.socrata.cetera.response.{SearchResult, SearchResults}
 import com.socrata.cetera.search.{DocumentClient, DomainClient}
-import com.socrata.cetera.services.SearchService
+import com.socrata.cetera.services.{AutocompleteService, SearchService}
 import com.socrata.cetera.types._
 import com.socrata.cetera.util.ElasticsearchBootstrap
 
@@ -39,6 +39,7 @@ trait TestESData extends TestESDomains with TestESUsers {
   val balboaClient = new BalboaClient(balboaDir.getAbsolutePath)
 
   val service = new SearchService(documentClient, domainClient, balboaClient, coreClient)
+  val autocompleteService = new AutocompleteService(documentClient, domainClient, coreClient)
   val cookie = "C = Cookie"
   val superAdminBody = j"""{"id" : "who-am-i", "flags" : [ "admin" ]}"""
   val allDomainsParams = Map(
@@ -49,7 +50,7 @@ trait TestESData extends TestESDomains with TestESUsers {
   val docs = {
     // there is no difference in these two types of docs except for the means by which
     // we used to construct them in commit 1442a6b08.
-    val series1DocFiles = (0 to 10).map(i => s"/views/fxf-$i.json")
+    val series1DocFiles = (0 to 12).map(i => s"/views/fxf-$i.json")
     val series2DocFiles = (1 to 9).map(i => s"/views/zeta-000$i.json") ++
       (10 to 14).map(i => s"/views/zeta-00$i.json")
 
@@ -65,7 +66,7 @@ trait TestESData extends TestESDomains with TestESUsers {
   }
 
   val anonymouslyViewableDocIds =
-    List("fxf-0", "fxf-1", "fxf-8", "fxf-10", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007", "zeta-0012")
+    List("fxf-0", "fxf-1", "fxf-8", "fxf-10", "fxf-11", "fxf-12", "zeta-0001", "zeta-0002", "zeta-0005", "zeta-0007", "zeta-0012")
   val anonymouslyViewableDocs = docs.filter(d => anonymouslyViewableDocIds contains(d.socrataId.datasetId))
 
   def bootstrapData(): Unit = {

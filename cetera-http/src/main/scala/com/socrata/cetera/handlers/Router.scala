@@ -14,6 +14,7 @@ import com.socrata.cetera.types._
 class Router(
     versionResource: => HttpService,
     catalogResource: Boolean => HttpService,
+    autocompleteResource: Boolean => HttpService,
     facetResource: String => HttpService,
     domainCountResource: => HttpService,
     countResource: DocumentFieldType with Countable with Rawable => HttpService,
@@ -58,6 +59,10 @@ class Router(
     // document counts for queries grouped by domain_tags
     Route("/catalog/domain_tags", countResource(DomainTagsFieldType)),
     Route("/catalog/v1/domain_tags", countResource(DomainTagsFieldType)),
+
+    // catalog autocomplete
+    Route("/catalog/autocomplete", autocompleteResource(false)),
+    Route("/catalog/v1/autocomplete", autocompleteResource(false)),
 
     //
     // Internal endpoints

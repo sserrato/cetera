@@ -80,11 +80,19 @@ object DocumentQueries {
 
     val matchQuery = searchQuery match {
       case NoQuery => noQuery
-      case AdvancedQuery(queryString) => advancedQuery(queryString, scoringParams.fieldBoosts)
-      case SimpleQuery(queryString) => simpleQuery(queryString,
-        applyDefaultTitleBoost(defaultTitleBoost, defaultMinShouldMatch, scoringParams.fieldBoosts),
-        chooseMinShouldMatch(scoringParams.minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)),
-        scoringParams.slop)
+      case AdvancedQuery(queryString) =>
+        advancedQuery(
+          queryString,
+          scoringParams.fieldBoosts
+        )
+      case SimpleQuery(queryString) =>
+        simpleQuery(
+          queryString,
+          applyDefaultTitleBoost(
+            defaultTitleBoost, defaultMinShouldMatch, scoringParams.fieldBoosts),
+          chooseMinShouldMatch(
+            scoringParams.minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)), scoringParams.slop
+        )
     }
 
     matchQuery
@@ -165,6 +173,9 @@ object DocumentQueries {
       .should(documentQuery)
       .should(QueryBuilders.hasParentQuery(esDomainType, domainQuery))
   }
+
+  def autocompleteQuery(queryString: String): MatchQueryBuilder =
+    QueryBuilders.matchQuery(TitleFieldType.autocompleteFieldName, queryString)
 
   def compositeFilteredQuery(
       domainSet: DomainSet,

@@ -57,6 +57,11 @@ sealed trait NativelyRawable extends Rawable {
   override lazy val rawFieldName: String = fieldName
 }
 
+// For field with a corresponding autocomplete field
+sealed trait Autocompletable extends CeteraFieldType {
+  lazy val autocompleteFieldName: String = fieldName + ".autocomplete"
+}
+
 // For key-value things like custom metadata fields
 sealed trait Mapable extends CeteraFieldType {
   val Key: NestedField
@@ -246,7 +251,7 @@ case object DomainMetadataFieldType extends DocumentFieldType with Mapable with 
 /////////////
 // Boostables
 
-case object TitleFieldType extends DocumentFieldType with Boostable with Rawable {
+case object TitleFieldType extends DocumentFieldType with Boostable with Rawable with Autocompletable {
   val fieldName: String = "indexed_metadata.name"
 }
 

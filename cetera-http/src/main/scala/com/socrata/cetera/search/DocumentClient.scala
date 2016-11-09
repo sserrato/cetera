@@ -7,9 +7,10 @@ import org.elasticsearch.search.aggregations.AggregationBuilders
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.handlers.{PagingParamSet, ScoringParamSet, SearchParamSet}
+import com.socrata.cetera.errors.MissingRequiredParameterError
 import com.socrata.cetera.search.DocumentAggregations.chooseAggregation
 import com.socrata.cetera.search.DocumentFilters.compositeFilter
-import com.socrata.cetera.search.DocumentQueries.{chooseMatchQuery, compositeFilteredQuery}
+import com.socrata.cetera.search.DocumentQueries.{autocompleteQuery, chooseMatchQuery, compositeFilteredQuery}
 import com.socrata.cetera.types._
 
 trait BaseDocumentClient {
@@ -17,6 +18,14 @@ trait BaseDocumentClient {
       domainSet: DomainSet,
       searchParams: SearchParamSet,
       scoringParams: ScoringParamSet,
+      pagingParams: PagingParamSet,
+      user: Option[User],
+      requireAuth: Boolean)
+    : SearchRequestBuilder
+
+  def buildAutocompleteSearchRequest(
+      domainSet: DomainSet,
+      searchParams: SearchParamSet,
       pagingParams: PagingParamSet,
       user: Option[User],
       requireAuth: Boolean)
@@ -78,6 +87,33 @@ class DocumentClient(
       .setTypes(esDocumentType)
 
     preparedSearch
+  }
+
+  def buildAutocompleteSearchRequest(
+      domainSet: DomainSet,
+      searchParams: SearchParamSet,
+      pagingParams: PagingParamSet,
+      user: Option[User],
+      requireAuth: Boolean): SearchRequestBuilder = {
+    // Construct basic match query against title autocomplete field
+    val query = searchParams.searchQuery match {
+      case SimpleQuery(queryString) => autocompleteQuery(queryString)
+      case _ => throw new MissingRequiredParameterError("q", "search query")
+    }
+
+    val filteredQuery = compositeFilteredQuery(domainSet, searchParams, query, user, requireAuth)
+
+    esClient.client
+      .prepareSearch(indexAliasName)
+      .setFrom(pagingParams.offset)
+      .setSize(pagingParams.limit)
+      .setQuery(filteredQuery)
+      .setTypes(esDocumentType)
+      .addField(TitleFieldType.fieldName)
+      .addHighlightedField(TitleFieldType.autocompleteFieldName)
+      .setHighlighterType("fvh")
+      .setHighlighterPreTags("<span class=highlight>")
+      .setHighlighterPostTags("</span>")
   }
 
   def buildSearchRequest(

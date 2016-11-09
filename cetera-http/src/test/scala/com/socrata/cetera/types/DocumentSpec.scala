@@ -251,6 +251,30 @@ class DocumentSpec extends WordSpec with ShouldMatchers with TestESData with Bef
       verifyRaPending(doc, 3)
     }
 
+    "have the expected statuses for fxf-11" in {
+      val doc = docs.find(d => d.socrataId.datasetId == "fxf-11").get
+      doc.isPublic should be(true)
+      doc.isPublished should be(true)
+      doc.isDatalens should be(false)
+      doc.isHiddenFromCatalog should be(false)
+      doc.isSharedOrOwned("prince-john") should be(true)
+      verifyVmMissing(doc)
+      verifyRaApproved(doc, 3)
+      verifyRaMissing(doc, 0)
+    }
+
+    "have the expected statuses for fxf-12" in {
+      val doc = docs.find(d => d.socrataId.datasetId == "fxf-12").get
+      doc.isPublic should be(true)
+      doc.isPublished should be(true)
+      doc.isDatalens should be(false)
+      doc.isHiddenFromCatalog should be(false)
+      doc.isSharedOrOwned("prince-john") should be(true)
+      verifyVmMissing(doc)
+      verifyRaApproved(doc, 3)
+      verifyRaMissing(doc, 0)
+    }
+
     "have the expected statuses for zeta-0003" in {
       val doc = docs.find(d => d.socrataId.datasetId == "zeta-0003").get
       doc.isPublic should be(false)

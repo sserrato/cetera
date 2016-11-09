@@ -217,7 +217,7 @@ class SearchServiceSpecForAnonymousUsers
     actualFxfs should be('empty)
 
     // ensure something could have come back
-    val docFrom8 = docs(18)
+    val docFrom8 = docs(20)
     docFrom8.socrataId.domainId should be(domains(8).domainId)
     docFrom8.isPublic should be(true)
     docFrom8.isPublished should be(true)
@@ -233,9 +233,9 @@ class SearchServiceSpecForAnonymousUsers
       "search_context" -> routedDomain3.domainCname
     ).mapValues(Seq(_))
     val domain2Or3Docs = docs.filter(d => d.socrataId.domainId == 2 || d.socrataId.domainId == 3)
-    // the filters below to find expected 4x4s are only correct because of the limited set of data on domains 2 & 3
-    val expectedFxfs = domain2Or3Docs.filter(d => d.isApprovedByParentDomain && d.isPublic && d.isVmApproved &&
-      d.isRaApproved(3)).map(_.socrataId.datasetId)
+    val expectedFxfs = domain2Or3Docs.filter(d =>
+      d.isApprovedByParentDomain && d.isPublic && (d.isDefaultView || d.isVmApproved)
+        && d.isRaApproved(3)).map(_.socrataId.datasetId)
     val res = service.doSearch(params, false, AuthParams(), None, None)._2
     val actualFxfs = fxfs(res)
     actualFxfs should contain theSameElementsAs expectedFxfs

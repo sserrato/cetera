@@ -85,6 +85,9 @@ object SearchServer extends App {
     logger.info("Initializing SearchService with document, domain, balboa, and verification clients")
     val searchService = new SearchService(documentClient, domainClient, balboaClient, coreClient)
 
+    logger.info("Initializing AutocompleteService with document, domain, and core clients")
+    val autocompleteService = new AutocompleteService(documentClient, domainClient, coreClient)
+
     logger.info("Initializing FacetService with document, domain, and verification clients")
     val facetService = new FacetService(documentClient, domainClient, coreClient)
 
@@ -101,6 +104,7 @@ object SearchServer extends App {
     val router = new Router(
       versionService.Service,
       searchService.Service,
+      autocompleteService.Service,
       facetService.Service,
       domainCountService.Service,
       countService.Service,

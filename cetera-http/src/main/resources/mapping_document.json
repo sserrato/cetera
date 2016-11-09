@@ -36,11 +36,11 @@
       }
     },
     "approving_domain_ids": { "type": "long" },
-    "rejecting_domain_ids": { "type": "long" },
     "pending_domain_ids": { "type": "long" },
+    "rejecting_domain_ids": { "type": "long" },
     "is_approved_by_parent_domain": { "type": "boolean" },
-    "is_rejected_by_parent_domain": { "type": "boolean" },
     "is_pending_on_parent_domain": { "type": "boolean" },
+    "is_rejected_by_parent_domain": { "type": "boolean" },
     "created_at": { "type": "date", "format": "dateOptionalTime" },
     "customer_category": {
       "type": "string",
@@ -120,7 +120,8 @@
           "type": "string",
 	  "analyzer": "snowball_en",
           "fields": {
-            "raw": { "type": "string", "index": "not_analyzed" }
+            "raw": { "type": "string", "index": "not_analyzed" },
+            "autocomplete": { "type": "string", "index_analyzer": "autocomplete", "term_vector": "with_positions_offsets" }
           },
           "copy_to": [ "fts_analyzed", "fts_raw" ]
         }
@@ -143,10 +144,7 @@
     },
     "is_default_view": { "type": "boolean" },
     "is_moderation_approved": { "type": "boolean" },
-    "moderation_status": {
-      "type": "string",
-      "index": "not_analyzed"
-    },
+    "moderation_status": { "type": "string", "index": "not_analyzed" },
     "page_views": {
       "properties": {
         "page_views_last_month": { "type": "long" },

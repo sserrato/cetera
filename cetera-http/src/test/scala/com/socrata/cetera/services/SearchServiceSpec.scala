@@ -292,6 +292,8 @@ class SearchServiceSpec extends FunSuiteLike
     val expectedVis = Map(
       "fxf-3" -> false,
       "fxf-7" -> false,
+      "fxf-11" -> true,
+      "fxf-12" -> true,
       "zeta-0002" -> true,
       "zeta-0009" -> false,
       "zeta-0013" -> false,

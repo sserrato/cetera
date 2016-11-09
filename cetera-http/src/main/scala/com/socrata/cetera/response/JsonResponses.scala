@@ -1,12 +1,20 @@
 package com.socrata.cetera.response
 
+import org.elasticsearch.search.SearchHit
+import scala.collection.JavaConverters._
 import java.io.{PrintWriter, StringWriter}
 
+import com.rojoma.json.v3.io.JsonReader
+import com.rojoma.json.v3.jpath.JPath
 import com.rojoma.json.v3.ast.{JString, JValue}
 import com.rojoma.json.v3.codec.JsonEncode
 import com.rojoma.json.v3.util._
 import com.socrata.http.server.HttpResponse
 import com.socrata.http.server.responses.{Json, StatusResponse, Unauthorized}
+import org.elasticsearch.search.highlight.HighlightField
+import org.elasticsearch.common.text.Text
+
+import com.socrata.cetera.types.TitleFieldType
 
 object JsonResponses {
   def jsonError(error: String): HttpResponse = {
@@ -97,4 +105,22 @@ object SearchResults {
       InternalTimings(Timings.elapsedInMillis(time), Seq(0)),
       setCookies
     )
+}
+
+@JsonKeyStrategy(Strategy.Underscore)
+case class CompletionResult(title: String, displayTitle: String)
+
+object CompletionResult {
+  implicit val jCodec = AutomaticJsonCodecBuilder[CompletionResult]
+
+  def fromElasticsearchHit(hit: SearchHit): CompletionResult = {
+    val titleField = hit.field(TitleFieldType.fieldName)
+    val title = titleField.values.asScala.collect { case title: String => title }.head
+    val highlightMap = hit.highlightFields.asScala
+    val highlightField = highlightMap.get(TitleFieldType.autocompleteFieldName)
+    val displayTitle = highlightField.flatMap(field =>
+      field.fragments.collect { case title: Text => title.toString }.headOption
+    ).getOrElse(title)
+    CompletionResult(title, displayTitle)
+  }
 }

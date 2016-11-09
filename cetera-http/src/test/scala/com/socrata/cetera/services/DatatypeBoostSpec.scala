@@ -25,10 +25,10 @@ class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with 
 
   private def constructQueryParams(query: QueryType): Map[String, Seq[String]] = {
     val queryParam = query match {
-        case NoQuery => None
-        case SimpleQuery(q) => Some(Params.q -> q)
-        case AdvancedQuery(q) => Some(Params.qInternal -> q)
-      }
+      case NoQuery => None
+      case SimpleQuery(q) => Some(Params.q -> q)
+      case AdvancedQuery(q) => Some(Params.qInternal -> q)
+    }
 
     val params = Map(
       Params.searchContext -> "petercetera.net",
