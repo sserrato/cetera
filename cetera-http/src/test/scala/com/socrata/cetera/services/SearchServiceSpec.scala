@@ -348,6 +348,13 @@ class SearchServiceSpec extends FunSuiteLike
     }
   }
 
+  test("searching for apis should not throw an error, but simply return no results") {
+    val host = "petercetera.net"
+    val params = Map("only" -> "apis").mapValues(Seq(_))
+    val res = service.doSearch(params, false, AuthParams(), None, None)._2.results
+    res should be('empty)
+  }
+
   ignore("es client - min should match") {}
   ignore("es client - slop") {}
   ignore("es client - function score") {}

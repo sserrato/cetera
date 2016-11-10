@@ -3,7 +3,7 @@ package com.socrata.cetera.types
 object Datatypes {
   val materialized: Seq[Materialized] = Seq(TypeCalendars, TypeCharts,
     TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms,
-    TypeMaps, TypeHrefs, TypePulses, TypeStories)
+    TypeMaps, TypeHrefs, TypePulses, TypeStories, TypeApis)
   val renamed: Seq[Datatype] = Seq(TypeLinks)
   val viewSpecific: Seq[Datatype] = Seq(TypeDatalensCharts, TypeDatalensMaps, TypeTabularMaps)
 
@@ -62,6 +62,9 @@ case object TypePulses extends DatatypeSimple with Materialized {
 case object TypeStories extends DatatypeSimple with Materialized {
   val plural: String = "stories"
   override lazy val singular: String = "story"
+}
+case object TypeApis extends DatatypeSimple with Materialized {
+  val plural: String = "apis"
 }
 
 // links -> hrefs
