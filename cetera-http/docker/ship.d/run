@@ -27,8 +27,6 @@ CMD="/usr/bin/java \
   -XX:+UseGCLogFileRotation \
   -XX:NumberOfGCLogFiles=3 \
   -XX:GCLogFileSize=50M \
-  -XX:+TraceClassLoading \
-  -XX:+TraceClassUnloading \
   -jar ${CETERA_ROOT}/${CETERA_ARTIFACT}
 "
 
