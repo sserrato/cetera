@@ -1,17 +1,12 @@
 # Cetera
 
-[![Codacy Badge](https://api.codacy.com/project/badge/40da0e5a1758402cbae610a091659375)](https://www.codacy.com/app/johnkrah/cetera)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/2551abfcba53421898f1d6729b35021c)](https://www.codacy.com/app/engineering-github-read-only/cetera)
 
 Cetera -- the golden-throated search service.
 
 Basically a wrapper around elasticsearch to enable keyword search to return dataset metadata for use by the front end in displaying search results.
 
 By default, cetera runs on port 5704.
-
-## End-to-end setup
-
-For a guide on how to set up Cetera search from Elasticsearch to Frontend, see
-[this Google Doc](https://docs.google.com/document/d/1wsslEGnp15STX8UnUFZ_kLzxDHkpLWstvAa-9OS31Gk/edit#)
 
 ## API
 
