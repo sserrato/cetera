@@ -1,0 +1,191 @@
+FORMAT: 1A
+HOST: api.us.socrata.com/api/users
+
+# User Search API
+
+The Socrata data platform hosts thousands of Socrata users who help publish/curate data,
+maintain open data services, and use open data to create new content and apps. Users may sign up
+for a Socrata account on any domain maintained by Socrata, and if the domain's administrator grants
+that user a [role](https://support.socrata.com/hc/en-us/articles/202950278-Understanding-user-roles), 
+they may use this API to search for Socrata users. Users can be found by keywords, 
+email, screen name, role and more.
+
+## Authentication
+
+Authentication is required to use this API. You can authenticate by
+- using either of the methods discussed [here](https://dev.socrata.com/docs/authentication.html) and
+- providing the `X-Socrata-Host` host header with the domain that has granted you access to view its users.
+For example `X-Socrata-Host:data.ny.gov`. We refer to this as the `authenticating domain`.
+
+When properly authenticated, users who have been granted a
+[role](https://support.socrata.com/hc/en-us/articles/202950278-Understanding-user-roles) on a Socrata domain may look up other
+users on their domain and administrators may look up any user. Unauthenticated users will receive an error response code.
+
+## App Tokens
+
+All programmatic usage of Socrata APIs should include an
+[app token](https://dev.socrata.com/docs/app-tokens.html), either via the `X-App-Token` header or the
+`$$app_token parameters` set to a valid token. This is assumed and not documented in the API specs below.
+
+## Response
+### Response Codes
+
+The Discovery APIs return Socrata's standard [response codes](https://dev.socrata.com/docs/response-codes.html). 
+
+Successful responses will contain a JSON object containing three fields:
+
+- `results` An array of user json objects. Details about these objects are found below in "User Results"
+- `resultSetSize` The total number of results that could be returned were they not paged
+- `timings` Timing information regarding how long the request took to fulfill
+
+If an error occurs, the response will be a JSON object containing a single `error` key. For example:
+
+{"error":"No user was provided to search users"}
+
+### Paging
+
+Paging is enabled in [the same manner](https://dev.socrata.com/docs/paging.html) as other Socrata APIs via
+the `limit` and `offset` parameters. An example of using these to page through users is given below.
+
+### Results
+
+Successful user searches return user `results` with the following fields:
+
+- `id` - The unique identifier for the user, e.g. 'epi9-4k9x'
+- `email` - The user's email address. This is unique since no two accounts may share an email address.
+- `screen_name` - The screen name the user has chosen, e.g. 'Robin Hood'
+- `role_name` - The user's role. Users may have roles on multiple domains, but only the role given by the 
+    authenticating domain will be returned. If missing, the user has no role on the authenticating domain.
+- `profile_image_url_large` - The route to the large copy of the user's profile image; only present if the user has chosen a profile picture
+- `profile_image_url_medium` - The route to the medium copy of the user's profile image; only present if the user has chosen a profile picture
+- `profile_image_url_small` - The route to the small copy of the user's profile image; only present if the user has chosen a profile picture
+
+## Request Parameters
+The production API endpoint for searching users is `https://api.us.socrata.com/api/catalog/v1/users`.
+When no parameters are passed, the initial set of users available to search will vary based on your role.
+Administrators may search across *all* users. Other roled users may only search across users having a role
+on the authenticating domain. This essentially enforces a rule that non-administrators may only search
+for their colleagues.  Any and all of the parameters discussed below can be used to limit the intial set
+of users. 
+
+# Search Endpoint [/catalog/v1/users]
+
++ Model (application/json)
+
+            {
+                "results": [
+                    {
+                        "id" : "uniq-uid1",
+                        "email" : "someone@somewhere.com",
+                        "screen_name" : "Screen Name",
+                        "role_name" : "publisher",
+                        "profile_image_url_large": "/api/users/uniq-uid1/profile_images/LARGE",
+                        "profile_image_url_medium": "/api/users/uniq-uid1/profile_images/THUMB",
+                        "profile_image_url_small": "/api/users/uniq-uid1/profile_images/TINY"
+                       }
+                  ],
+                  "resultSetSize": 1
+            }
+
+## Find users by ID [/catalog/v1/users{?ids}]
+To lookup a unique user by their ID, use the `ids` param. Multiple users may be 
+found by repeated use of the `ids` param, for example `?ids=uniq-uid1&ids=uniq-uid2`
+
++ Parameters
+    + ids (optional, string, `uniq-uid1`) ... The users unique Socrata ID.
+
+### Search by ID API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Find users by email [/catalog/v1/users{?emails}]
+To look up a unique user by their email, use the `emails` param. Multiple users may be 
+found by repeated use of the `emails` param, for example 
+`?emails=someone@somewhere.com&emails=someone@somewhere.else.com`
+
++ Parameters
+    + emails (optional, string, `someone@somewhere.com`) ... The users email address.
+
+### Search by email API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+    
+## Find users by screen name [/catalog/v1/users{?screen_names}]
+To search for users with a particular screen name, use the `screen_names` param. 
+Multiple screen names may be searched by repeated use of the `screen_names` param, for example 
+`?screen_names=Screen%20Name&screen_names=Pumpkin%20Jack`. Don't forget to URL encode the 
+screen name.
+
++ Parameters
+    + screen_names (optional, string, `Screen%20Name`) ... A screen name.
+
+### Search by screen name API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Find users by role [/catalog/v1/users{?roles}]
+To search users with a particular role, use the `roles` param. Per the discussion above in the "User Results"
+section, note that only users with roles on the authenticating domain will be considered.
+Multiple roles may be searched by repeated use of the `roles` param, for example 
+`?roles=publisher&roles=administrator`. 
+
++ Parameters
+    + roles (optional, string, `publisher`) ... Any Socrata [role](https://support.socrata.com/hc/en-us/articles/202950278-Understanding-user-roles).
+
+### Search by role API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+
+## Find users by domain [/catalog/v1/users{?domain}]
+To search for all users on a domain, first understand that users are only linked to a domain
+if they have been given a role on the domain. Thus, this search will find all users who 
+have a role on the given domain.
+
++ Parameters
+    + domain (optional, string, `data.ny.gov`) ... Any Socrata domain.
+
+### Search by domain API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Find users by query term [/catalog/v1/users{?q}]
+Users matching a given query term can be found using the `q` paramater. Matches are determined by
+whether any of the tokens of the search query match any of the tokens of the user's email and/or 
+screen name. For example if a user Jack has email jack.o.latern@pumpkin.patch.com and screen name 
+"Pumpkin Jack", the tokens produced will be 
+"jack.o.latern", "jack", "latern", "pumkin.patch.com", "pumpkin" and "patch". 
+Thus a query using any of those terms will find our user Jack.
+
++ Parameters
+    + q (optional, string, `pumpkin`) ... A string for text search.
+
+### Search by query term API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Page through users [/catalog/v1/users{?offset,limit}]
+Users can be paged with use of the `limit` and `offset` params.  
+By default the search will return 100 results, starting from 0.
+
++ Parameters
+    + offset (optional, number, `23`) ... Initial starting point for paging (0 by default).
+    + limit (optional, number, `47`) ... Number of results to return (10000 max/100 default).
+
+### Pagination API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
