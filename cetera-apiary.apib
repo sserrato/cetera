@@ -1,6 +1,608 @@
-FORMAT: 1A
-HOST: http://polls.apiblueprint.org/
+https://raw.githubusercontent.com/socrata/cetera/apiary_documentation_updates/apiary.apibFORMAT: 1A
 
-# Socrata Discovery API
+HOST: api.us.socrata.com/api
 
-The documentation for this API has been moved to [docs.socratadiscovery.apiary.io](http://docs.socratadiscovery.apiary.io).
+# Discovery API
+
+The Socrata data platform hosts tens of thousands of government datasets. Governments large and small publish data on crime, permits, finance, healthcare, research, performance, and more for citizens to use. While this large corpus of government data is already accessible via opendatanetwork.com, this API opens up the Socrata corpus of government data for automated searching, research, and exploration. Datasets can be found by keywords, high-level categorizations, tags, and much more. All calls return a JSON object containing three fields:
+
+- `results` An array of json objects, discussed below
+- `resultSetSize` The total number of results that could be returned were they not paged
+- `timings` Timing information regarding how long the request took to fulfill
+
+The results objects contains 5 fields:
+
+- `resource` A json object representing a dataset, visualization or other asset. Fields are described below.
+- `classification` A json object describing the asset's classification by categories and tags. Fields are described below.
+- `metadata` A json object containing metadata about the asset. The only field returned in this object is the `domain` field which names the domain that owns the asset.
+- `permalink` The permanent link of the asset.
+- `link` The prettier, but non-permanent, link of the asset.
+
+The resource object contains
+
+- `name` - The title of the asset
+- `id` - The unique identifier for the asset
+- `description` - The description for the asset, if one has been provided
+- `attribution` - The attribution of the asset, if one has been provided
+- `type` - The type of the asset
+- `updatedAt` - The timestamp at which the asset was last updated
+- `createdAt` - The timestamp at which the asset was created
+- `page_views` - An object containing the number of views this asset has had over the last week and month and over all time
+- `columns_name` - An array of the names of columns in this asset if applicable
+- `columns_description` - An array of the column descriptions for this asset, if provided
+- `columns_field_name` - An array of the field names of column, which serve as an identifier for the column.
+
+The classification object contains 5 fields:
+
+- `categories` An array of categories that have been automatically assigned by stastically derived models
+- `tags` An array of tags that have been automatically assigned by stastically derived models
+- `domain_category` The singular category given to the asset by the owning domain
+- `domain_tags` An array of tags given to the asset by the owning domain
+- `domain_metadata` An array of objects with the "key" and "value" of any custom metadata given to this asset by the owning domain
+
+
+The production API endpoint for the public version of this API is `https://api.us.socrata.com/api/catalog/v1`.
+For example, to query for datasets categorized as `Crime`, you could use the following query:
+
+<a class="tryit" href="http://api.us.socrata.com/api/catalog/v1?categories=public%20safety">http://api.us.socrata.com/api/catalog/v1?categories=public safety</a>
+
+* Please note that we assume all calls include a Socrata app token, either via the X-App-Token header or the $$app_token parameters set to a valid token. This is assumed and not documented in the API spec below. Please refer to our main
+[Developer site](https://dev.socrata.com/docs/app-tokens.html) for information on using an app token.*
+
+# Search Endpoint [/catalog/v1]
+
++ Model (application/json)
+
+            {
+              "results": [
+                {
+                "resource" :
+                  {
+                    "name" : "Burke Gilman Trail north of NE 70th St Bike and Ped Counter",
+                    "id" : "2z5v-ecg8",
+                    "description" : "These sensors counts both people riding bikes and pedestrians. Separate volumes are tallied for each travel mode. Wires in a diamond formation in the concrete detect bikes and an infrared sensor mounted on a wooden post detects pedestrians. The counters also capture the direction of travel for both bikes and pedestrians.",
+                    "attribution" : "SDOT",
+                    "type" : "dataset",
+                    "updatedAt" : "2016-08-02T14:36:28.000Z",
+                    "createdAt" : "2014-02-04T08:15:56.000Z",
+                    "columns_name" :
+                      [
+                        "Bike South",
+                        "Bike North",
+                        "Ped North",
+                        "Ped South",
+                        "BGT North of NE 70th Total",
+                        "Date"
+                      ],
+                    "columns_field_name" :
+                      [
+                        "bike_south",
+                        "bike_north",
+                        "ped_north",
+                        "ped_south",
+                        "bgt_north_of_ne_70th_total",
+                        "date"
+                      ],
+                    "columns_description" : [ "", "", "", "", "", "" ],
+                    "page_views" :
+                      {
+                        "page_views_total" : 1698,
+                        "page_views_total_log" : 10.730470137184222,
+                        "page_views_last_week" : 16,
+                        "page_views_last_week_log" : 4.08746284125034,
+                        "page_views_last_month_log" : 6.209453365628951,
+                        "page_views_last_month" : 73
+                      },
+                    "download_count" : 0
+                  },
+                  "classification" : {
+                    "categories" : ["Transportation"],
+                    "tags" : ["transportation"],
+                    "domain_categories": ["Things that move"],
+                    "domain_tags" : ["bikes", "routes"],
+                    "domain_metadata" : [
+                        {"key": "data-freshness_scope", "value": "daily"},
+                        {"key": "manufacturing_vendor", "value": "Boeing"},
+                        {"key": "manufacturing_plant-location", "value": "Renton"}
+                    ]
+                  },
+                  "metadata" : { "domain" : "data.seattle.gov" },
+                  "permalink" : "https://data.seattle.gov/d/2z5v-ecg8",
+                  "link" : "https://data.seattle.gov/Transportation/Burke-Gilman-Trail-north-of-NE-70th-St-Bike-and-Pe/2z5v-ecg8"
+                },
+                "resource" :{ ... }
+                ],
+            "resultSetSize" : 11588,
+            "timings" : { "serviceMillis" : 5, "searchMillis" : 5 }
+        }
+
+
+
+
+## Searching particular domains [/catalog/v1{?domains,search_context}]
+Each asset is owned by a single domain. The `domain` and `search_context` params limit the results down to those
+from a single domain. Without these, the search service returns results from the entire corpus.
+
++ Parameters
+    + domains (optional, list[string], `data.seattle.gov,data.hawaii.gov`) ...
+      A comma separated list of cnames. Returns results restricted to only the domains in the list.
+      When not present, searches the entire catalog.
+    + search_context (optional, string, `data.seattle.gov`) ...
+      Specifies the domain from where this query was issued and for which categories/tags will be used in search.
+      If you seek to limit query results to just specific domains, please re-enter the same domains as listed in ‘domains’.
+
+### Domain Search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Searching particular categories/tags [/catalog/v1{?categories,tags,search_context}]
+Each asset may have categories/tags assigned by Socrata or by the owning domain.
+The `categories` and `tags` parameters limit the results to those having the given category or tag.
+Without these, the search service returns results from the entire set of categories/tags.
+To search the categories/tags of a particular domain, you must also include the `search_context` param.
+To search the categories/tags that were assigned by Socrata, exclude the `search_context` param.
+
++ Parameters
+    + categories (optional, string, `Education`) ...
+      Each `categories` param may list a single category. Multiple `categories` params may be given to search across multiple categories.
+      Returns results restricted to only the categories specified (OR). When not present, searches all categories.
+    + tags (optional, string, `families`) ...
+      Each `tags` param may list a single tag. Multiple `tags` params may be given to search across multiple tags.
+      Returns results restricted to only the tags specified (OR). When not present, searches all tags.
+    + search_context (optional, string, `data.seattle.gov`) ...
+      Specifies the domain from where this query was issued and for which categories/tags will be used in search.
+
+### Category/Tag Search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Searching particular asset types [/catalog/v1{?only}]
+Each asset has a logical, such as a dataset or chart. The `only` parameter limits the results to a particular type
+(eg `datasets`, `charts`, `maps`). Without this param, the search service returns results from the entire
+set of types.
+
++ Parameters
+    + only (optional, list[string], `datasets`) ...
+      Limit results to a particular asset type (`datasets`, `charts`, `maps`, `datalenses`, `stories`, `files`, `hrefs`).
+      If not present searches all types.
+
+### Asset Type Search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Searching domain-specific metadata [/catalog/v1{?set%2dName_key%2dName,search_context}]
+Each domain has the ability to add custom metadata to datasets beyond Socrata’s default metadata.
+This custom metadata is different for every domain, but within a domain, all assets may be labeled
+with the metadata. The custom metadata is a named set of key-value pairs. For example one domain might
+have a set named "Publication Metadata" and have keys "Publication Date" and "Publication Cycle",
+while another domain has a set named "Agency Ownership" having key "Department").
+The caller may restrict the results to a particular custom metadata pair by specifying the param name as a
+combination of the set's name and the key's name and the param value as the key's value. To construct the
+param name join the set's name to the key's name with an underscore and replace all spaces with dashes.
+Some examples are given in the table below:
+
+
+| Set Name             | Key Name          | Key Value            |  Param |
+|----------------------|-------------------|----------------------|--------|
+| Publication Metadata | Publication Cycle | Daily                | ?q=Publication-Metadata_Publication-Cycle=Daily
+| Agency Ownership     | Department        | Fisheries & Wildlife | ?q=Agency-Ownership_Department=Fisheries %26 Wildlife
+
+
++ Parameters
+    + set%2dName_key%2dName (optional, string, `Key%20Value`) ...
+      The value of a custom metadata field. Returns results restricted to only those having the given
+      custom metadata value.
+    + search_context (optional, string, `data.ny.gov`) ...
+      Specifies the domain having customized the metadata keys and values.
+
+### Custom Metadata Search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Searching particular attributions [/catalog/v1{?attribution}]
+Assets can be attributed to various organizations. The caller can restrict the results to only the
+assets with the given attribution by specifying this parameter.
+
++ Parameters
+    + attribution (optional, string, `City of Chicago`) ... Limits results to assets attributed to an entity. Case-sensitive.
+
+### Asset Attribution Search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+## Text search [/catalog/v1{?q}]
+Assets may be searched by any of the text found in the
+`name, description, category, column names, column fieldnames and column descriptions`.
+The `q` parameter takes arbitrary text and finds assets having some or all of the text.
+
++ Parameters
+    + q (optional, string, `chicago crime`) ... A string for full text search
+
+### Text search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+
+## Searching for derived views [/catalog/v1{?derived_from}]
+The search service maintains any relationship present between a dataset asset and view-type assets
+that derive from it. For example charts derive from a parent dataset. The `derived_from` param will
+limit the results to those that derive from a particular dataset.
+
++ Parameters
+    + derived_from (optional, string, `dk8m-pdjf`) ... Limit results to assets derived from dataset by id.
+
+### Derived assets search API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+
+## Pagination [/catalog/v1{?offset,limit}]
+The search service allows pagination of results.  By default, we will return at most 100 results starting from 0.
++ Parameters
+    + offset (optional, number, `23`) ... Initial starting point for paging (0 by default)
+    + limit (optional, number, `47`) ... Number of results to return (100 max/default)
+
+### Pagination API [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+
+## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,only,attribution,q,derived_from,offset,limit}]
+The full search API is detailed here.
+
++ Parameters
+    + domains (optional, list[string], `data.ny.gov`) ...
+      A comma separated list of cnames. Returns results restricted to only the domains in the list.
+      When not present, searches the entire catalog.
+    + search_context (optional, string, `data.ny.gov`) ...
+      Specifies the domain from where this query was issued and for which categories will be used in search.
+    + categories (optional, string, `Government %26 Finance`) ...
+      A single category. Multiple categories may be selected by including multiple instances of this query string parameter.
+      May also be formatted `categories[]=category2`. Returns results restricted to only the categories specified (OR).
+      When not present, searches all categories.
+    + tags (optional, string, `lotto`) ...
+      A single tag. Multiple tags may be selected by including multiple instances of this query string parameter.
+      May also be formatted `tags[]=tag2`. Returns results restricted to only the tags specified (OR).
+      When not present, searches all tags.
+    + only (optional, list[string], `maps`) ...
+      Limit results to a particular asset type (`datasets`, `charts`, `maps`, `datalenses`, `stories`, `files`, `hrefs`).
+      If not present searches all types
+    + attribution (optional, string, `Gaming Commission`) ... Limits results to assets attributed an entity. Case-sensitive.
+    + q (optional, string, `lottery retailers`) ... A string for full text search
+    + derived_from (optional, string, `2vvn-pdyi`) ... Limit results to assets derived from dataset by id.
+    + offset (optional, number, `0`) ... Initial starting point for paging (0 by default)
+    + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
+
+### Search API with all options [GET]
+
++ Response 200
+
+    [Search Endpoint][]
+
+
+## Count by and list domains [/catalog/v1/domains]
+Returns each domain and the count of assets owned by that domain. The counts may be restricted according to
+any of the query parameters described in the Complete Search API.
+
+### Count by domain API [GET]
+
++ Response 200
+
+        {
+          "results" :
+            [
+              { "domain" : "opendata.utah.gov", "count" : 1239 },
+              { "domain" : "data.cityofnewyork.us", "count" : 956 },
+              { "domain" : "data.illinois.gov", "count" : 491 },
+              { "domain" : "data.oregon.gov", "count" : 466 },
+              { "domain" : "data.hawaii.gov", "count" : 454 },
+              { "domain" : "data.ok.gov", "count" : 423 },
+              { "domain" : "data.maryland.gov", "count" : 399 },
+              { "domain" : "data.ny.gov", "count" : 391 },
+              { "domain" : "www.opendata.go.ke", "count" : 341 },
+              { "domain" : "data.cityofchicago.org", "count" : 334 },
+              { "domain" : "datacatalog.cookcountyil.gov", "count" : 308 },
+              { "domain" : "bronx.lehman.cuny.edu", "count" : 245 },
+              { "domain" : "data.colorado.gov", "count" : 238 },
+              { "domain" : "data.edmonton.ca", "count" : 238 },
+              { "domain" : "data.lacity.org", "count" : 232 },
+              { "domain" : "data.mo.gov", "count" : 219 },
+              { "domain" : "www.natsdatasct.gob.mx", "count" : 211 },
+              { "domain" : "health.data.ny.gov", "count" : 208 },
+              { "domain" : "data.ct.gov", "count" : 204 },
+              { "domain" : "data.cdc.gov", "count" : 190 },
+              { "domain" : "finances.worldbank.org", "count" : 188 },
+              { "domain" : "data.medicare.gov", "count" : 186 },
+              { "domain" : "data.wa.gov", "count" : 170 },
+              { "domain" : "data.baltimorecity.gov", "count" : 167 },
+              { "domain" : "data.sfgov.org", "count" : 165 },
+              { "domain" : "data.raleighnc.gov", "count" : 139 },
+              { "domain" : "data.seattle.gov", "count" : 124 },
+              { "domain" : "data.cityofboston.gov", "count" : 123 },
+              { "domain" : "data.iowa.gov", "count" : 119 },
+              { "domain" : "bythenumbers.sco.ca.gov", "count" : 116 },
+              { "domain" : "data.oaklandnet.com", "count" : 114 },
+              { "domain" : "data.smcgov.org", "count" : 114 },
+              { "domain" : "data.kcmo.org", "count" : 111 },
+              { "domain" : "chronicdata.cdc.gov", "count" : 98 },
+              { "domain" : "data.cms.gov", "count" : 95 },
+              { "domain" : "data.kingcounty.gov", "count" : 90 },
+              { "domain" : "data.nola.gov", "count" : 88 },
+              { "domain" : "healthdata.nj.gov", "count" : 88 },
+              { "domain" : "www.datossct.gob.mx", "count" : 87 },
+              { "domain" : "data.nj.gov", "count" : 76 },
+              { "domain" : "data.iae.alberta.ca", "count" : 74 },
+              { "domain" : "data.michigan.gov", "count" : 69 },
+              { "domain" : "data.energystar.gov", "count" : 68 },
+              { "domain" : "data.acgov.org", "count" : 61 },
+              { "domain" : "data.montgomerycountymd.gov", "count" : 59 },
+              { "domain" : "opendata.lasvegasnevada.gov", "count" : 58 },
+              { "domain" : "cdph.data.ca.gov", "count" : 57 },
+              { "domain" : "data.cambridgema.gov", "count" : 56 },
+              { "domain" : "data.melbourne.vic.gov.au", "count" : 51 },
+              { "domain" : "controllerdata.lacity.org", "count" : 48 },
+              { "domain" : "data.austintexas.gov", "count" : 46 },
+              { "domain" : "data.chattlibrary.org", "count" : 45 },
+              { "domain" : "data.brla.gov", "count" : 44 },
+              { "domain" : "data.winnipeg.ca", "count" : 43 },
+              { "domain" : "chhs.data.ca.gov", "count" : 41 },
+              { "domain" : "data.cityofberkeley.info", "count" : 40 },
+              { "domain" : "data.hartford.gov", "count" : 35 },
+              { "domain" : "data.cityofgainesville.org", "count" : 34 },
+              { "domain" : "data.datamontana.us", "count" : 34 },
+              { "domain" : "data.mass.gov", "count" : 30 },
+              { "domain" : "data.awcnet.org", "count" : 27 },
+              { "domain" : "data.dcpcsb.org", "count" : 25 },
+              { "domain" : "data.providenceri.gov", "count" : 25 },
+              { "domain" : "data.strathcona.ca", "count" : 25 },
+              { "domain" : "databox.worldbank.org", "count" : 24 },
+              { "domain" : "www.dallasopendata.com", "count" : 24 },
+              { "domain" : "data.smgov.net", "count" : 22 },
+              { "domain" : "data.montgomeryschoolsmd.org", "count" : 21 },
+              { "domain" : "data.tol.ca", "count" : 20 },
+              { "domain" : "data.texas.gov", "count" : 19 },
+              { "domain" : "openpaymentsdata.cms.gov", "count" : 19 },
+              { "domain" : "data.nashville.gov", "count" : 16 },
+              { "domain" : "data.princegeorgescountymd.gov", "count" : 16 },
+              { "domain" : "data.vermont.gov", "count" : 14 },
+              { "domain" : "data.murphytx.org", "count" : 12 },
+              { "domain" : "data.cityofgp.com", "count" : 11 },
+              { "domain" : "data.fortworthtexas.gov", "count" : 9 },
+              { "domain" : "data.hampton.gov", "count" : 5 },
+              { "domain" : "data.vta.org", "count" : 2 }
+            ],
+          "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
+        }
+
+
+## Count by and list tags [/catalog/v1/tags]
+Returns each tag and the count of assets having that tag. The counts may be restricted according to any of the query parameters described in the Complete Search API.
+
+### Count by tag API [GET]
+
++ Response 200
+
+        {
+          "results": [
+            {
+              "tag": "blds",
+              "count": 62
+            },
+            {
+              "tag": "lives",
+              "count": 2
+            }
+          ],
+          "resultSetSize": 2,
+          "timings": {
+            "serviceMillis": 24,
+            "searchMillis": [10, 8]
+          }
+        }
+
+## Count by and list custom domain tags [/catalog/v1/domain_tags]
+Returns each domain-specific tag and the count of assets having that tag.  The counts may be restricted according to any of the query parameters described in the Complete Search API.
+
+### Count by domain tags API [GET]
+
++ Response 200
+
+        {
+          "results" :
+            [
+              { "domain_tag" : "national geospatial data asset", "count" : 19333 },
+              { "domain_tag" : "ngda", "count" : 19333 },
+              { "domain_tag" : "earth science", "count" : 14389 },
+              { "domain_tag" : "oceans", "count" : 10033 },
+              { "domain_tag" : "project", "count" : 7542 },
+              { "domain_tag" : "ocean optics", "count" : 7324 },
+              { "domain_tag" : "atmosphere", "count" : 7323 },
+              { "domain_tag" : "ocean color", "count" : 7270 },
+              { "domain_tag" : "completed", "count" : 6474 },
+              { "domain_tag" : "311", "count" : 4164 }
+            ],
+          "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
+        }
+
+
+## Count by and list categories [/catalog/v1/categories]
+Returns each category and the count of assets having that category. The counts may be restricted according to
+any of the query parameters described in the Complete Search API.
+
+
+### Count by category API [GET]
+
++ Response 200
+
+        {
+          "results": [
+            {
+              "category": "finance",
+              "count": 20633
+            },
+            {
+              "category": "public safety",
+              "count": 10922
+            },
+            {
+              "category": "infrastructure",
+              "count": 10202
+            },
+            {
+              "category": "environment",
+              "count": 7629
+            },
+            {
+              "category": "demographics",
+              "count": 6596
+            },
+            {
+              "category": "economy",
+              "count": 5635
+            },
+            {
+              "category": "transportation",
+              "count": 5369
+            },
+            {
+              "category": "education",
+              "count": 4257
+            },
+            {
+              "category": "health",
+              "count": 4226
+            },
+            {
+              "category": "housing & development",
+              "count": 4066
+            },
+            {
+              "category": "social services",
+              "count": 3084
+            },
+            {
+              "category": "politics",
+              "count": 2984
+            },
+            {
+              "category": "recreation",
+              "count": 2056
+            }
+          ],
+          "resultSetSize": 13,
+          "timings": {
+          "serviceMillis": 36,
+          "searchMillis": [12, 16]
+          }
+        }
+
+## Count by and list custom domain categories [/catalog/v1/domain_categories]
+Returns each domain-specific category and the count of assets having that category.  The counts may be restricted
+according to any of the query parameters described in the Complete Search API.
+
+### Count by domain categories API [GET]
+
++ Response 200
+
+        {
+          "results" :
+            [
+              { "domain_category" : "Earth Science", "count" : 22941 },
+              { "domain_category" : "Public Safety", "count" : 3719 },
+              { "domain_category" : "Government", "count" : 3698 },
+              { "domain_category" : "Social Services", "count" : 3502 },
+              { "domain_category" : "Health", "count" : 2222 },
+              { "domain_category" : "Transportation", "count" : 2089 },
+              { "domain_category" : "City Government", "count" : 1649 },
+              { "domain_category" : "Education", "count" : 1458 },
+              { "domain_category" : "Loan and Credit Administration", "count" : 1167 },
+              { "domain_category" : "Energy & Environment", "count" : 1054 }
+            ],
+          "timings" : { "serviceMillis" : 5, "searchMillis" : 4 }
+        }
+
+## Count by and list custom domain facets [/catalog/v1/domains/{domain}/facets]
+Returns the domain's custom facets (e.g. categories, tags, asset types and any custom metadata) and the count
+of assets having a value for that facet. Each facet also includes counts aggregated by the various facet values.
+
+### Count by domain facets API [GET]
+
++ Parameters
+    + domain: `data.seattle.gov` (string) - The domain name
+
++ Response 200 (application/json)
+
+        [
+          {
+            "facet": "datatypes",
+            "count": 1123,
+            "values": [
+              {"value": "datalens", "count": 17},
+              {"value": "dataset", "count": 17},
+              {"value": "chart", "count": 17},
+              {"value": "map", "count": 17},
+              {"value": "calendar", "count": 17},
+              {"value": "filter", "count": 17},
+              {"value": "href", "count": 17},
+              {"value": "file", "count": 17},
+              {"value": "form", "count": 17},
+            ]
+          },
+          {
+            "facet": "categories",
+            "count": 980,
+            "values": [
+              {"value": "finance", "count": 470},
+              {"value": "permits & licenses", "count": 245},
+              {"value": "public assets", "count": 123},
+              {"value": "public safety", "count": 99},
+              {"value": "public services", "count": 42},
+              {"value": "transportation" "count": 1}
+            ]
+          },
+          {
+            "facet": "tags",
+            "count": 70,
+            "values": [
+              {"value": "youth", "count": 42},
+              {"value": "wellbeing", "count": 21},
+              {"value": "reportcard" "count": 7}
+            ]
+          },
+          {
+            "facet": "data-freshness_scope",
+            "count": 170,
+            "values": [
+              {"value": "all existing and proposed access points", "count": 59},
+              {"value": "all existing stations owned by the city of seattle", "count": 48},
+              {"value": "all public datasets, filtered views, and visualizations", "count": 37},
+              {"value": "all public parking lots in seattle" "count": 26}
+            ]
+          },
+          {
+            "facet": "data-freshness_time-period",
+            "count": 5,
+            "values: [ ... ]
+          },
+          {
+            "facet": "data-freshness_update-frequency",
+            "count": 1,
+            "values": [ ... ]
+          }
+        ]
