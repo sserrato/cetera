@@ -296,6 +296,40 @@ The full search API is detailed here.
     [Search Endpoint][]
 
 
+## Search autocomplete [/catalog/v1/autocomplete{?q}]
+To improve the catalog search experience, we added an autocomplete API, which returns a list of titles that match the search query. This API supports all the same filtering parameters as the top-level complete search API. Moreover, the response body has the same shape as the search API, containing `resultSetSize`, `results`, and `timings` fields at the root of the response object. The `results` field consists of an array of objects, with each object containing `display_title` and `title` fields. The `display_title` field contains markup to enable highlighting of the matching query string. The `title` field contains the raw title string.
+
+Note that while this API mirrors the top-level search API, the behavior of the `q` parameter is slightly different in this case. Just as with the full search endpoint, it takes arbitrary text. However, the autocomplete search is restricted to the `name` (ie. asset title) field.
+
+### Search autocomplete API [GET]
+
++ Response 200
+
+        {
+          "resultSetSize" : 5,
+          "results" :
+            [
+              {
+                "display_title" : "Sold <span class=highlight>Fleet</span> Equipment",
+                "title" : "Sold Fleet Equipment"
+              },
+              {
+                "display_title" : "Active <span class=highlight>Fleet</span> Complement",
+                "title" : "Active Fleet Complement"
+              },
+              {
+                "display_title" : "Current <span class=highlight>Fleet</span> Surplus/Auction List",
+                "title" : "Current Fleet Surplus/Auction List"
+              }
+            ],
+          "timings" : {
+            "searchMillis" : [2, 29],
+            "serviceMillis" : 56
+          }
+        }
+
+
+
 ## Count by and list domains [/catalog/v1/domains]
 Returns each domain and the count of assets owned by that domain. The counts may be restricted according to
 any of the query parameters described in the Complete Search API.
