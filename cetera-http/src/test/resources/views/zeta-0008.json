@@ -41,6 +41,12 @@
     ]
   },
   "customer_metadata_flattened": [],
+  "private_customer_metadata_flattened": [
+    {
+      "key": "domain 8 field",
+      "value": "value for view 0008"
+    }
+  ],
   "is_public": true,
   "is_published": true,
   "is_default_view": false,

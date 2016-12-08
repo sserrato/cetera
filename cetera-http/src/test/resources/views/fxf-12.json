@@ -49,6 +49,7 @@
     "columns_name": []
   },
   "customer_metadata_flattened": [],
+  "private_customer_metadata_flattened": [],
   "is_public": true,
   "is_published": true,
   "is_default_view": true,

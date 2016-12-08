@@ -19,26 +19,9 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
   val datatypeBoosts = Map[Datatype, Float](Datatype("datasets").get -> 1.0f)
   val slop = Some(2)
 
-  "DocumentQueries: chooseMinShouldMatch" should {
-    "choose minShouldMatch if present" in {
-      DocumentQueries.chooseMinShouldMatch(msm, None, None) should be(msm)
-      DocumentQueries.chooseMinShouldMatch(msm, defaultMinShouldMatch, None) should be(msm)
-      DocumentQueries.chooseMinShouldMatch(msm, defaultMinShouldMatch, context) should be(msm)
-    }
-
-    // Use case here is increasing search precision on customer domains
-    "choose default MSM value if none is passed in but search context is present" in {
-      DocumentQueries.chooseMinShouldMatch(None, defaultMinShouldMatch, context) should be(defaultMinShouldMatch)
-    }
-
-    "choose nothing if no MSM value is passed in and no search context is present" in {
-      DocumentQueries.chooseMinShouldMatch(None, defaultMinShouldMatch, None) should be(None)
-    }
-  }
-
   "DocumentQueries: simpleQuery" should {
     "return the expected query when nothing but a query is given" in {
-      val simpleQuery = DocumentQueries.simpleQuery(queryString, emptyFieldBoosts, None, None)
+      val simpleQuery = DocumentQueries.simpleQuery(queryString, ScoringParamSet(), None)
       val expected =j"""
         {"bool" :{
           "must" :
@@ -52,7 +35,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and field boosts are given" in {
-      val simpleQuery = DocumentQueries.simpleQuery(queryString, fieldBoosts, None, None)
+      val simpleQuery = DocumentQueries.simpleQuery(queryString, ScoringParamSet(fieldBoosts = fieldBoosts), None)
       val expected = j"""
         {"bool" : {
           "must" :
@@ -66,7 +49,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and datatype boosts are given" in {
-      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, ScoringParamSet(datatypeBoosts = datatypeBoosts), None, None)
+      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), ScoringParamSet(datatypeBoosts = datatypeBoosts), None)
       val expected = j"""
         {"bool" : {
           "must" :
@@ -80,7 +63,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and minShouldMatch are given" in {
-      val simpleQuery = DocumentQueries.simpleQuery(queryString, emptyFieldBoosts, msm, None)
+      val simpleQuery = DocumentQueries.simpleQuery(queryString, ScoringParamSet(minShouldMatch = Some("2<-25% 9<-3")), None)
       val expected = j"""
         {"bool" : {
           "must" :
@@ -94,7 +77,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
     }
 
     "return the expected query when a query and slop is given" in {
-      val simpleQuery = DocumentQueries.simpleQuery(queryString, emptyFieldBoosts, None, slop)
+      val simpleQuery = DocumentQueries.simpleQuery(queryString, ScoringParamSet(slop = Some(2)), None)
       val expected =j"""
         {"bool" : {
           "must" :
@@ -109,7 +92,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
     "return the expected query when a query and all the things are given" in {
       val scoringSet = ScoringParamSet(fieldBoosts = fieldBoosts, datatypeBoosts = datatypeBoosts, minShouldMatch = msm, slop = slop)
-      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), None, scoringSet, None, None)
+      val simpleQuery = DocumentQueries.chooseMatchQuery(SimpleQuery(queryString), scoringSet, None)
       val expected = j"""
         {"bool" : {
           "must" :
@@ -143,14 +126,12 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
       val actual = DocumentQueries.chooseMatchQuery(
         SimpleQuery("query string OR (query AND string)"),
-        None,
         ScoringParamSet(
           fieldBoosts = Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f),
           datatypeBoosts = Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f),
           minShouldMatch = Some("20%"), // minShouldMatch is a String because it can be a percentage
           slop = Some(12) // slop is max num of intervening unmatched positions permitted
         ),
-        None,
         None
       )
       val actualJson = JsonReader.fromString(actual.toString)
@@ -261,7 +242,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
   "DocumentQueries: chooseMatchQuery" should {
     "return the expected query when no query is given" in {
-      val matchQuery = DocumentQueries.chooseMatchQuery(NoQuery, None, ScoringParamSet(), None, None)
+      val matchQuery = DocumentQueries.chooseMatchQuery(NoQuery, ScoringParamSet(), None)
       val expected = j"""{"bool": { "must": {"match_all" :{}} } }"""
 
       val actual = JsonReader.fromString(matchQuery.toString)
@@ -270,8 +251,8 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
     "return the expected query when a simple query is given" in {
       val query = SimpleQuery(queryString)
-      val simpleQuery = DocumentQueries.simpleQuery(queryString, emptyFieldBoosts, None, None)
-      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, ScoringParamSet(), None, None)
+      val simpleQuery = DocumentQueries.simpleQuery(queryString, ScoringParamSet(), None)
+      val matchQuery = DocumentQueries.chooseMatchQuery(query, ScoringParamSet(), None)
 
       val actual = JsonReader.fromString(matchQuery.toString)
       val expected = JsonReader.fromString(simpleQuery.toString)
@@ -280,7 +261,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
 
     "return the expected query when an advanced query is given" in {
       val query = AdvancedQuery(queryString)
-      val matchQuery = DocumentQueries.chooseMatchQuery(query, None, ScoringParamSet(), None, None)
+      val matchQuery = DocumentQueries.chooseMatchQuery(query, ScoringParamSet(), None)
       val advancedQuery = DocumentQueries.advancedQuery(queryString, emptyFieldBoosts)
       val actual = JsonReader.fromString(matchQuery.toString)
       val expected = JsonReader.fromString(advancedQuery.toString)

@@ -569,4 +569,29 @@ class SearchServiceSpecForAnonymousUsers
     val actualFxfs = fxfs(results)
     actualFxfs should be('empty)
   }
+
+  test("searching with the 'q' param finds no items where q matches the private metadata") {
+    val privateValue = "Cheetah Corp."
+    val params = allDomainsParams ++ Map("q" -> privateValue).mapValues(Seq(_))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(), None, None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should be('empty)
+
+    // confirm there were documents that were excluded.
+    anonymouslyViewableDocs.find(_.socrataId.datasetId == "fxf-8").get.privateCustomerMetadataFlattened.exists(_.value == privateValue
+    ) should be(true)
+  }
+
+  test("searching with a private metadata k/v pair param finds no items if the user doesn't own/share the doc") {
+    val privateKey = "Secret domain 0 cat organization"
+    val privateValue = "Cheetah Corp."
+    val params = allDomainsParams ++ Map(privateKey -> Seq(privateValue))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(), None, None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should be('empty)
+
+    // confirm there were documents that were excluded.
+    anonymouslyViewableDocs.find(_.socrataId.datasetId == "fxf-8").get.privateCustomerMetadataFlattened.exists(m =>
+      m.value == privateValue && m.key == privateKey) should be(true)
+  }
 }

@@ -9,6 +9,7 @@ import com.socrata.cetera.esDocumentType
 import com.socrata.cetera.handlers.{SearchParamSet, UserSearchParamSet}
 import com.socrata.cetera.types._
 
+// scalastyle:ignore number.of.methods
 object DocumentFilters {
 
   def datatypeFilter(datatypes: Set[String], aggPrefix: String = ""): FilterBuilder = {
@@ -56,35 +57,102 @@ object DocumentFilters {
   def explicitlyHiddenFilter(hidden: Boolean = true, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + HideFromCatalogFieldType.fieldName, hidden)
 
+  // this filter limits documents to those owned/shared to the user
+  // or visible to user based on their domain and role
+  def privateMetadataUserRestrictionsFilter(user: User): FilterBuilder = {
+    val userId = user.id
+    val domainId = user.authenticatingDomain.map(_.domainId).getOrElse(0)
+    val ownIt = userFilter(userId)
+    val shareIt = sharedToFilter(userId)
+    if (user.canViewPrivateMetadata(domainId)) {
+      val beEnabledToSeeIt = domainIdFilter(Set(domainId))
+      boolFilter().should(ownIt).should(shareIt).should(beEnabledToSeeIt)
+    } else {
+      boolFilter().should(ownIt).should(shareIt)
+    }
+  }
+
+  // this filter limits documents to those with metadata keys/values that
+  // match the given metadata. If public is true, this matches against the public metadata fields,
+  // otherwise, this matches against the private metadata fields.
   // TODO:  should we score metadata by making this a query?
   // and if you do, remember to make the key and value both phrase matches
-  def domainMetadataFilter(metadata: Option[Set[(String, String)]]): Option[FilterBuilder] =
-    metadata.flatMap {
-      case metadataKeyValues: Set[(String, String)] if metadataKeyValues.nonEmpty =>
-        val metadataGroupedByKey = metadataKeyValues
-          .groupBy { case (k, v) => k }
-          .map { case (key, set) => key -> set.map(_._2) }
-        val unionWithinKeys = metadataGroupedByKey.map { case (k, vs) =>
-          vs.foldLeft(boolFilter()) { (b, v) =>
-            b.should(
-              nestedFilter(
-                DomainMetadataFieldType.fieldName,
-                boolFilter()
-                  .must(termsFilter(DomainMetadataFieldType.Key.rawFieldName, k))
-                  .must(termsFilter(DomainMetadataFieldType.Value.rawFieldName, v))
-              )
+  def metadataFilter(metadata: Set[(String, String)], public: Boolean): Option[FilterBuilder] =
+    if (metadata.nonEmpty) {
+      val metadataGroupedByKey = metadata
+        .groupBy { case (k, v) => k }
+        .map { case (key, set) => key -> set.map(_._2) }
+      val (parentField, keyField, valueField) = if (public) {
+        DomainMetadataFieldType.fieldSet
+      } else {
+        DomainPrivateMetadataFieldType.fieldSet
+      }
+      val unionWithinKeys = metadataGroupedByKey.map { case (k, vs) =>
+        vs.foldLeft(boolFilter()) { (b, v) =>
+          b.should(
+            nestedFilter(
+              parentField,
+              boolFilter()
+                .must(termsFilter(keyField, k))
+                .must(termsFilter(valueField, v))
             )
-          }
+          )
         }
+      }
 
-        if (metadataGroupedByKey.size == 1) {
-          unionWithinKeys.headOption // no need to create an intersection for 1 key
-        } else {
-          val intersectAcrossKeys = unionWithinKeys.foldLeft(boolFilter()) { (b, q) => b.must(q) }
-          Some(intersectAcrossKeys)
-        }
-      case _ => None // no filter to build from the empty set
+      if (metadataGroupedByKey.size == 1) {
+        unionWithinKeys.headOption // no need to create an intersection for 1 key
+      } else {
+        val intersectAcrossKeys = unionWithinKeys.foldLeft(boolFilter()) { (b, q) => b.must(q) }
+        Some(intersectAcrossKeys)
+      }
+    } else {
+      None // no filter to build from the empty set
     }
+
+  // this filter limits documents to those that both:
+  //  - have private metadata keys/values matching the given metadata
+  //  - have private metadata visible to the given user
+  def privateMetadataFilter(metadata: Set[(String, String)], user: Option[User]): Option[FilterBuilder] =
+    if (metadata.nonEmpty) {
+      user match {
+        // if we haven't a user, don't build a filter to search private metadata
+        case None => None
+        // if the user is a superadmin, use a metadata filter pointed at the private fields
+        case Some(u) if u.isSuperAdmin => metadataFilter(metadata, public = false)
+        case Some(u) =>
+          u.authenticatingDomain match {
+            // if the user hasn't an authenticating domain, don't build a filter to search private metadata
+            case None => None
+            // if the user has an authenticating domain, use a conditional filter
+            case Some(d) =>
+              val beAbleToViewPrivateMetadata = privateMetadataUserRestrictionsFilter(u)
+              val dmt = metadataFilter(metadata, public = false)
+              dmt.map(matchMetadataTerms =>
+                boolFilter().must(beAbleToViewPrivateMetadata).must(matchMetadataTerms))
+          }
+      }
+    } else {
+      None // no filter to build from the empty set
+    }
+
+  // this filter limits documents to those that either
+  // - have public key/value pairs that match the given metadata
+  // - have private key/value pairs that match the given metadata and have private metadata visible to the given user
+  def combinedMetadataFilter(
+      metadata: Set[(String, String)],
+      user: Option[User]): Option[FilterBuilder] = {
+    val pubFilter = metadataFilter(metadata, public = true)
+    val privateFilter = privateMetadataFilter(metadata, user)
+    (pubFilter, privateFilter) match {
+      case (None, None) => None
+      case (Some(matchPublicMetadata), None) => Some(matchPublicMetadata)
+      case (None, Some(matchPrivateMetadata)) => Some(matchPrivateMetadata)
+      case (Some(matchPublicMetadata), Some(matchPrivateMetadata)) =>
+        Some(boolFilter().should(matchPublicMetadata).should(matchPrivateMetadata))
+    }
+  }
+
 
   // this filter, if the context is moderated, will limit results to
   // views from moderated domains + default views from unmoderated sites
@@ -250,7 +318,7 @@ object DocumentFilters {
     val provFilter = searchParams.provenance.map(provenanceFilter(_))
     val parentIdFilter = searchParams.parentDatasetId.map(parentDatasetFilter(_))
     val idsFilter = searchParams.ids.map(idFilter(_))
-    val metadataFilter = searchParams.searchContext.flatMap(_ => domainMetadataFilter(searchParams.domainMetadata))
+    val metaFilter = searchParams.domainMetadata.flatMap(combinedMetadataFilter(_, user))
     val derivationFilter = searchParams.derived.map(derivedFilter(_))
 
     // the params below are those that would also influence visibility. these can only serve to further
@@ -260,7 +328,7 @@ object DocumentFilters {
     val hiddenFilter = searchParams.explicitlyHidden.map(explicitlyHiddenFilter(_))
     val approvalFilter = searchParams.approvalStatus.map(approvalStatusFilter(_, domainSet))
 
-    List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter, idsFilter, metadataFilter,
+    List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter, idsFilter, metaFilter,
       derivationFilter, privacyFilter, publicationFilter, hiddenFilter, approvalFilter).flatten match {
       case Nil => None
       case filters: Seq[FilterBuilder] => Some(filters.foldLeft(boolFilter()) { (b, f) => b.must(f) })

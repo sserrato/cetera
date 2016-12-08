@@ -76,6 +76,12 @@ case object FullTextSearchAnalyzedFieldType extends CeteraFieldType {
 case object FullTextSearchRawFieldType extends CeteraFieldType {
   val fieldName: String = "fts_raw"
 }
+case object PrivateFullTextSearchAnalyzedFieldType extends CeteraFieldType {
+  val fieldName: String = "private_fts_analyzed"
+}
+case object PrivateFullTextSearchRawFieldType extends CeteraFieldType {
+  val fieldName: String = "private_fts_raw"
+}
 case object DomainCnameFieldType extends DomainFieldType with Countable with Rawable {
   val fieldName: String = "domain_cname"
 }
@@ -245,8 +251,23 @@ case object DomainMetadataFieldType extends DocumentFieldType with Mapable with 
   case object Value extends NestedField with Rawable {
     protected lazy val path: String = DomainMetadataFieldType.fieldName
   }
+
+  def fieldSet: (String, String, String) = (fieldName, Key.rawFieldName, Value.rawFieldName)
 }
 
+case object DomainPrivateMetadataFieldType extends DocumentFieldType with Mapable with Rawable {
+  val fieldName: String = "private_customer_metadata_flattened"
+
+  case object Key extends NestedField with Rawable {
+    protected lazy val path: String = DomainPrivateMetadataFieldType.fieldName
+  }
+
+  case object Value extends NestedField with Rawable {
+    protected lazy val path: String = DomainPrivateMetadataFieldType.fieldName
+  }
+
+  def fieldSet: (String, String, String) = (fieldName, Key.rawFieldName, Value.rawFieldName)
+}
 
 /////////////
 // Boostables

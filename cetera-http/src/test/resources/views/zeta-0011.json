@@ -41,6 +41,12 @@
     ]
   },
   "customer_metadata_flattened": [],
+  "private_customer_metadata_flattened": [
+    {
+      "key": "Secret domain 0 cat organization",
+      "value": "Leopard Org"
+    }
+  ],
   "is_public": true,
   "is_published": true,
   "is_default_view": false,

@@ -276,19 +276,37 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
   }
 
-  "the domainMetadataFilter" should {
-    "return the expected filter when no metadata is given" in {
-      val filter = DocumentFilters.domainMetadataFilter(None)
-      filter should be(None)
+  "the privateMetadataUserRestrictionsFilter" should {
+    "return the expected filter when the user doesn't have a blessed role" in {
+      val user = User("user-fxf")
+      val filter = DocumentFilters.privateMetadataUserRestrictionsFilter(user)
+      val expected = j"""{ "bool":{ "should" :
+              [ { "term" : { "owner_id" : "user-fxf" }},
+                { "term" : { "shared_to" : "user-fxf" }}]}}"""
+      val actual = JsonReader.fromString(filter.toString)
+      actual should be(expected)
     }
 
+    "return the expected filter when the user does have a blessed role" in {
+      val user = User("user-fxf", Some(domains(0)), Some("publisher"))
+      val filter = DocumentFilters.privateMetadataUserRestrictionsFilter(user)
+      val expected = j"""{ "bool":{ "should" :
+              [ { "term" : { "owner_id" : "user-fxf" }},
+                { "term" : { "shared_to" : "user-fxf" }},
+                { "terms": { "socrata_id.domain_id": [ 0 ]}}]}}"""
+      val actual = JsonReader.fromString(filter.toString)
+      actual should be(expected)
+    }
+  }
+
+  "the domainMetadataFilter when public is true" should {
     "return the expected filter when an empty set of metadata is given" in {
-      val filter = DocumentFilters.domainMetadataFilter(Some(Set.empty[(String, String)]))
+      val filter = DocumentFilters.metadataFilter(Set.empty, public = true)
       filter should be(None)
     }
 
     "return the expected filter when a metadata query lists a single key, single value pair" in {
-      val filter = DocumentFilters.domainMetadataFilter(Some(Set(("org", "ny"))))
+      val filter = DocumentFilters.metadataFilter(Set(("org", "ny")), public = true)
       val expected =
         j"""{"bool": {"should": {"nested": {"filter": {"bool": {"must": [
             {"terms": {"customer_metadata_flattened.key.raw": [ "org" ] }},
@@ -300,7 +318,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
 
     "return the expected filter when a metadata query lists a single key but multiple values" in {
-      val filter = DocumentFilters.domainMetadataFilter(Some(Set(("org", "ny"), ("org", "nj"))))
+      val filter = DocumentFilters.metadataFilter(Set(("org", "ny"), ("org", "nj")), public = true)
       val expected =
         j"""{"bool": {"should": [
             {"nested": {"filter": {"bool": {"must": [
@@ -317,7 +335,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
 
     "return the expected filter when a metadata query lists multiple sets of single key/single value pairs" in {
-      val filter = DocumentFilters.domainMetadataFilter(Some(Set(("org", "chicago"), ("owner", "john"))))
+      val filter = DocumentFilters.metadataFilter(Set(("org", "chicago"), ("owner", "john")), public = true)
       val expected =
         j"""{"bool": {"must": [
                {"bool": {"should": {"nested": {"filter": {"bool": {"must": [
@@ -335,7 +353,7 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
 
     "return the expected filter when a metadata query lists multiple sets of keys with multiple values" in {
-      val filter = DocumentFilters.domainMetadataFilter(Some(Set(("org", "chicago"), ("owner", "john"), ("org", "ny"))))
+      val filter = DocumentFilters.metadataFilter(Set(("org", "chicago"), ("owner", "john"), ("org", "ny")), public = true)
       val expected =
         j"""{"bool": {"must": [
                {"bool": {"should": [
@@ -354,6 +372,65 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
                ]}}, "path": "customer_metadata_flattened" }}}}
              ]}
         }"""
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
+    }
+  }
+
+  "the privateDomainMetadataFilter" should {
+    "return None if no user is given" in {
+      val filter = DocumentFilters.privateMetadataFilter(Set.empty, None)
+      filter should be(None)
+    }
+
+    "return None if the user doesn't have an authenticating domain" in {
+      val user = User("mooks")
+      val filter = DocumentFilters.privateMetadataFilter(Set.empty, Some(user))
+      filter should be(None)
+    }
+
+    "return a basic metadata filter when the user is a super admin" in {
+      val user = User("mooks", flags = Some(List("admin")))
+      val metadata = Set(("org", "ny"))
+      val actual = JsonReader.fromString(DocumentFilters.privateMetadataFilter(metadata, Some(user)).get.toString)
+      val expected = JsonReader.fromString(DocumentFilters.metadataFilter(metadata, public = false).get.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter when the user is authenticated" in {
+      val user = User("mooks", Some(domains(0)), Some("publisher"))
+      val metadata = Set(("org", "ny"), ("org", "nj"))
+      val filter = DocumentFilters.privateMetadataFilter(metadata, Some(user))
+      val metaFilter = JsonReader.fromString(DocumentFilters.metadataFilter(metadata, public = false).get.toString)
+      val privacyFilter = JsonReader.fromString(DocumentFilters.privateMetadataUserRestrictionsFilter(user).toString)
+      val expected = j"""{"bool": {"must": [ $privacyFilter, $metaFilter ]}}"""
+      val actual = JsonReader.fromString(filter.get.toString)
+      actual should be(expected)
+    }
+  }
+
+  "the combinedMetadataFilter" should {
+    "return None if neither public or private metadata filters are created" in {
+      val user = User("mooks", flags = Some(List("admin")))
+      val filter = DocumentFilters.combinedMetadataFilter(Set.empty, Some(user))
+      filter should be(None)
+    }
+
+    "return only a public metadata filter if the user isn't authenticated" in {
+      val user = User("mooks")
+      val metadata = Set(("org", "ny"))
+      val actual = JsonReader.fromString(DocumentFilters.combinedMetadataFilter(metadata, Some(user)).get.toString)
+      val expected = JsonReader.fromString(DocumentFilters.metadataFilter(metadata, public = true).get.toString)
+      actual should be(expected)
+    }
+
+    "return both public and private metadata filters if the user is authenticated" in {
+      val user = User("mooks", Some(domains(0)), Some("publisher"))
+      val metadata = Set(("org", "ny"), ("org", "nj"))
+      val filter = DocumentFilters.combinedMetadataFilter(metadata, Some(user))
+      val pubFilter = JsonReader.fromString(DocumentFilters.metadataFilter(metadata, public = true).get.toString)
+      val privateFilter = JsonReader.fromString(DocumentFilters.privateMetadataFilter(metadata, Some(user)).get.toString)
+      val expected = j"""{"bool": {"should": [ $pubFilter, $privateFilter ]}}"""
       val actual = JsonReader.fromString(filter.get.toString)
       actual should be(expected)
     }

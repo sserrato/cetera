@@ -107,6 +107,7 @@ case class Document(
     customerCategory: String,
     // If this comes back empty, it comes back as an empty object, not an empty array
     customerMetadataFlattened: Seq[CustomerMetadataFlattened],
+    privateCustomerMetadataFlattened: Seq[CustomerMetadataFlattened],
     createdAt: String,
     updatedAt: String,
     indexedAt: Option[String],

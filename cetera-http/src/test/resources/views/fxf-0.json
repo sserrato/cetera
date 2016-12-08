@@ -65,6 +65,12 @@
       "value": "8"
     }
   ],
+  "private_customer_metadata_flattened": [
+    {
+      "key": "Secret domain 0 cat organization",
+      "value": "Pumas Inc."
+    }
+  ],
   "is_public": true,
   "is_published": true,
   "is_default_view": false,

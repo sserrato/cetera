@@ -384,4 +384,28 @@ class SearchServiceSpecForSuperAdmins
     actualRejectedFxfs should contain theSameElementsAs expectedRejectedFxfs
     actualPendingFxfs should contain theSameElementsAs expectedPendingFxfs
   }
+
+  test("searching with the 'q' param finds all items where q matches the private metadata") {
+    val host = domains(0).domainCname
+    val privateValue = "Cheetah Corp."
+    val expectedFxfs = fxfs(anonymouslyViewableDocs.filter(d => d.privateCustomerMetadataFlattened.exists(m => m.value == privateValue)))
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map("q" -> Seq(privateValue))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
+
+  test("searching with a private metadata k/v pair param finds all documents with that pair") {
+    val host = domains(0).domainCname
+    val privateKey = "Secret domain 0 cat organization"
+    val privateValue = "Pumas Inc."
+    val expectedFxfs = fxfs(anonymouslyViewableDocs.filter(d =>
+      d.privateCustomerMetadataFlattened.exists(m => m.value == privateValue && m.key == privateKey)))
+    prepareAuthenticatedUser(cookie, host, superAdminBody)
+    val params = allDomainsParams ++ Map(privateKey -> Seq(privateValue))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+  }
 }

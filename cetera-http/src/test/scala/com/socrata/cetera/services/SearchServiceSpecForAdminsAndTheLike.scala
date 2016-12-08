@@ -385,4 +385,43 @@ class SearchServiceSpecForAdminsAndTheLike
     val userBody = authedUserBodyFromRole("administrator")
     testApprovalStatusFxfs(domainSet, userBody, expectedApprovedFxfs, expectedRejectedFxfs, expectedPendingFxfs)
   }
+
+  test("searching with the 'q' param finds all items from the authenticating domain where q matches the private metadata") {
+    val host = domains(0).domainCname
+    val privateValue = "Pumas Inc."
+    val expectedFxfs = fxfs(anonymouslyViewableDocs.filter(d =>
+      d.privateCustomerMetadataFlattened.exists(m => m.value == privateValue &&
+      d.socrataId.domainId == 0)))
+    val userBody = authedUserBodyFromRole("publisher")
+    prepareAuthenticatedUser(cookie, host, userBody)
+    val params = allDomainsParams ++ Map("q" -> privateValue, "min_should_match" -> "100%").mapValues(Seq(_))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+
+    // confirm there were documents on other domains that were excluded.
+    anonymouslyViewableDocs.find(_.socrataId.datasetId == "fxf-1").get.privateCustomerMetadataFlattened.exists(_.value == privateValue
+    ) should be(true)
+    actualFxfs should not contain theSameElementsAs(List("fxf-1"))
+  }
+
+  test("searching with a private metadata k/v pair param finds all items from the authenticating domain with that pair") {
+    val host = domains(0).domainCname
+    val privateKey = "Secret domain 0 cat organization"
+    val privateValue = "Pumas Inc."
+    val expectedFxfs = fxfs(anonymouslyViewableDocs.filter(d =>
+      d.privateCustomerMetadataFlattened.exists(m => m.value == privateValue &&
+      d.socrataId.domainId == 0)))
+    val userBody = authedUserBodyFromRole("publisher")
+    prepareAuthenticatedUser(cookie, host, userBody)
+    val params = allDomainsParams ++ Map(privateKey -> Seq(privateValue))
+    val res = service.doSearch(params, requireAuth = false, AuthParams(cookie=Some(cookie)), Some(host), None)
+    val actualFxfs = fxfs(res._2)
+    actualFxfs should contain theSameElementsAs expectedFxfs
+
+    // confirm there were documents on other domains that were excluded.
+    anonymouslyViewableDocs.find(_.socrataId.datasetId == "zeta-0002").get.privateCustomerMetadataFlattened.exists(m =>
+      m.value == privateValue && m.key == privateKey) should be(true)
+    actualFxfs should not contain theSameElementsAs(List("zeta-0002"))
+  }
 }

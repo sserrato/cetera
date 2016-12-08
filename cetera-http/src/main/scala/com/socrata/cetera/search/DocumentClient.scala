@@ -51,6 +51,15 @@ class DocumentClient(
     scriptScoreFunctions: Set[ScriptScoreFunction])
   extends BaseDocumentClient {
 
+  private def mergeDefaultScoringParams(scoringParams: ScoringParamSet) = {
+    val requestedBoosts = scoringParams.fieldBoosts
+    val requestedMsm = scoringParams.minShouldMatch
+    val allBoosts = defaultTitleBoost
+      .map(boost => Map(TitleFieldType -> boost) ++ requestedBoosts)
+      .getOrElse(requestedBoosts)
+    val finalMsm = if (requestedMsm.nonEmpty) requestedMsm else defaultMinShouldMatch
+    scoringParams.copy(fieldBoosts = allBoosts, minShouldMatch = finalMsm)
+  }
 
   // Assumes validation has already been done
   //
@@ -68,8 +77,7 @@ class DocumentClient(
     : SearchRequestBuilder = {
 
     // Construct basic match query
-    val matchQuery = chooseMatchQuery(searchParams.searchQuery, domainSet.searchContext, scoringParams,
-      defaultTitleBoost, defaultMinShouldMatch)
+    val matchQuery = chooseMatchQuery(searchParams.searchQuery, mergeDefaultScoringParams(scoringParams), user)
 
     // Wrap basic match query in filtered query for filtering
     val filteredQuery = compositeFilteredQuery(domainSet, searchParams, matchQuery, user, requireAuth)

@@ -59,6 +59,12 @@
       "value": "2"
     }
   ],
+  "private_customer_metadata_flattened": [
+    {
+      "key": "secret domain 1 kitty support",
+      "value": "Pumas Inc."
+    }
+  ],
   "is_public": true,
   "is_published": true,
   "is_default_view": false,

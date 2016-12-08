@@ -3,27 +3,14 @@ package com.socrata.cetera.search
 import org.elasticsearch.index.query.MatchQueryBuilder.Type.PHRASE
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, matchQuery, nestedQuery}
 import org.elasticsearch.index.query._
-import org.apache.lucene.queryparser.flexible.standard.QueryParserUtil
 
 import com.socrata.cetera.auth.User
 import com.socrata.cetera.esDomainType
-import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet, UserSearchParamSet}
+import com.socrata.cetera.handlers.{ScoringParamSet, SearchParamSet}
+import com.socrata.cetera.search.MultiMatchers.buildQuery
 import com.socrata.cetera.types._
-import com.socrata.cetera.search.UserFilters.compositeFilter
 
 object DocumentQueries {
-  private def applyDefaultTitleBoost(
-      defaultTitleBoost: Option[Float],
-      defaultMinShouldMatch: Option[String],
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float])
-    : Map[CeteraFieldType with Boostable, Float] = {
-
-    // Look for default title boost; if a title boost is specified as a query
-    // parameter, it will override the default
-    defaultTitleBoost
-      .map(boost => Map(TitleFieldType -> boost) ++ fieldBoosts)
-      .getOrElse(fieldBoosts)
-  }
 
   private def applyClassificationQuery(
       query: BaseQueryBuilder,
@@ -51,52 +38,16 @@ object DocumentQueries {
     }
   }
 
-  def chooseMinShouldMatch(
-      minShouldMatch: Option[String],
-      defaultMinShouldMatch: Option[String],
-      searchContext: Option[String])
-    : Option[String] = {
-
-    (minShouldMatch, searchContext) match {
-      // If a minShouldMatch value is passed in, we must honor that.
-      case (Some(msm), _) => minShouldMatch
-
-      // If a minShouldMatch value is absent but a searchContext is present,
-      // use default minShouldMatch settings for better precision.
-      case (None, Some(sc)) => defaultMinShouldMatch
-
-      // If neither is present, then do not use minShouldMatch.
-      case (None, None) => None
-    }
-  }
-
   def chooseMatchQuery(
       searchQuery: QueryType,
-      searchContext: Option[Domain],
       scoringParams: ScoringParamSet,
-      defaultTitleBoost: Option[Float],
-      defaultMinShouldMatch: Option[String])
-    : BaseQueryBuilder = {
-
-    val matchQuery = searchQuery match {
+      user: Option[User])
+  : BaseQueryBuilder =
+    searchQuery match {
       case NoQuery => noQuery
-      case AdvancedQuery(queryString) =>
-        advancedQuery(
-          queryString,
-          scoringParams.fieldBoosts
-        )
-      case SimpleQuery(queryString) =>
-        simpleQuery(
-          queryString,
-          applyDefaultTitleBoost(
-            defaultTitleBoost, defaultMinShouldMatch, scoringParams.fieldBoosts),
-          chooseMinShouldMatch(
-            scoringParams.minShouldMatch, defaultMinShouldMatch, searchContext.map(_.domainCname)), scoringParams.slop
-        )
+      case AdvancedQuery(queryString) => advancedQuery(queryString, scoringParams.fieldBoosts)
+      case SimpleQuery(queryString) => simpleQuery(queryString, scoringParams, user)
     }
-
-    matchQuery
-  }
 
   def noQuery: BoolQueryBuilder =
     QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery())
@@ -118,32 +69,16 @@ object DocumentQueries {
   //   https://www.elastic.co/guide/en/elasticsearch/guide/current/proximity-relevance.html
   def simpleQuery(
       queryString: String,
-      fieldBoosts: Map[CeteraFieldType with Boostable, Float],
-      minShouldMatch: Option[String],
-      slop: Option[Int])
+      scoringParams: ScoringParamSet,
+      user: Option[User])
     : BoolQueryBuilder = {
-
-    // Query #1: terms (must)
-    val matchTerms = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-    // Apply minShouldMatch if present
-    minShouldMatch.foreach(min => SundryBuilders.applyMinMatchConstraint(matchTerms, min))
-
-    // Query #2: phrase (should)
-    val matchPhrase = SundryBuilders.multiMatch(queryString, MultiMatchQueryBuilder.Type.PHRASE)
-    // If no slop is specified, we do not set a default
-    slop.foreach(SundryBuilders.applySlopParam(matchPhrase, _))
-
-    // Add any optional field boosts to "should" match clause
-    fieldBoosts.foreach { case (field, weight) =>
-      matchPhrase.field(field.fieldName, weight)
-    }
-
-    // Combine the two queries above into a single Boolean query
-    val query = QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
-
-    query
+    val matchTerms = buildQuery(queryString, MultiMatchQueryBuilder.Type.CROSS_FIELDS, scoringParams, user)
+    val matchPhrase = buildQuery(queryString, MultiMatchQueryBuilder.Type.PHRASE, scoringParams, user)
+    // terms must match and phrases should match
+    QueryBuilders.boolQuery().must(matchTerms).should(matchPhrase)
   }
 
+  // The advanced query allows a user to directly pass in lucene queries
   // NOTE: Advanced queries respect fieldBoosts but not datatypeBoosts
   // Q: Is this expected and desired?
   def advancedQuery(
