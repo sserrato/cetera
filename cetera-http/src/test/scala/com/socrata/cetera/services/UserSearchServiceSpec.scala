@@ -263,7 +263,6 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     results.results.headOption should be('defined)
     val expectedFirstUser = DomainUser(context, users(2)).get
     results.results.head should be(expectedFirstUser)
-
   }
 
   test("search from a given context with no domain param should return roles from the context") {
@@ -317,8 +316,37 @@ class UserSearchServiceSpec extends FunSuiteLike with Matchers with TestESData
     status should be(OK)
     results.results.headOption should be('defined)
 
-    val expectedUsers = Set(users(3), users(4), users(5)).map(u => DomainUser(Some(domains(1)), u)).flatten
+    val expectedUsers = Set(users(3), users(4), users(5), users(6)).map(u => DomainUser(Some(domains(1)), u)).flatten
     results.results should contain theSameElementsAs(expectedUsers)
     results.results.find(u => u.id == "bright-heart").get.roleName.get should be("honorary-bear")  // and not "racoon" as is the role on domain 2
+  }
+
+  test("searching by email should be case insensitive") {
+    val expectedRequest = request()
+      .withMethod("GET")
+      .withPath("/users.json")
+      .withHeader(HeaderXSocrataHostKey, host)
+    mockServer.when(
+      expectedRequest
+    ).respond(
+      response()
+        .withStatusCode(200)
+        .withHeader("Content-Type", "application/json; charset=utf-8")
+        .withBody(CompactJsonWriter.toString(adminUserBody))
+    )
+
+    val params = Map(Params.emails -> "I.heart.Canada@marvel.com").mapValues(Seq(_))
+    val (status, results, _, _) = userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+
+    mockServer.verify(expectedRequest)
+    status should be(OK)
+
+    results.results.headOption should be('defined)
+    val expectedFirstUser = DomainUser(context, users(6)).get
+    results.results.head should be(expectedFirstUser)
+
+    val params2 = Map(Params.emails -> "i.heart.canada@marvel.com").mapValues(Seq(_))
+    val (status2, results2, _, _) = userService.doSearch(params, AuthParams(cookie=Some(cookie)), Some(host), None)
+    results.results.map(_.id) should contain theSameElementsAs(results2.results.map(_.id))
   }
 }

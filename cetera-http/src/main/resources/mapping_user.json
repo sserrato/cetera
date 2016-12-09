@@ -9,14 +9,14 @@
       "type": "string",
       "analyzer": "screen_name",
       "fields": {
-        "raw": { "type": "string", "index": "not_analyzed" }
+        "raw": { "type": "string", "analyzer": "case_insensitive_en" }
       }
     },
     "email": {
       "type": "string",
       "analyzer": "email",
       "fields": {
-        "raw": { "type": "string", "index": "not_analyzed" }
+        "raw": { "type": "string", "analyzer": "case_insensitive_en" }
       }
     },
     "roles": {

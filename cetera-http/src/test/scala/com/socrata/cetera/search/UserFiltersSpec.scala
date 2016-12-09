@@ -138,7 +138,7 @@ class UserFiltersSpec extends WordSpec with ShouldMatchers with TestESDomains {
           "bool": {
             "must": [
               { "terms": {"email.raw": ["admin@gmail.com"]}},
-              { "terms": {"screen_name.raw": ["Ad men"]}},
+              { "terms": {"screen_name.raw": ["ad men"]}},
               { "terms": {"flags": ["admin"]}},
               {
                 "nested": {

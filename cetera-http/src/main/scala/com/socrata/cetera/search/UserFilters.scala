@@ -14,10 +14,10 @@ object UserFilters {
     ids.map(i => termsFilter(UserId.fieldName, i.toSeq: _*))
 
   def emailFilter(emails: Option[Set[String]]): Option[FilterBuilder] =
-    emails.map(e => termsFilter(UserEmail.rawFieldName, e.toSeq: _*))
+    emails.map(e => termsFilter(UserEmail.rawFieldName, e.map(_.toLowerCase).toSeq: _*))
 
   def screenNameFilter(screenNames: Option[Set[String]]): Option[FilterBuilder] =
-    screenNames.map(s => termsFilter(UserScreenName.rawFieldName, s.toSeq: _*))
+    screenNames.map(s => termsFilter(UserScreenName.rawFieldName, s.map(_.toLowerCase).toSeq: _*))
 
   def flagFilter(flags: Option[Set[String]]): Option[FilterBuilder] =
     flags.map(r => termsFilter(UserFlag.fieldName, r.toSeq: _*))
