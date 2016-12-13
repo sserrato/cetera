@@ -1,0 +1,73 @@
+{
+  "resource": {
+    "columns_name": [
+      "CheckDate",
+      "InvoiceDescription",
+      "CheckNo",
+      "CheckAmt",
+      "InvoiceNo",
+      "Payee",
+      "InvoiceAmt"
+    ],
+    "columns_description": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "createdAt": "2014-03-10T14:39:13.000Z",
+    "updatedAt": "2016-06-01T10:00:23.000Z",
+    "parent_fxf": "7v22-4z3a",
+    "type": "chart",
+    "name": "drew",
+    "description": "Checks written to pay for products and services received by the City.",
+    "columns_field_name": [
+      "checkdate",
+      "invoicedescription",
+      "checkno",
+      "checkamt",
+      "invoiceno",
+      "payee",
+      "invoiceamt"
+    ],
+    "id": "94sr-dmsy",
+    "view_count": {
+      "page_views_last_week_log": 3.5849625007211565,
+      "page_views_last_month": 52,
+      "page_views_total_log": 14.91396459627878,
+      "page_views_last_week": 11,
+      "page_views_last_month_log": 5.7279204545632,
+      "page_views_total": 30870
+    },
+    "attribution": "Finance Department"
+  },
+  "classification": {
+    "categories": [ "Finance" ],
+    "tags": [ "finance", "pie"],
+    "domain_category": "Finance",
+    "domain_tags": [ "pie" ],
+    "domain_metadata": [
+      { "value" : "City of Redmond", "key" : "Common-Core_Publisher" },
+      { "value" : "drew@redmond.gov", "key" : "Common-Core_Contact-Email" }
+    ],
+    "domain_private_metadata": [
+      { "value" : "No looky", "key" : "Private-Metadata_Thing" }
+    ]
+  },
+  "metadata": {
+    "domain": "petercetera.net",
+    "is_public": true,
+    "is_published":true,
+    "visible_to_anonymous": true,
+    "score": 0.98,
+    "grants": [
+      {"user_id": "jane-doe", "type": "view"},
+      {"user_id": "jack-joe", "type": "gobble"}
+    ]
+  },
+  "permalink": "https://petercetera.net/d/94sr-dmsy",
+  "link": "https://petercetera.net/Finance/drew/94sr-dmsy"
+}

@@ -42,7 +42,7 @@ object UserFilters {
   def authFilter(user: Option[User], domain: Option[Domain]): Option[FilterBuilder] = {
     user match {
       // if the user is searching for users on a domain, it must be the domain they are authed on
-      case Some(u) if (domain.exists(d => !u.canViewUsers(d))) =>
+      case Some(u) if (domain.exists(d => !u.canViewUsers(d.domainId))) =>
         throw UnauthorizedError(user, s"search for users on domain ${domain.get.domainCname}")
       // if the user can view all users, no restrictions are needed (other than the one above)
       case Some(u) if (u.canViewAllUsers) => None

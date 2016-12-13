@@ -55,7 +55,7 @@
       "properties": {
         "key": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed", "store": true }
           },
@@ -63,11 +63,46 @@
         },
         "value": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed", "store": true }
           },
           "copy_to": [ "fts_analyzed", "fts_raw" ]
+        }
+      }
+    },
+    "private_customer_metadata_flattened": {
+      "type": "nested",
+      "properties": {
+        "key": {
+          "type": "string",
+          "analyzer": "snowball_en",
+          "fields": {
+            "raw": {
+              "type": "string",
+              "index": "not_analyzed",
+              "store": true
+            }
+          },
+          "copy_to": [
+            "private_fts_analyzed",
+            "private_fts_raw"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "analyzer": "snowball_en",
+          "fields": {
+            "raw": {
+              "type": "string",
+              "index": "not_analyzed",
+              "store": true
+            }
+          },
+          "copy_to": [
+            "private_fts_analyzed",
+            "private_fts_raw"
+          ]
         }
       }
     },
@@ -82,11 +117,13 @@
     "datatype": { "type": "string", "index": "not_analyzed" },
     "fts_analyzed": { "type": "string", "analyzer": "snowball_en" },
     "fts_raw": { "type": "string", "index": "not_analyzed" },
+    "private_fts_analyzed": { "type": "string", "analyzer": "snowball_en" },
+    "private_fts_raw": { "type": "string", "index": "not_analyzed" },
     "indexed_metadata": {
       "properties": {
         "columns_description": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed" }
           },
@@ -94,7 +131,7 @@
         },
         "columns_field_name": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed" }
           },
@@ -102,7 +139,7 @@
         },
         "columns_name": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed" }
           },
@@ -110,7 +147,7 @@
         },
         "description": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed" }
           },
@@ -118,7 +155,7 @@
         },
         "name": {
           "type": "string",
-	  "analyzer": "snowball_en",
+          "analyzer": "snowball_en",
           "fields": {
             "raw": { "type": "string", "index": "not_analyzed" },
             "autocomplete": { "type": "string", "index_analyzer": "autocomplete", "term_vector": "with_positions_offsets" }

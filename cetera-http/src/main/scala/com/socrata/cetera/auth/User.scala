@@ -19,31 +19,34 @@ case class User(
   def isSuperAdmin: Boolean = flags.exists(_.contains("admin"))
   def isAdmin: Boolean = hasRole("administrator") || isSuperAdmin
 
-  def authorizedOnDomain(d: Domain): Boolean = {
-    authenticatingDomain.exists(_.domainId == d.domainId) || isSuperAdmin
+  def authorizedOnDomain(domainId: Int): Boolean = {
+    authenticatingDomain.exists(_.domainId == domainId) || isSuperAdmin
   }
 
-  def canViewResource(domain: Domain, isAuthorized: Boolean): Boolean = {
+  def canViewResource(domainId: Int, isAuthorized: Boolean): Boolean = {
     authenticatingDomain match {
       case None => isSuperAdmin
-      case Some(d) => (isAuthorized && authorizedOnDomain(domain)) || isSuperAdmin
+      case Some(d) => (isAuthorized && authorizedOnDomain(domainId)) || isSuperAdmin
     }
   }
 
-  def canViewLockedDownCatalog(domain: Domain): Boolean =
-    canViewResource(domain, hasOneOfRoles(Seq("editor", "publisher", "viewer", "administrator")))
+  def canViewLockedDownCatalog(domainId: Int): Boolean =
+    canViewResource(domainId, hasOneOfRoles(Seq("editor", "publisher", "viewer", "administrator")))
 
-  def canViewAllViews(domain: Domain): Boolean =
-    canViewResource(domain, hasOneOfRoles(Seq("publisher", "designer", "viewer", "administrator")))
+  def canViewPrivateMetadata(domainId: Int): Boolean =
+    canViewResource(domainId, hasOneOfRoles(Seq("publisher", "administrator")))
+
+  def canViewAllViews(domainId: Int): Boolean =
+    canViewResource(domainId, hasOneOfRoles(Seq("publisher", "designer", "viewer", "administrator")))
 
   def canViewAllUsers: Boolean =
-    authenticatingDomain.exists(d => canViewResource(d, isAdmin)) || isSuperAdmin
+    authenticatingDomain.exists(d => canViewResource(d.domainId, isAdmin)) || isSuperAdmin
 
   def canViewDomainUsers: Boolean =
-    authenticatingDomain.exists(d => canViewResource(d, hasRole)) || isSuperAdmin
+    authenticatingDomain.exists(d => canViewResource(d.domainId, hasRole)) || isSuperAdmin
 
-  def canViewUsers(domain: Domain): Boolean =
-    canViewResource(domain, hasRole)
+  def canViewUsers(domainId: Int): Boolean =
+    canViewResource(domainId, hasRole)
 }
 
 object User {

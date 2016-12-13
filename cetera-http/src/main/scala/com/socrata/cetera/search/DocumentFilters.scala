@@ -299,7 +299,7 @@ object DocumentFilters {
       case (true, Some(u)) if (u.isSuperAdmin) => None
       // if the user can view everything, they can only view everything on *their* domain
       // plus, of course, things they own/share and public/published/approved views from other domains
-      case (true, Some(u)) if (u.authenticatingDomain.exists(d => u.canViewAllViews(d))) => {
+      case (true, Some(u)) if (u.authenticatingDomain.exists(d => u.canViewAllViews(d.domainId))) => {
         val personFilter = ownedOrSharedFilter(u)
         // re: includeContextApproval = false, in order for admins/etc to see views they've rejected from other domains,
         // we must allow them access to views that are approved on the parent domain, but not on the context.

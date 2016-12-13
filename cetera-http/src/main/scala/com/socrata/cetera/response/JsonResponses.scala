@@ -51,7 +51,8 @@ case class Classification(
   tags: Seq[JValue],
   domainCategory: Option[JValue],
   domainTags: Option[JValue],
-  domainMetadata: Option[JValue])
+  domainMetadata: Option[JValue],
+  domainPrivateMetadata: Option[JValue])
 
 object Classification {
   implicit val jCodec = AutomaticJsonCodecBuilder[Classification]

@@ -65,7 +65,7 @@ class SearchService(
     )
     logger.info(LogHelper.formatEsRequest(req))
     val res = req.execute.actionGet
-    val formattedResults = Format.formatDocumentResponse(formatParams, domainSet, res)
+    val formattedResults = Format.formatDocumentResponse(res, authedUser, domainSet, formatParams)
     val timings = InternalTimings(Timings.elapsedInMillis(now), Seq(domainSearchTime, res.getTookInMillis))
     logSearchTerm(domainSet.searchContext, searchParams.searchQuery)
 

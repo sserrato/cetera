@@ -93,11 +93,12 @@ class DomainClient(esClient: ElasticSearchClient, coreClient: CoreClient, indexA
       domainSet
     } else {
       val loggedInUser = user.map(u => u.copy(authenticatingDomain = extendedHost))
-      val userCanViewLockedContext = loggedInUser.exists(u => context.exists(c => u.canViewLockedDownCatalog(c)))
+      val userCanViewLockedContext =
+        loggedInUser.exists(u => context.exists(c => u.canViewLockedDownCatalog(c.domainId)))
       val viewableContext = context.filter(c => !contextLocked || userCanViewLockedContext)
       loggedInUser match {
         case Some(u) =>
-          val viewableLockedDomains = lockedDomains.filter { d => u.canViewLockedDownCatalog(d) }
+          val viewableLockedDomains = lockedDomains.filter { d => u.canViewLockedDownCatalog(d.domainId) }
           DomainSet(unlockedDomains ++ viewableLockedDomains, viewableContext, extendedHost)
         case None => // user is not logged in and thus can see no locked data
           DomainSet(unlockedDomains, viewableContext, extendedHost)

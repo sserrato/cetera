@@ -7,6 +7,7 @@ import com.rojoma.json.v3.jpath.JPath
 import org.elasticsearch.action.search.SearchResponse
 import org.slf4j.LoggerFactory
 
+import com.socrata.cetera.auth.User
 import com.socrata.cetera.handlers.FormatParamSet
 import com.socrata.cetera.types._
 
@@ -14,8 +15,33 @@ import com.socrata.cetera.types._
 object Format {
   lazy val logger = LoggerFactory.getLogger(Format.getClass)
   val UrlSegmentLengthLimit = 50
-
   val visibleToAnonKey = "visible_to_anonymous"
+
+  private def decodeErrorToNone(err: DecodeError) = None
+
+  private def parseJToString(jValue: JValue) = jValue match {
+    case JString(s) => Some(s)
+    case _ => None
+  }
+
+  private def parseJToBoolean(jValue: JValue) = jValue match {
+    case JBoolean(b) => Option(b)
+    case _ => None
+  }
+
+  private def parseJToArray(jValue: JValue) = jValue match {
+    case JArray(list) => Some(list.collect{ case JString(s) => s }.toList)
+    case _ => None
+  }
+
+  private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
+    decoded.fold(decodeErrorToNone, parseJToString)
+
+  private def extractJBoolean(decoded: Either[DecodeError, JValue]): Option[Boolean] =
+    decoded.fold(decodeErrorToNone, parseJToBoolean)
+
+  private def extractJArray(decoded: Either[DecodeError, JValue]): Option[List[String]] =
+    decoded.fold(decodeErrorToNone, parseJToArray)
 
   def hyphenize(text: String): String = Option(text) match {
     case Some(s) if s.nonEmpty => s.replaceAll("[^\\p{L}\\p{N}_]+", "-").take(UrlSegmentLengthLimit)
@@ -81,6 +107,21 @@ object Format {
     case Right(jv) => Some(jv)
   }
 
+  def domainPrivateMetadata(j: JValue, user: Option[User], domainId: Int): Option[JValue] =
+    user.flatMap { case u: User =>
+      val ownsIt = extractJString(j.dyn.owner_id.?).exists(_ == u.id)
+      val sharesIt = extractJArray(j.dyn.shared_to.?).exists(_.contains(u.id))
+      val hasEnablingRole = u.canViewPrivateMetadata(domainId)
+      if (ownsIt || sharesIt || hasEnablingRole) {
+        j.dyn.private_customer_metadata_flattened.? match {
+          case Left(e) => None
+          case Right(jv) => Some(jv)
+        }
+      } else {
+        None
+      }
+    }
+
   def categories(j: JValue): Seq[JValue] =
     new JPath(j).down("animl_annotations").down("categories").*.down("name").finish.distinct.toList
 
@@ -96,18 +137,6 @@ object Format {
   def grants(j: JValue): Option[Seq[JValue]] = {
     new JPath(j).down("grants").finish.headOption.flatMap(_.cast[JArray]).map(_.toSeq)
   }
-
-  private def extractJString(decoded: Either[DecodeError, JValue]): Option[String] =
-    decoded.fold(_ => None, {
-      case JString(s) => Option(s)
-      case _ => None
-    })
-
-  private def extractJBoolean(decoded: Either[DecodeError, JValue]): Option[Boolean] =
-    decoded.fold(_ => None, {
-      case JBoolean(b) => Option(b)
-      case _ => None
-    })
 
   def datatype(j: JValue): Option[Datatype] =
     extractJString(j.dyn.datatype.?).flatMap(s => Datatype(s))
@@ -224,6 +253,7 @@ object Format {
 
   def documentSearchResult(
       j: JValue,
+      user: Option[User],
       domainSet: DomainSet,
       locale: Option[String],
       score: Option[JNumber],
@@ -259,7 +289,8 @@ object Format {
           tags(j),
           domainCategory(j),
           domainTags(j),
-          domainMetadata(j)),
+          domainMetadata(j),
+          domainPrivateMetadata(j, user, viewsDomainId)),
         metadata,
         linkMap.getOrElse("permalink", JString("")),
         linkMap.getOrElse("link", JString("")),
@@ -273,14 +304,18 @@ object Format {
   }
 
   // WARN: This will raise if a single document has a single missing path!
-  def formatDocumentResponse(formatParams: FormatParamSet, domainSet: DomainSet, searchResponse: SearchResponse)
+  def formatDocumentResponse(
+      searchResponse: SearchResponse,
+      user: Option[User],
+      domainSet: DomainSet,
+      formatParams: FormatParamSet)
     : SearchResults[SearchResult] = {
     val domainIdCnames = domainSet.idMap.map { case (i, d) => i -> d.domainCname }
     val hits = searchResponse.getHits
     val searchResult = hits.hits().flatMap { hit =>
       val json = JsonReader.fromString(hit.sourceAsString())
       val score = if (formatParams.showScore) Some(JNumber(hit.score)) else None
-      documentSearchResult(json, domainSet, formatParams.locale, score, formatParams.showVisibility)
+      documentSearchResult(json, user, domainSet, formatParams.locale, score, formatParams.showVisibility)
     }
     SearchResults(searchResult, hits.getTotalHits)
   }

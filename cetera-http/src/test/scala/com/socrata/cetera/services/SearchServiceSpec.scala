@@ -163,7 +163,7 @@ class SearchServiceSpec extends FunSuiteLike
     val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"), isCustomerDomain = true, moderationEnabled = false, routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
     val resource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
 
-    val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, searchResponse)
+    val searchResults = Format.formatDocumentResponse(searchResponse, None, domainSet, FormatParamSet())
 
     searchResults.resultSetSize should be (searchResponse.getHits.getTotalHits)
     searchResults.timings should be (None) // not yet added
@@ -174,13 +174,13 @@ class SearchServiceSpec extends FunSuiteLike
 
     val datasetResponse = results(0)
     datasetResponse.resource should be (j"""${resource}""")
-    datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
+    datasetResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None, None))
 
     datasetResponse.metadata.domain should be ("petercetera.net")
 
     val pageResponse = results(1)
     pageResponse.resource should be (j"""${resource}""")
-    pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None))
+    pageResponse.classification should be (Classification(Seq.empty[JValue], Seq.empty[JValue], None, None, None, None))
 
     pageResponse.metadata.domain should be ("blue.org")
   }
@@ -189,7 +189,7 @@ class SearchServiceSpec extends FunSuiteLike
     val domain = Domain(1, "tempuri.org", Some("Title"), Some("Temp Org"), isCustomerDomain = true, moderationEnabled = false, routingApprovalEnabled = false, lockedDown = false, apiLockedDown = false)
 
     val expectedResource = j"""{ "name" : "Just A Test", "I'm" : "OK", "you're" : "so-so" }"""
-    val searchResults = Format.formatDocumentResponse(FormatParamSet(), domainSet, badSearchResponse)
+    val searchResults = Format.formatDocumentResponse(badSearchResponse, None, domainSet, FormatParamSet())
 
     val results = searchResults.results
     results.size should be (1)

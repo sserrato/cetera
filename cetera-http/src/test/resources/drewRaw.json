@@ -132,6 +132,12 @@
       "key": "Common-Core_Contact-Email"
     }
   ],
+  "private_customer_metadata_flattened": [
+    {
+      "value": "No looky",
+      "key": "Private-Metadata_Thing"
+    }
+  ],
   "customer_category": "Finance",
   "updated_at": "2016-06-01T10:00:23.000Z",
   "owner_id": "7kqh-9s5a",
