@@ -34,8 +34,9 @@ class AutocompleteService(
 
     val now = Timings.now()
     val (authorizedUser, setCookies) = coreClient.optionallyAuthenticateUser(extendedHost, authParams, requestId)
-    val ValidatedQueryParameters(searchParams, _, pagingParams, _) = QueryParametersParser(queryParameters)
+    val ValidatedQueryParameters(searchParams, scoringParams, pagingParams, _) = QueryParametersParser(queryParameters)
 
+    // remove auth stuff since we're ignoring it
     val authedUserId = authorizedUser.map(_.id)
     val (domains, domainSearchTime) = domainClient.findSearchableDomains(
       searchParams.searchContext, extendedHost, searchParams.domains,
@@ -43,7 +44,7 @@ class AutocompleteService(
     )
     val authedUser = authorizedUser.map(u => u.copy(authenticatingDomain = domains.extendedHost))
     val req = documentClient.buildAutocompleteSearchRequest(
-      domains, searchParams, pagingParams, authedUser, requireAuth
+      domains, searchParams, scoringParams, pagingParams, authedUser, requireAuth
     )
 
     logger.info(LogHelper.formatEsRequest(req))

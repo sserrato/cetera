@@ -26,6 +26,7 @@ trait BaseDocumentClient {
   def buildAutocompleteSearchRequest(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
+      scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
       user: Option[User],
       requireAuth: Boolean)
@@ -100,6 +101,7 @@ class DocumentClient(
   def buildAutocompleteSearchRequest(
       domainSet: DomainSet,
       searchParams: SearchParamSet,
+      scoringParams: ScoringParamSet,
       pagingParams: PagingParamSet,
       user: Option[User],
       requireAuth: Boolean): SearchRequestBuilder = {
@@ -111,11 +113,17 @@ class DocumentClient(
 
     val filteredQuery = compositeFilteredQuery(domainSet, searchParams, query, user, requireAuth)
 
+    val fnScoreQuery = QueryBuilders.functionScoreQuery(filteredQuery)
+    Boosts.applyScoreFunctions(fnScoreQuery, scriptScoreFunctions)
+    Boosts.applyDatatypeBoosts(fnScoreQuery, scoringParams.datatypeBoosts)
+    Boosts.applyDomainBoosts(fnScoreQuery, domainSet.domainIdBoosts)
+    fnScoreQuery.scoreMode("multiply").boostMode("replace")
+
     esClient.client
       .prepareSearch(indexAliasName)
       .setFrom(pagingParams.offset)
       .setSize(pagingParams.limit)
-      .setQuery(filteredQuery)
+      .setQuery(fnScoreQuery)
       .setTypes(esDocumentType)
       .addField(TitleFieldType.fieldName)
       .addHighlightedField(TitleFieldType.autocompleteFieldName)
