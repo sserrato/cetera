@@ -10,7 +10,7 @@ By default, cetera runs on port 5704.
 
 ## API
 
-Check out [Cetera's Apiary spec](http://docs.cetera.apiary.io/#) for the latest API info.
+Check out [Cetera's Apiary spec](http://docs.socratadiscovery.apiary.io/#) for the latest API info.
 
 ## Run locally
 `sbt cetera-http/run`
