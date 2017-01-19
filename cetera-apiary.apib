@@ -31,6 +31,9 @@ The resource object contains
 - `columns_name` - An array of the names of columns in this asset if applicable
 - `columns_description` - An array of the column descriptions for this asset, if provided
 - `columns_field_name` - An array of the field names of column, which serve as an identifier for the column.
+- `parent_fxf` - An array of dataset IDs that this asset is based on
+- `provenance` - Either `official` or `community`
+- `download_count` - The number of times this asset has been downloaded
 
 The classification object contains 5 fields:
 
@@ -248,6 +251,33 @@ limit the results to those that derive from a particular dataset.
 + Response 200
 
     [Search Endpoint][]
+    
+## Sort order [/catalog/v1{?order}]
+The results of all the above filters can be sorted by a number of fields. 
+If not specified, the results are sorted by relevance.
+If a sort field is specified that the search service does not recognize, the query will fail.
+For all accepted sort values, either `ASC` or `DESC` can optionally be specified, eg. `name DESC`.
+If `ASC` or `DESC` is not specified, the default is `ASC`, or ascending. Note that spaces
+must be URL-escaped with `+` or `%20`.
+
+**Accepted Values:**
+- `relevance` (default)
+- `name`
+- `createdAt`
+- `updatedAt`
+- `page_views_total`
+- `page_views_last_month`
+- `page_views_last_week`
+
++ Parameters
+    + order (optional, string, `name`) ... The sort order of the results
+    
+      
+### Sort order API [GET]
+
++ response 200
+
+    [Search Endpoint][]
 
 
 ## Pagination [/catalog/v1{?offset,limit}]
@@ -263,7 +293,7 @@ The search service allows pagination of results.  By default, we will return at 
     [Search Endpoint][]
 
 
-## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,only,attribution,q,derived_from,offset,limit}]
+## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,only,attribution,q,derived_from,offset,limit,order}]
 The full search API is detailed here.
 
 + Parameters
@@ -288,6 +318,9 @@ The full search API is detailed here.
     + derived_from (optional, string, `2vvn-pdyi`) ... Limit results to assets derived from dataset by id.
     + offset (optional, number, `0`) ... Initial starting point for paging (0 by default)
     + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
+    + order (optional, string, `name`) ... 
+      Specifies the sort order of the returned results. The full list of accepted sort orders is enumerated in the *Sort order* section above.
+      If a non-accepted sort string is specified, the query will fail.
 
 ### Search API with all options [GET]
 
