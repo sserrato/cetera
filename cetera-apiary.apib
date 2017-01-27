@@ -147,6 +147,9 @@ Without these, the search service returns results from the entire set of categor
 To search the categories/tags of a particular domain, you must also include the `search_context` param.
 To search the categories/tags that were assigned by Socrata, exclude the `search_context` param.
 
+The `categories` and `tags` parameters may be repeated. The result set will be the union of all 
+assets containing one or more of the specified tags.
+
 + Parameters
     + categories (optional, string, `Education`) ...
       Each `categories` param may list a single category. Multiple `categories` params may be given to search across multiple categories.
