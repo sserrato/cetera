@@ -355,6 +355,19 @@ class SearchServiceSpec extends FunSuiteLike
     res should be('empty)
   }
 
+  test("searching for only=links should find both hrefs and federated_hrefs") {
+    val domain = domains(3)
+    val domain3Docs = docs.filter(d => d.socrataId.domainId == 3)
+    val expectedFxfs = fxfs(domain3Docs.filter(d => d.datatype == "href" || d.datatype == "federated_href"))
+
+    val host = domain.domainCname
+    val params = Map("only" -> "links", "domains" -> host, "search_context" -> host).mapValues(Seq(_))
+    val res = service.doSearch(params, false, AuthParams(), None, None)
+    val actualFxfs = fxfs(res._2)
+
+    actualFxfs should be(expectedFxfs)
+  }
+
   ignore("es client - min should match") {}
   ignore("es client - slop") {}
   ignore("es client - function score") {}

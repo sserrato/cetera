@@ -3,8 +3,8 @@ package com.socrata.cetera.types
 object Datatypes {
   val materialized: Seq[Materialized] = Seq(TypeCalendars, TypeCharts,
     TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms,
-    TypeMaps, TypeHrefs, TypePulses, TypeStories, TypeApis)
-  val renamed: Seq[Datatype] = Seq(TypeLinks)
+    TypeMaps, TypeLinks, TypePulses, TypeStories, TypeApis)
+  val renamed: Seq[Datatype] = Seq(TypeHrefs, TypeFederatedHrefs)
   val viewSpecific: Seq[Datatype] = Seq(TypeDatalensCharts, TypeDatalensMaps, TypeTabularMaps)
 
   val all: Seq[Datatype] = viewSpecific ++ renamed ++ materialized
@@ -68,12 +68,17 @@ case object TypeApis extends DatatypeSimple with Materialized {
 }
 
 // links -> hrefs
-case object TypeHrefs extends DatatypeSimple with Materialized {
-  val plural: String = "hrefs"
-}
-case object TypeLinks extends DatatypeRename {
+case object TypeLinks extends DatatypeRename with Materialized {
   val plural: String = "links"
-  override lazy val names: Set[String] = TypeHrefs.names
+  override lazy val names: Set[String] = Set(TypeHrefs.singular, TypeFederatedHrefs.singular)
+}
+case object TypeHrefs extends DatatypeRename {
+  val plural: String = "hrefs"
+  override lazy val names: Set[String] = TypeLinks.names
+}
+case object TypeFederatedHrefs extends DatatypeRename {
+  val plural: String = "federated_hrefs"
+  override lazy val names: Set[String] = TypeLinks.names
 }
 
 // charts

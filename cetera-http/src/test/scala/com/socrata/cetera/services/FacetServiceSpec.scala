@@ -99,7 +99,7 @@ class FacetServiceSpec
     domainFacets(2).metadata should contain theSameElementsAs(List(ValueCount("3",1)))
 
     // domain 3 has 1 dataset (zeta-0002) that is anonymously viewable
-    domainFacets(3).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 3)))
+    domainFacets(3).datatypes should contain theSameElementsAs(List(ValueCount("dataset", 1), ValueCount("href", 1), ValueCount("federated_href", 1)))
     // these both have the "Fun" category
     domainFacets(3).categories should contain theSameElementsAs(List(ValueCount("Fun",1)))
     // and neither have tags or metadata

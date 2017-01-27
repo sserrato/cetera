@@ -33,7 +33,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     qpp.restrictParamFilterDatatype(Some("stories")) should be(Right(Some(Set("story"))))
     qpp.restrictParamFilterDatatype(Some("apis")) should be(Right(Some(Set("api"))))
 
-    val linksExpected = Set("href")
+    val linksExpected = Set("href", "federated_href")
     qpp.restrictParamFilterDatatype(Some("links")) should be(Right(Some(linksExpected)))
 
     val chartsExpected = Set("chart", "datalens_chart")

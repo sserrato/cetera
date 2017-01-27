@@ -14,7 +14,7 @@
     "parent_fxf": null,
     "updated_at": "2016-09-19T10:37:20.857-07:00",
     "created_at": "2016-09-19T10:37:20.933-07:00",
-    "type": "dataset",
+    "type": "federated_href",
     "id": "fxf-11",
     "columns": [],
     "name": "Five",
@@ -38,7 +38,7 @@
       }
     ]
   },
-  "datatype": "dataset",
+  "datatype": "federated_href",
   "viewtype": "tabular",
   "popularity": 42.0,
   "indexed_metadata": {
