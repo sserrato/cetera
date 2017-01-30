@@ -436,6 +436,38 @@ class SearchServiceSpecForAnonymousUsers
     } should be(Some("official"))
   }
 
+  test("filtering by license works and the resulting metadata has a 'license' field") {
+    val params = Map("license" -> Seq("Academic Free License"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    results.results.headOption.map { case SearchResult(_, _, metadata, _, _, _) =>
+      metadata.license.get
+    } should be(Some("Academic Free License"))
+  }
+
+  test("filtering by license should be exact") {
+    val params = Map("license" -> Seq("Free License"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    results.results.headOption.map { case SearchResult(_, _, metadata, _, _, _) =>
+      metadata.license.get
+    } should be(None)
+  }
+
+  test("filtering by license should be case sensitive") {
+    val params = Map("license" -> Seq("academic free license"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    results.results.headOption.map { case SearchResult(_, _, metadata, _, _, _) =>
+      metadata.license.get
+    } should be(None)
+  }
+
+  test("a query that results in a dataset with a license should return metadata with a 'license' field") {
+    val params = Map("q" -> Seq("A dataset with a multiword title"))
+    val (_, results, _, _) = service.doSearch(params, false, AuthParams(), None, None)
+    results.results.headOption.map { case SearchResult(_, _, metadata, _, _, _) =>
+      metadata.license.get
+    } should be(Some("Academic Free License"))
+  }
+
   test("passing a datatype boost should have no effect on the size of the result set") {
     val (_, results, _, _) = service.doSearch(Map.empty, false, AuthParams(), None, None)
     val params = Map("boostFiles" -> Seq("2.0"))

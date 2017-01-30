@@ -155,6 +155,8 @@ object Format {
 
   def previewImageId(j: JValue): Option[String] = extractJString(j.dyn.preview_image_id.?)
 
+  def license(j: JValue): Option[String] = extractJString(j.dyn.license.?)
+
   def isPublic(j: JValue): Boolean = extractJBoolean(j.dyn.is_public.?).exists(identity)
 
   def isPublished(j: JValue): Boolean = extractJBoolean(j.dyn.is_published.?).exists(identity)
@@ -237,9 +239,11 @@ object Format {
       routingApproval.getOrElse(true) & routingApprovalOnContext.getOrElse(true) &
       moderationApproval.getOrElse(true) & moderationApprovalOnContext.getOrElse(true) &
       datalensApproval.getOrElse(true)
+    val viewLicense = license(j)
 
     Metadata(
       domain = viewsDomain.domainCname,
+      license = viewLicense,
       isPublic = Some(public),
       isPublished = Some(published),
       isModerationApproved = moderationApproval,
@@ -251,7 +255,7 @@ object Format {
       grants = viewGrants)
   }
 
-  def documentSearchResult(
+  def documentSearchResult( // scalastyle:ignore method.length
       j: JValue,
       user: Option[User],
       domainSet: DomainSet,
@@ -263,11 +267,12 @@ object Format {
       val viewsDomainId = domainId(j).getOrElse(throw new NoSuchElementException)
       val domainIdCnames = domainSet.idMap.map { case (i, d) => i -> d.domainCname }
       val viewsDomain = domainSet.idMap.getOrElse(viewsDomainId, throw new NoSuchElementException)
+      val viewLicense = license(j)
       val scoreMap = score.map(s => s.toBigDecimal)
       val scorelessMetadata = if (showVisibility) {
         calculateVisibility(j, viewsDomain, domainSet)
       } else {
-        Metadata(viewsDomain.domainCname)
+        Metadata(viewsDomain.domainCname, viewLicense)
       }
 
       val metadata = scorelessMetadata.copy(score = score.map(_.toBigDecimal))

@@ -119,7 +119,8 @@ case class Document(
     grants: Seq[ESGrant],
     hideFromCatalog: Option[Boolean],
     hideFromDataJson: Option[Boolean],
-    moderationStatus: Option[String]) {
+    moderationStatus: Option[String],
+    license: Option[String]) {
 
   def isSharedOrOwned(userId: String): Boolean = ownerId == userId || sharedTo.contains(userId)
   def isDatalens: Boolean = datatype.startsWith("datalens")

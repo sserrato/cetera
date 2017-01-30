@@ -61,6 +61,7 @@ object Classification {
 @JsonKeyStrategy(Strategy.Underscore)
 case class Metadata(
     domain: String,
+    license: Option[String],
     isPublic: Option[Boolean] = None,
     isPublished: Option[Boolean] = None,
     isModerationApproved: Option[Boolean] = None,

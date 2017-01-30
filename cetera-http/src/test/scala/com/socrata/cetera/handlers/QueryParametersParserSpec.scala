@@ -330,6 +330,7 @@ class QueryParametersParserSpec extends FunSuiteLike with Matchers {
     QueryParametersParser(Map("derived_from" -> Seq(""))).searchParamSet.parentDatasetId shouldNot be('defined)
     QueryParametersParser(Map("appoval" -> Seq(""))).searchParamSet.approvalStatus shouldNot be('defined)
     QueryParametersParser(Map("custom_metadata" -> Seq(""))).searchParamSet.parentDatasetId shouldNot be('defined)
+    QueryParametersParser(Map("license" -> Seq(""))).searchParamSet.license shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("role" -> Seq(""))).searchParamSet.roles shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("email" -> Seq(""))).searchParamSet.emails shouldNot be('defined)
     QueryParametersParser.prepUserParams(Map("screen_name" -> Seq(""))).searchParamSet.screenNames shouldNot be('defined)
@@ -449,5 +450,9 @@ class ParamsSpec extends FunSuiteLike with Matchers {
 
   test("iscatalogKey recognizes provenance") {
     Params.isCatalogKey("provenance") should be (true)
+  }
+
+  test("iscatalogKey recognizes license") {
+    Params.isCatalogKey("license") should be (true)
   }
 }

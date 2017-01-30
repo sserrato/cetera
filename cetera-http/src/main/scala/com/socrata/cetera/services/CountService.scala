@@ -98,6 +98,7 @@ class CountService(
       case OwnerIdFieldType => Count.encode("owner_id")
       case AttributionFieldType => Count.encode("attribution")
       case ProvenanceFieldType => Count.encode("provenance")
+      case LicenseFieldType => Count.encode("license")
     }
 
     try {

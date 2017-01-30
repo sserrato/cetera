@@ -115,7 +115,6 @@ case object TagsFieldType extends DocumentFieldType with Scorable with Rawable {
   }
 }
 
-// TODO: cetera-etl rename customer_category to domain_category
 // A domain category is a domain-specific (customer-specified) category (as
 // opposed to a Socrata-specific canonical category).
 case object DomainCategoryFieldType extends DocumentFieldType with Countable with Rawable {
@@ -136,6 +135,10 @@ case object AttributionFieldType extends DocumentFieldType with Countable with R
 
 case object ProvenanceFieldType extends DocumentFieldType with Countable with NativelyRawable {
   val fieldName: String = "provenance"
+}
+
+case object LicenseFieldType extends DocumentFieldType with Countable with NativelyRawable {
+  val fieldName: String = "license"
 }
 
 /////////////////////

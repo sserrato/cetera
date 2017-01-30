@@ -99,6 +99,22 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
     }
   }
 
+  "the licenseFilter" should {
+    "return the expected filter if some license is given" in {
+      val attrFilter = DocumentFilters.licenseFilter("WTFPL")
+      val expected = j"""{ "term": { "license": "WTFPL" } }"""
+      val actual = JsonReader.fromString(attrFilter.toString)
+      actual should be(expected)
+    }
+
+    "return the expected filter if a prefix is used" in {
+      val attrFilter = DocumentFilters.licenseFilter("WTFPL", "document.")
+      val expected = j"""{ "term": { "document.license": "WTFPL" } }"""
+      val actual = JsonReader.fromString(attrFilter.toString)
+      actual should be(expected)
+    }
+  }
+
   "the parentDatasetFilter" should {
     "return the expected filter if some id is given" in {
       val pdFilter = DocumentFilters.parentDatasetFilter("wonder-woman")
@@ -910,7 +926,8 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
         sharedTo = Some("ro-bear"),
         attribution = Some("org"),
         parentDatasetId = Some("parent-id"),
-        ids = Some(Set("id-one", "id-two"))
+        ids = Some(Set("id-one", "id-two")),
+        license = Some("GNU GPL")
       )
       val user = User("ro-bear")
       val filter = DocumentFilters.searchParamsFilter(searchParams, Some(user), DomainSet()).get
@@ -929,7 +946,8 @@ class DocumentFiltersSpec extends WordSpec with ShouldMatchers with TestESDomain
                 {"bool" :{"should" :{"nested" :{"filter" :{"bool" :{"must" :[
                   {"terms" :{"customer_metadata_flattened.key.raw" :[ "key" ]}},
                   {"terms" :{"customer_metadata_flattened.value.raw" :[ "value" ]}}
-                ]}}, "path" : "customer_metadata_flattened"}}}}
+                ]}}, "path" : "customer_metadata_flattened"}}}},
+                { "term" : { "license" : "GNU GPL" } }
               ]
           }
       }

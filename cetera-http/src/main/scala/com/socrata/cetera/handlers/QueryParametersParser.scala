@@ -210,6 +210,9 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
   def prepareHidden(queryParameters: MultiQueryParams): Option[Boolean] =
     prepareBooleanParam(queryParameters, Params.explicitlyHidden)
 
+  def prepareLicense(queryParameters: MultiQueryParams): Option[String] =
+    filterNonEmptyStringParams(queryParameters.first(Params.license))
+
   def prepareApprovalStatus(queryParameters: MultiQueryParams): Option[ApprovalStatus] = {
     val status = filterNonEmptyStringParams(queryParameters.first(Params.approvalStatus))
     status.map(restrictApprovalFilter(_))
@@ -339,7 +342,8 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
       preparePublished(queryParameters),
       prepareDerived(queryParameters),
       prepareHidden(queryParameters),
-      prepareApprovalStatus(queryParameters)
+      prepareApprovalStatus(queryParameters),
+      prepareLicense(queryParameters)
     )
 
     val scoringParams = ScoringParamSet(
@@ -400,6 +404,7 @@ object Params {
   val derived = "derived"
   val explicitlyHidden = "explicitly_hidden"
   val approvalStatus = "approval_status"
+  val license = "license"
 
   val qInternal = "q_internal"
   val q = "q"
@@ -505,7 +510,8 @@ object Params {
     showVisibility,
     limit,
     offset,
-    order
+    order,
+    license
   ) ++ datatypeBoostParams.toSet
 
 

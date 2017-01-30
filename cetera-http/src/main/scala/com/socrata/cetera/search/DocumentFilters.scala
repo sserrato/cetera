@@ -29,6 +29,9 @@ object DocumentFilters {
   def provenanceFilter(provenance: String, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + ProvenanceFieldType.rawFieldName, provenance)
 
+  def licenseFilter(license: String, aggPrefix: String = ""): FilterBuilder =
+    termFilter(aggPrefix + LicenseFieldType.rawFieldName, license)
+
   def parentDatasetFilter(parentDatasetId: String, aggPrefix: String = ""): FilterBuilder =
     termFilter(aggPrefix + ParentDatasetIdFieldType.fieldName, parentDatasetId)
 
@@ -320,6 +323,7 @@ object DocumentFilters {
     val idsFilter = searchParams.ids.map(idFilter(_))
     val metaFilter = searchParams.domainMetadata.flatMap(combinedMetadataFilter(_, user))
     val derivationFilter = searchParams.derived.map(derivedFilter(_))
+    val licensesFilter = searchParams.license.map(licenseFilter(_))
 
     // the params below are those that would also influence visibility. these can only serve to further
     // limit the set of views returned from what the visibilityFilters allow.
@@ -329,7 +333,7 @@ object DocumentFilters {
     val approvalFilter = searchParams.approvalStatus.map(approvalStatusFilter(_, domainSet))
 
     List(typeFilter, ownerFilter, sharingFilter, attrFilter, provFilter, parentIdFilter, idsFilter, metaFilter,
-      derivationFilter, privacyFilter, publicationFilter, hiddenFilter, approvalFilter).flatten match {
+      derivationFilter, privacyFilter, publicationFilter, hiddenFilter, approvalFilter, licensesFilter).flatten match {
       case Nil => None
       case filters: Seq[FilterBuilder] => Some(filters.foldLeft(boolFilter()) { (b, f) => b.must(f) })
     }

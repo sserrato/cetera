@@ -70,6 +70,13 @@ object DocumentAggregations {
       .order(Terms.Order.count(false))
       .size(aggSize)
 
+  val license =
+    AggregationBuilders
+      .terms("license")
+      .field(LicenseFieldType.rawFieldName)
+      .order(Terms.Order.count(false))
+      .size(aggSize)
+
   def chooseAggregation(field: DocumentFieldType with Countable with Rawable): AbstractAggregationBuilder =
     field match {
       case DomainCategoryFieldType => domainCategories
@@ -81,6 +88,7 @@ object DocumentAggregations {
       case OwnerIdFieldType => owners
       case AttributionFieldType => attributions
       case ProvenanceFieldType => provenance
+      case LicenseFieldType => license
     }
 }
 
