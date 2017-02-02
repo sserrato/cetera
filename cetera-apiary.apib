@@ -147,7 +147,7 @@ Without these, the search service returns results from the entire set of categor
 To search the categories/tags of a particular domain, you must also include the `search_context` param.
 To search the categories/tags that were assigned by Socrata, exclude the `search_context` param.
 
-The `categories` and `tags` parameters may be repeated. The result set will be the union of all 
+The `categories` and `tags` parameters may be repeated. The result set will be the union of all
 assets containing one or more of the specified tags.
 
 + Parameters
@@ -226,13 +226,19 @@ assets with the given attribution by specifying this parameter.
 
     [Search Endpoint][]
 
-## Text search [/catalog/v1{?q}]
+## Text search [/catalog/v1{?q,min_should_match}]
 Assets may be searched by any of the text found in the
 `name, description, category, column names, column fieldnames and column descriptions`.
 The `q` parameter takes arbitrary text and finds assets having some or all of the text.
+The optional `min_should_match` parameter may be used to explicitly specify the number or percent of
+words that must match. See [the Elasticsearch docs](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-minimum-should-match.html)
+for the format of arguments to `min_should_match`.
+If `min_should_match` is not specified, the service's default is `3<60%`, meaning that if there are 3 or fewer search terms specified,
+all of them must match; otherwise 60% of the search terms must be found in the fields specified above.
 
 + Parameters
     + q (optional, string, `chicago crime`) ... A string for full text search
+    + min_should_match (optional, string, `3<60%` ... The number or percent of words that must match
 
 ### Text search API [GET]
 
@@ -254,9 +260,9 @@ limit the results to those that derive from a particular dataset.
 + Response 200
 
     [Search Endpoint][]
-    
+
 ## Sort order [/catalog/v1{?order}]
-The results of all the above filters can be sorted by a number of fields. 
+The results of all the above filters can be sorted by a number of fields.
 If not specified, the results are sorted by relevance.
 If a sort field is specified that the search service does not recognize, the query will fail.
 For all accepted sort values, either `ASC` or `DESC` can optionally be specified, eg. `name DESC`.
@@ -274,8 +280,8 @@ must be URL-escaped with `+` or `%20`.
 
 + Parameters
     + order (optional, string, `name`) ... The sort order of the results
-    
-      
+
+
 ### Sort order API [GET]
 
 + response 200
@@ -296,7 +302,7 @@ The search service allows pagination of results.  By default, we will return at 
     [Search Endpoint][]
 
 
-## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,only,attribution,q,derived_from,offset,limit,order}]
+## Complete Search API [/catalog/v1{?domains,search_context,categories,tags,only,attribution,q,derived_from,offset,limit,order,min_should_match}]
 The full search API is detailed here.
 
 + Parameters
@@ -321,9 +327,11 @@ The full search API is detailed here.
     + derived_from (optional, string, `2vvn-pdyi`) ... Limit results to assets derived from dataset by id.
     + offset (optional, number, `0`) ... Initial starting point for paging (0 by default)
     + limit (optional, number, `1000`) ... Number of results to return (100 default/max)
-    + order (optional, string, `name`) ... 
+    + order (optional, string, `name`) ...
       Specifies the sort order of the returned results. The full list of accepted sort orders is enumerated in the *Sort order* section above.
       If a non-accepted sort string is specified, the query will fail.
+    + min_should_match (optional, string, `3<60%` ...
+      The number or percent of words that must match. See [the Elasticsearch docs](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-minimum-should-match.html) for the format.
 
 ### Search API with all options [GET]
 
