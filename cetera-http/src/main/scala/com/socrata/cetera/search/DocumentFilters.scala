@@ -224,7 +224,7 @@ object DocumentFilters {
 
   def datalensStatusFilter(status: ApprovalStatus, isDomainAgg: Boolean = false): FilterBuilder = {
     val aggPrefix = if (isDomainAgg) esDocumentType + "." else ""
-    val beADatalens = datatypeFilter(TypeDatalenses.allVarieties, aggPrefix)
+    val beADatalens = datatypeFilter(DatalensDatatype.allVarieties, aggPrefix)
     status match {
       case ApprovalStatus.approved =>
         // limit results to those that are not unapproved datalens

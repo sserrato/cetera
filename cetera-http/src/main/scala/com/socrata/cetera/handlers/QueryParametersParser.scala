@@ -84,9 +84,6 @@ object QueryParametersParser { // scalastyle:ignore number.of.methods
     case _ => Right(None)
   }
 
-  def restrictParamFilterDatatype(datatype: Option[String]): Either[DatatypeError, Option[Set[String]]] =
-    datatype.map(restrictParamFilterDatatype).getOrElse(Right(None))
-
   private def restrictApprovalFilter(status: String): ApprovalStatus =
     ApprovalStatus.all.find(_.status == status) match {
       case Some(s) => s

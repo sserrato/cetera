@@ -1,19 +1,22 @@
 package com.socrata.cetera.types
 
 object Datatypes {
-  val materialized: Seq[Materialized] = Seq(TypeCalendars, TypeCharts,
-    TypeDatalenses, TypeDatasets, TypeFiles, TypeFilters, TypeForms,
-    TypeMaps, TypeLinks, TypePulses, TypeStories, TypeApis)
-  val renamed: Seq[Datatype] = Seq(TypeHrefs, TypeFederatedHrefs)
-  val viewSpecific: Seq[Datatype] = Seq(TypeDatalensCharts, TypeDatalensMaps, TypeTabularMaps)
-
-  val all: Seq[Datatype] = viewSpecific ++ renamed ++ materialized
+  val all: Seq[Datatype] = Seq(ApiDatatype, CalendarDatatype, ChartDatatype,
+    DatalensChartDatatype, DatalensDatatype, DatalensMapDatatype, DatasetDatatype,
+    FederatedHrefDatatype, FileDatatype, FilterDatatype, FormDatatype, GeoMapDatatype, HrefDatatype,
+    LinkDatatype, MapDatatype, PulseDatatype, StoryDatatype, TabularMapDatatype, VisualizationDatatype)
 }
 
+// Datatypes support search via the `only` param. Either the `singular` or `plural` variants
+// of the type may be passed in.  Note that Datatypes only require `plural` to be defined, so be
+// careful to check that the predefined `singular` and `names` definitions do as you intend.
+// The `singular` values are what are ultimately used in search. These should match the datatype values in ES.
+// The `names` values allow you to group datatypes. For example, only=maps searches across several varieties of
+// maps, so you'll find its `names` definition including multiple types.
 trait Datatype {
   def plural: String
-  def singular: String
-  def names: Set[String]
+  def singular: String = plural.dropRight(1)
+  def names: Set[String] = Set(singular)
 }
 
 object Datatype {
@@ -25,87 +28,70 @@ object Datatype {
   }
 }
 
-trait DatatypeSimple extends Datatype {
-  lazy val singular: String = plural.dropRight(1)
-  lazy val names: Set[String] = Set(singular)
+// alphabetized list of known datatypes
+case object ApiDatatype extends Datatype {
+  override val plural: String = "apis"
 }
-
-trait DatatypeRename extends Datatype {
-  lazy val singular: String = plural.dropRight(1)
+case object CalendarDatatype extends Datatype {
+  override val plural = "calendars"
 }
-
-trait Materialized extends Datatype
-
-case object TypeCalendars extends DatatypeSimple with Materialized {
-  val plural = "calendars"
+case object ChartDatatype extends Datatype {
+  override val plural = "charts"
+  override val names: Set[String] = Set(ChartDatatype.singular, DatalensChartDatatype.singular)
 }
-case object TypeDatalenses extends DatatypeSimple with Materialized {
-  val plural: String = "datalenses"
-  override lazy val singular: String = "datalens"
-  val allVarieties = Set(singular, TypeDatalensCharts.singular, TypeDatalensMaps.singular)
+case object DatalensChartDatatype extends Datatype {
+  override val plural: String = "datalens_charts"
 }
-case object TypeDatasets extends DatatypeSimple with Materialized {
-  val plural: String = "datasets"
+case object DatalensDatatype extends Datatype {
+  override val plural: String = "datalenses"
+  override val singular: String = "datalens"
+  // only=datalens includes only datalens, but for the purposes of moderation filtering,
+  // all datalens varieties include regular datalens as well as DL maps & charts
+  val allVarieties = Set(singular, DatalensChartDatatype.singular, DatalensMapDatatype.singular)
 }
-case object TypeFiles extends DatatypeSimple with Materialized {
-  val plural: String = "files"
+case object DatalensMapDatatype extends Datatype {
+  override val plural: String = "datalens_maps"
 }
-case object TypeFilters extends DatatypeSimple with Materialized {
-  val plural: String = "filters"
+case object DatasetDatatype extends Datatype {
+  override val plural: String = "datasets"
 }
-case object TypeForms extends DatatypeSimple with Materialized {
-  val plural: String = "forms"
+case object FederatedHrefDatatype extends Datatype {
+  override val plural: String = "federated_hrefs"
 }
-case object TypePulses extends DatatypeSimple with Materialized {
-  val plural: String = "pulses"
+case object FileDatatype extends Datatype {
+  override val plural: String = "files"
 }
-case object TypeStories extends DatatypeSimple with Materialized {
-  val plural: String = "stories"
-  override lazy val singular: String = "story"
+case object FilterDatatype extends Datatype {
+  override val plural: String = "filters"
 }
-case object TypeApis extends DatatypeSimple with Materialized {
-  val plural: String = "apis"
+case object FormDatatype extends Datatype {
+  override val plural: String = "forms"
 }
-
-// links -> hrefs
-case object TypeLinks extends DatatypeRename with Materialized {
-  val plural: String = "links"
-  override lazy val names: Set[String] = Set(TypeHrefs.singular, TypeFederatedHrefs.singular)
+case object GeoMapDatatype extends Datatype {
+  override val plural: String = "geo_maps"
 }
-case object TypeHrefs extends DatatypeRename {
-  val plural: String = "hrefs"
-  override lazy val names: Set[String] = TypeLinks.names
+case object HrefDatatype extends Datatype {
+  override val plural: String = "hrefs"
 }
-case object TypeFederatedHrefs extends DatatypeRename {
-  val plural: String = "federated_hrefs"
-  override lazy val names: Set[String] = TypeLinks.names
+case object LinkDatatype extends Datatype {
+  override val plural: String = "links"
+  override val names: Set[String] = Set(HrefDatatype.singular, FederatedHrefDatatype.singular)
 }
-
-// charts
-case object TypeCharts extends DatatypeRename with Materialized {
-  val plural = "charts"
-  override lazy val names: Set[String] = Set(TypeCharts.singular, TypeDatalensCharts.singular)
+case object MapDatatype extends Datatype {
+  override val plural: String = "maps"
+  override val names: Set[String] =
+    Set(MapDatatype.singular, DatalensMapDatatype.singular, GeoMapDatatype.singular, TabularMapDatatype.singular)
 }
-case object TypeDatalensCharts extends DatatypeRename {
-  val plural: String = "datalens_charts"
-  override lazy val names: Set[String] = TypeCharts.names
+case object PulseDatatype extends Datatype {
+  override val plural: String = "pulses"
 }
-
-// maps
-case object TypeMaps extends DatatypeRename with Materialized {
-  val plural: String = "maps"
-  override lazy val names: Set[String] =
-    Set(TypeMaps.singular, TypeDatalensMaps.singular, TypeGeoMaps.singular, TypeTabularMaps.singular)
+case object StoryDatatype extends Datatype {
+  override val plural: String = "stories"
+  override val singular: String = "story"
 }
-case object TypeDatalensMaps extends DatatypeRename {
-  val plural: String = "datalens_maps"
-  override lazy val names: Set[String] = TypeMaps.names
+case object TabularMapDatatype extends Datatype{
+  override val plural: String = "tabular_maps"
 }
-case object TypeGeoMaps extends DatatypeRename {
-  val plural: String = "geo_maps"
-  override lazy val names: Set[String] = TypeMaps.names
-}
-case object TypeTabularMaps extends DatatypeRename{
-  val plural: String = "tabular_maps"
-  override lazy val names: Set[String] = TypeMaps.names
+case object VisualizationDatatype extends Datatype {
+  override val plural: String = "visualizations"
 }

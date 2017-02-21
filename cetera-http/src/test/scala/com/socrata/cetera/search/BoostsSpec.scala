@@ -5,16 +5,16 @@ import com.rojoma.json.v3.io.JsonReader
 import org.elasticsearch.index.query.QueryBuilders
 import org.scalatest.{ShouldMatchers, WordSpec}
 
-import com.socrata.cetera.types.{Datatype, TypeDatalenses, TypeDatasets, TypeFilters}
+import com.socrata.cetera.types.{Datatype, DatalensDatatype, DatasetDatatype, FilterDatatype}
 
 class BoostsSpec extends WordSpec with ShouldMatchers {
   "applyDatatypeBoosts" should {
     "add datatype boosts to the query" in {
       val query = QueryBuilders.functionScoreQuery(QueryBuilders.matchAllQuery)
       val datatypeBoosts = Map[Datatype, Float](
-        TypeDatasets -> 1.23f,
-        TypeDatalenses -> 2.34f,
-        TypeFilters -> 0.98f
+        DatasetDatatype -> 1.23f,
+        DatalensDatatype -> 2.34f,
+        FilterDatatype -> 0.98f
       )
       Boosts.applyDatatypeBoosts(query, datatypeBoosts)
 

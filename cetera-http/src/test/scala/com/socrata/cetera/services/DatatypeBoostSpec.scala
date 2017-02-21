@@ -12,7 +12,7 @@ import com.socrata.cetera.search._
 import com.socrata.cetera.types._
 
 class DatatypeBoostSpec extends FunSuiteLike with Matchers with TestESData with BeforeAndAfterAll {
-  val boostedDatatype = TypeCalendars
+  val boostedDatatype = CalendarDatatype
   val boostedDatatypeQueryString = "boost" + boostedDatatype.plural.capitalize
 
   override protected def beforeAll(): Unit = bootstrapData()

@@ -128,7 +128,7 @@ class DocumentQueriesSpec extends WordSpec with ShouldMatchers {
         SimpleQuery("query string OR (query AND string)"),
         ScoringParamSet(
           fieldBoosts = Map(DescriptionFieldType -> 7.77f, TitleFieldType -> 8.88f),
-          datatypeBoosts = Map(TypeDatalenses -> 9.99f, TypeDatalensMaps -> 10.10f),
+          datatypeBoosts = Map(DatalensDatatype -> 9.99f, DatalensMapDatatype -> 10.10f),
           minShouldMatch = Some("20%"), // minShouldMatch is a String because it can be a percentage
           slop = Some(12) // slop is max num of intervening unmatched positions permitted
         ),

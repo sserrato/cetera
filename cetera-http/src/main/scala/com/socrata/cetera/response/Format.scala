@@ -61,18 +61,18 @@ object Format {
     val cnameWithLocale = locale.foldLeft(cname){ (path, locale) => s"$path/$locale" }
 
     val perma = (datatype, viewtype) match {
-      case (Some(TypeStories), _)             => s"stories/s"
-      case (Some(TypeDatalenses), _)          => s"view"
-      case (_, Some(TypeDatalenses.singular)) => s"view"
+      case (Some(StoryDatatype), _)             => s"stories/s"
+      case (Some(DatalensDatatype), _)          => s"view"
+      case (_, Some(DatalensDatatype.singular)) => s"view"
       case _                                  => s"d"
     }
 
     val pretty = datatype match {
       // TODO: maybe someday stories will allow pretty seo links
       // stories don't have a viewtype today, but who knows...
-      case Some(TypeStories) => perma
+      case Some(StoryDatatype) => perma
       case _ =>
-        val category = datasetCategory.filter(s => s.nonEmpty).getOrElse(TypeDatasets.singular)
+        val category = datasetCategory.filter(s => s.nonEmpty).getOrElse(DatasetDatatype.singular)
         s"${hyphenize(category)}/${hyphenize(datasetName)}"
     }
 
@@ -174,7 +174,7 @@ object Format {
     }
   }
 
-  val datalensTypeStrings = List(TypeDatalenses, TypeDatalensCharts, TypeDatalensMaps).map(_.singular)
+  val datalensTypeStrings = List(DatalensDatatype, DatalensChartDatatype, DatalensMapDatatype).map(_.singular)
   def datalensApproved(j: JValue): Option[Boolean] = {
     val isDatalens = extractJString(j.dyn.datatype.?).exists(t => datalensTypeStrings.contains(t))
     if (isDatalens) Some(literallyApproved(j)) else None
